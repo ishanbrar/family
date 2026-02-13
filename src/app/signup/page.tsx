@@ -63,7 +63,16 @@ function SignupPageContent() {
     });
 
     if (authError) {
-      setError(authError.message);
+      const msg = authError.message;
+      const isLoadFailed = /load\s*failed|failed\s*to\s*fetch|network\s*error/i.test(msg);
+      const isRateLimit = /rate\s*limit|too\s*many\s*requests|429/i.test(msg);
+      setError(
+        isLoadFailed
+          ? "Connection failed. Please check your internet and try again."
+          : isRateLimit
+            ? "Too many signup emails sent. Please wait an hour or sign in if you already have an account."
+            : msg
+      );
       setLoading(false);
       return;
     }
@@ -120,7 +129,18 @@ function SignupPageContent() {
       }, { onConflict: "id" });
 
       if (profileErr) {
-        setError("Account created, but profile setup failed. Please sign in and retry.");
+        console.error("[Signup] Join-flow profile upsert failed:", {
+          message: profileErr.message,
+          code: (profileErr as { code?: string }).code,
+          details: (profileErr as { details?: string }).details,
+          full: profileErr,
+        });
+        const isNetwork = /load\s*failed|failed\s*to\s*fetch|network\s*error/i.test(profileErr.message);
+        setError(
+          isNetwork
+            ? "Connection failed. Please check your internet and try again."
+            : `Profile setup failed: ${profileErr.message}`
+        );
         setLoading(false);
         return;
       }
@@ -140,7 +160,20 @@ function SignupPageContent() {
         .single();
 
       if (famErr) {
-        setError("Could not create family. Please try again.");
+        const famMessage = famErr.message || "Database policy blocked family creation";
+        // DEBUG: log full error so you can see code, message, details in browser console
+        console.error("[Signup] Family insert failed:", {
+          message: famMessage,
+          code: (famErr as { code?: string }).code,
+          details: (famErr as { details?: string }).details,
+          hint: (famErr as { hint?: string }).hint,
+          full: famErr,
+        });
+        const isNetwork = /load\s*failed|failed\s*to\s*fetch|network\s*error/i.test(famMessage);
+        const debugMsg = isNetwork
+          ? "Connection failed. Please check your internet and try again."
+          : `Could not create family: ${famMessage}. Ensure latest Supabase migrations are applied.`;
+        setError(debugMsg);
         setLoading(false);
         return;
       }
@@ -159,7 +192,19 @@ function SignupPageContent() {
     }, { onConflict: "id" });
 
     if (profileErr) {
-      setError("Account created, but profile setup failed. Please sign in and retry.");
+      console.error("[Signup] Profile upsert failed:", {
+        message: profileErr.message,
+        code: (profileErr as { code?: string }).code,
+        details: (profileErr as { details?: string }).details,
+        hint: (profileErr as { hint?: string }).hint,
+        full: profileErr,
+      });
+      const isNetwork = /load\s*failed|failed\s*to\s*fetch|network\s*error/i.test(profileErr.message);
+      setError(
+        isNetwork
+          ? "Connection failed. Please check your internet and try again."
+          : `Profile setup failed: ${profileErr.message}`
+      );
       setLoading(false);
       return;
     }

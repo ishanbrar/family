@@ -45,7 +45,9 @@ function LoginPageContent() {
     });
 
     if (authError) {
-      setError(authError.message);
+      const msg = authError.message;
+      const isRateLimit = /rate\s*limit|too\s*many\s*requests|429/i.test(msg);
+      setError(isRateLimit ? "Too many attempts. Please wait an hour and try again." : msg);
       setLoading(false);
       return;
     }
