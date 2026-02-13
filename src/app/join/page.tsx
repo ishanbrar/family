@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, CheckCircle2, Loader2, UserCheck, UserPlus } from "lucide-react";
@@ -49,7 +49,7 @@ const STATIC_MATCH: GeneticMatchResult = {
   path: [],
 };
 
-export default function JoinFamilyPage() {
+function JoinFamilyPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams.get("code")?.trim().toUpperCase() || "";
@@ -334,5 +334,24 @@ export default function JoinFamilyPage() {
         )}
       </main>
     </div>
+  );
+}
+
+function JoinFamilyFallback() {
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="flex items-center gap-2 text-white/50 text-sm">
+        <Loader2 size={16} className="animate-spin text-gold-400" />
+        Preparing family join flow...
+      </div>
+    </div>
+  );
+}
+
+export default function JoinFamilyPage() {
+  return (
+    <Suspense fallback={<JoinFamilyFallback />}>
+      <JoinFamilyPageContent />
+    </Suspense>
   );
 }

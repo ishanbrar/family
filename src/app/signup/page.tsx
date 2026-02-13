@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Crown, Mail, Lock, User, Users, ArrowRight, Loader2 } from "lucide-react";
@@ -18,7 +18,7 @@ const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: "male", label: "Male" },
 ];
 
-export default function SignupPage() {
+function SignupPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialMode: "create" | "join" =
@@ -316,5 +316,24 @@ export default function SignupPage() {
         </p>
       </motion.div>
     </div>
+  );
+}
+
+function SignupFallback() {
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="flex items-center gap-2 text-white/50 text-sm">
+        <Loader2 size={16} className="animate-spin text-gold-400" />
+        Loading sign up...
+      </div>
+    </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<SignupFallback />}>
+      <SignupPageContent />
+    </Suspense>
   );
 }

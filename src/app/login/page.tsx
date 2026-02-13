@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Crown, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { DEV_SUPER_ADMIN_ENABLED, enableDevSuperAdmin } from "@/lib/dev-auth";
 import { clearPendingSignup, readPendingSignup } from "@/lib/pending-signup";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [identifier, setIdentifier] = useState("");
@@ -191,5 +191,24 @@ export default function LoginPage() {
           )}
       </motion.div>
     </div>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="flex items-center gap-2 text-white/50 text-sm">
+        <Loader2 size={16} className="animate-spin text-gold-400" />
+        Loading sign in...
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
