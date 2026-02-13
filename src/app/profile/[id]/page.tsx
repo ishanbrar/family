@@ -133,10 +133,10 @@ export default function MemberProfilePage({
         onSave={handleSave}
       />
 
-      <main className="ml-[72px] lg:ml-[240px] p-6 lg:p-8">
+      <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
+          className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-8">
+          <div className="flex items-center gap-3 sm:gap-4">
             <button onClick={() => router.back()}
               className="flex items-center justify-center w-10 h-10 rounded-xl glass hover:bg-white/5 transition-colors text-white/40 hover:text-white/70">
               <ArrowLeft size={18} />
@@ -158,7 +158,7 @@ export default function MemberProfilePage({
           {canEdit && (
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
               onClick={() => setEditOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gold-400/10 text-gold-300 text-sm font-medium hover:bg-gold-400/15 transition-colors">
+              className="self-start flex items-center gap-2 px-4 py-2 rounded-xl bg-gold-400/10 text-gold-300 text-sm font-medium hover:bg-gold-400/15 transition-colors">
               <Edit3 size={14} />
               {isViewer ? "Edit Profile" : "Edit (Admin)"}
             </motion.button>
@@ -166,7 +166,7 @@ export default function MemberProfilePage({
         </motion.div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <GlassCard glow={isViewer} className="xl:col-span-1 p-8">
+          <GlassCard glow={isViewer} className="xl:col-span-1 p-5 sm:p-8">
             <div className="flex flex-col items-center">
               <GeneticMatchRing percentage={geneticMatch.percentage} size={160} strokeWidth={3}
                 avatarUrl={member.avatar_url}

@@ -153,10 +153,11 @@ export function InviteFamilyModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 260, damping: 28 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[81]
-              w-[min(760px,94vw)] max-h-[86vh] rounded-3xl overflow-hidden app-surface"
+            className="fixed z-[81] inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
+              sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
+              w-auto sm:w-[min(760px,94vw)] sm:max-h-[86vh] rounded-3xl overflow-hidden app-surface"
           >
-            <div className="px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
               <div>
                 <h2 className="font-serif text-xl text-white/95">Invite Codes</h2>
                 <p className="text-xs text-white/35 mt-0.5">
@@ -172,7 +173,7 @@ export function InviteFamilyModal({
               </button>
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[68vh] space-y-5">
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-none sm:max-h-[68vh] space-y-5">
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
                 <p className="text-[11px] uppercase tracking-wider text-white/35 mb-3">Create New Code</p>
                 <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr_auto_auto] gap-2">

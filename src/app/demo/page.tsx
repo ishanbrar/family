@@ -154,7 +154,7 @@ export default function DemoPage() {
       {/* Lightweight demo sidebar */}
       <motion.aside
         initial={{ x: -80, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
-        className="fixed left-0 top-0 bottom-0 w-[72px] z-40 glass border-r border-white/[0.06] flex flex-col items-center py-4"
+        className="fixed left-0 top-0 bottom-0 w-[72px] z-40 glass border-r border-white/[0.06] hidden md:flex flex-col items-center py-4"
       >
         <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gold-400/10 mb-6">
           <Crown size={18} className="text-gold-400" />
@@ -168,13 +168,37 @@ export default function DemoPage() {
         </div>
       </motion.aside>
 
+      <div
+        className="fixed md:hidden inset-x-0 bottom-0 z-40 app-surface border-t border-white/[0.08]"
+        style={{
+          paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)",
+          paddingLeft: "max(env(safe-area-inset-left), 0.5rem)",
+          paddingRight: "max(env(safe-area-inset-right), 0.5rem)",
+        }}
+      >
+        <div className="grid grid-cols-2 gap-2 px-2 py-2">
+          <a
+            href="/demo"
+            className="h-12 rounded-xl flex items-center justify-center text-xs font-medium bg-gold-400/12 text-gold-300"
+          >
+            Demo
+          </a>
+          <a
+            href="/login"
+            className="h-12 rounded-xl flex items-center justify-center text-xs font-medium bg-white/[0.04] border border-white/[0.12] text-white/75 hover:text-white/92 transition-colors"
+          >
+            Sign In
+          </a>
+        </div>
+      </div>
+
       <AddMemberModal existingMembers={members} isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)} onAdd={handleAddMember} />
 
-      <main className="ml-[72px] p-6 lg:p-8">
+      <main className="ml-0 md:ml-[72px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
         {/* Demo banner */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="mb-6 px-4 py-3 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex items-center justify-between">
+          className="mb-6 px-4 py-3 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p className="text-xs text-white/50">
             You&apos;re viewing the <span className="text-gold-300 font-medium">Montague</span> sample family.{" "}
             <a href="/signup" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create your own family</a> to get started.
@@ -184,7 +208,7 @@ export default function DemoPage() {
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8">
+          className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="font-serif text-3xl font-bold text-white/95">
               Welcome back,{" "}
@@ -206,13 +230,13 @@ export default function DemoPage() {
         {/* Main Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <GlassCard className="xl:col-span-2 p-6">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-3">
               <div>
                 <h2 className="font-serif text-xl font-semibold text-white/90">Family Tree</h2>
                 <p className="text-xs text-white/30 mt-0.5">Genetic relationships from your perspective</p>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
+              <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:justify-end">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Filter size={12} className="text-white/25" />
                   <select value={store.relatedByFilter || ""}
                     onChange={(e) => store.setRelatedByFilter(e.target.value || null)}
@@ -302,7 +326,7 @@ export default function DemoPage() {
             <GlassCard className="p-6">
               <h2 className="font-serif text-lg font-semibold text-white/90 mb-1">Family Worldwide</h2>
               <p className="text-xs text-white/30 mb-4">{locations} cities across the globe</p>
-              <div className="flex gap-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex-1 flex justify-center">
                   <InteractiveGlobe
                     members={members}
@@ -312,7 +336,7 @@ export default function DemoPage() {
                   />
                 </div>
                 {countryGroups.length > 0 && (
-                  <div className="w-[130px] flex flex-col gap-1 overflow-y-auto max-h-[300px] pr-1"
+                  <div className="w-full flex flex-col gap-1 overflow-y-auto max-h-[220px] lg:max-h-[300px] pr-1"
                     style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.05) transparent" }}>
                     {countryGroups.map((g) => (
                       <CountryRow key={g.code} group={g} isExpanded={expandedCountry === g.code}

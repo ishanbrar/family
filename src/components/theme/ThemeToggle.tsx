@@ -40,6 +40,10 @@ export function ThemeToggle() {
       className="fixed right-4 top-4 z-[100] glass rounded-xl px-3 py-2.5
         text-xs text-white/70 hover:text-gold-300 transition-colors
         flex items-center gap-2 shadow-lg"
+      style={{
+        top: "max(env(safe-area-inset-top), 0.75rem)",
+        right: "max(env(safe-area-inset-right), 0.75rem)",
+      }}
     >
       {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
       <span className="hidden sm:inline">{theme === "dark" ? "Light mode" : "Dark mode"}</span>

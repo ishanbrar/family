@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
@@ -20,6 +20,12 @@ export const metadata: Metadata = {
   title: "Legacy — Ancestry & Health Platform",
   description:
     "A luxury platform for exploring your family tree, genetic connections, and hereditary health insights.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

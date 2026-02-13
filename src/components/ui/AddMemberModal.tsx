@@ -178,12 +178,13 @@ export function AddMemberModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 30 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
+            className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
+              sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
               sm:w-full sm:max-w-lg sm:max-h-[85vh] z-50
               rounded-3xl overflow-hidden flex flex-col app-surface"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/[0.06]">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-gold-400/10 flex items-center justify-center">
                   <UserPlus size={16} className="text-gold-400" />
@@ -197,9 +198,9 @@ export function AddMemberModal({
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-5">
               {/* Photo */}
-              <div className="flex items-center gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div
                   className="relative w-16 h-16 rounded-full cursor-pointer group shrink-0"
                   onClick={() => fileInputRef.current?.click()}
@@ -218,7 +219,7 @@ export function AddMemberModal({
                   <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
                 </div>
-                <div className="flex-1 grid grid-cols-2 gap-3">
+                <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
                     className={inputClass} placeholder="First name *" />
                   <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
@@ -250,7 +251,7 @@ export function AddMemberModal({
                   <GitBranch size={14} className="text-gold-400/60" />
                   <span className="text-xs text-gold-300/80 font-medium">Relationship *</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] text-white/25 font-medium uppercase tracking-wider mb-1 block">
                       This person is...
@@ -303,7 +304,7 @@ export function AddMemberModal({
                   <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">City</label>
                   <CitySearch value={locationCity} onChange={setLocationCity} placeholder="Search a city..." />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                       <Calendar size={10} /> Date of Birth
@@ -331,7 +332,7 @@ export function AddMemberModal({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.06]">
+            <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/[0.06]">
               <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 hover:bg-white/5 transition-colors">
                 Cancel
               </button>

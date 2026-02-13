@@ -160,7 +160,7 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       <Sidebar />
-      <main className="ml-[72px] lg:ml-[240px] p-6 lg:p-8">
+      <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}

@@ -134,12 +134,13 @@ export function EditProfileModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 30 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
+            className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
+              sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
               sm:w-full sm:max-w-lg sm:max-h-[85vh] z-50
               glass-elevated rounded-3xl overflow-hidden flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/[0.06]">
               <h2 className="font-serif text-lg font-semibold text-white/90">
                 Edit Profile
               </h2>
@@ -153,7 +154,7 @@ export function EditProfileModal({
             </div>
 
             {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-6">
               {/* Photo Upload */}
               <div className="flex flex-col items-center">
                 <div
@@ -190,7 +191,7 @@ export function EditProfileModal({
               </div>
 
               {/* Name */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">First Name</label>
                   <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClass} />
@@ -269,7 +270,7 @@ export function EditProfileModal({
                   <CitySearch value={locationCity} onChange={setLocationCity} placeholder="Search a city..." />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                       <Calendar size={10} /> Date of Birth
@@ -314,7 +315,7 @@ export function EditProfileModal({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/[0.06]">
+            <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/[0.06]">
               <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 hover:bg-white/5 transition-colors">
                 Cancel
               </button>

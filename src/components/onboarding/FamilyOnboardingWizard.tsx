@@ -364,9 +364,11 @@ export function FamilyOnboardingWizard({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 260, damping: 28 }}
-            className="fixed left-1/2 top-1/2 z-[71] w-[min(960px,94vw)] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 rounded-3xl overflow-hidden app-surface"
+            className="fixed z-[71] inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
+              sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(960px,94vw)] sm:max-h-[90vh] sm:-translate-x-1/2 sm:-translate-y-1/2
+              rounded-3xl overflow-hidden app-surface"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/[0.06]">
               <div>
                 <h2 className="font-serif text-xl text-white/95">Build Your Family Network</h2>
                 <p className="text-xs text-white/35 mt-0.5">
@@ -386,7 +388,7 @@ export function FamilyOnboardingWizard({
               )}
             </div>
 
-            <div className="px-6 py-4 border-b border-white/[0.06]">
+            <div className="px-4 sm:px-6 py-4 border-b border-white/[0.06]">
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { n: 1, label: "Your Profile", icon: User },
@@ -422,7 +424,7 @@ export function FamilyOnboardingWizard({
               </div>
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[65vh]">
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-none sm:max-h-[65vh]">
               {step === 1 && (
                 <div className="space-y-4">
                   <p className="text-sm text-white/55">
@@ -746,7 +748,7 @@ export function FamilyOnboardingWizard({
               )}
             </div>
 
-            <div className="flex items-center justify-between px-6 py-4 border-t border-white/[0.06] bg-white/[0.02]">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-t border-white/[0.06] bg-white/[0.02]">
               <button
                 onClick={() => (step === 1 ? safeDismiss() : setStep((s) => Math.max(1, s - 1)))}
                 className="px-4 py-2 rounded-xl text-sm text-white/45 hover:text-white/70 hover:bg-white/[0.04] transition-colors disabled:opacity-50"

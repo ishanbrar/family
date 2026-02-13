@@ -386,8 +386,9 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[71]
-                w-[min(560px,94vw)] rounded-2xl app-surface border border-white/[0.08] overflow-hidden"
+              className="fixed z-[71] inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
+                sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
+                w-auto sm:w-[min(560px,94vw)] rounded-2xl app-surface border border-white/[0.08] overflow-hidden"
             >
               <div className="px-5 py-4 border-b border-white/[0.06]">
                 <h3 className="font-serif text-lg text-white/92">Export Family Tree Image</h3>
@@ -469,7 +470,7 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
-      <main className="ml-[72px] lg:ml-[240px] p-6 lg:p-8">
+      <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -502,11 +503,11 @@ export default function DashboardPage() {
           </div>
 
           <div className="w-full lg:w-[560px] space-y-2.5">
-            <div className="flex flex-wrap items-center lg:justify-end gap-2">
+            <div className="flex flex-wrap items-stretch sm:items-center lg:justify-end gap-2">
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setWizardOpen(true)}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.12]
+                className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.12]
                   bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
                   hover:bg-gold-400/[0.08] transition-colors"
               >
@@ -518,7 +519,7 @@ export default function DashboardPage() {
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setInviteModalOpen(true)}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.12]
+                  className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.12]
                     bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
                     hover:bg-gold-400/[0.08] transition-colors"
                 >
@@ -585,12 +586,12 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* ── Family Tree (2 cols) ─────────────── */}
           <GlassCard className="xl:col-span-2 p-6">
-            <div className="flex items-center justify-between mb-6 gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-3">
               <div>
                 <h2 className="font-serif text-xl font-semibold text-white/90">Family Tree</h2>
                 <p className="text-xs text-white/30 mt-0.5">Genetic relationships from your perspective</p>
               </div>
-              <div className="flex items-center gap-3 flex-wrap justify-end">
+              <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:justify-end">
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setAddModalOpen(true)}
@@ -611,7 +612,7 @@ export default function DashboardPage() {
                   <Download size={12} />
                   Export Image
                 </motion.button>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Filter size={12} className="text-white/25" />
                   <select
                     value={relatedByFilter || ""}
@@ -725,7 +726,7 @@ export default function DashboardPage() {
             <GlassCard className="p-6">
               <h2 className="font-serif text-lg font-semibold text-white/90 mb-1">Family Worldwide</h2>
               <p className="text-xs text-white/30 mb-4">{locations} cities across the globe</p>
-              <div className="flex gap-4">
+              <div className="flex flex-col gap-4">
                 <div className="flex-1 flex justify-center">
                   <InteractiveGlobe
                     members={members}
@@ -735,7 +736,7 @@ export default function DashboardPage() {
                   />
                 </div>
                 {countryGroups.length > 0 && (
-                  <div className="w-[200px] flex flex-col max-h-[300px]"
+                  <div className="w-full flex flex-col max-h-[220px] lg:max-h-[300px]"
                     style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.05) transparent" }}>
                     <div className="px-1 pb-2">
                       <div className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">

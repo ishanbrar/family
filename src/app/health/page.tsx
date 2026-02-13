@@ -135,10 +135,10 @@ export default function HealthPage() {
       <Sidebar />
       <CommandSearch conditions={allConditions} onSelect={handleAddCondition} />
 
-      <main className="ml-[72px] lg:ml-[240px] p-6 lg:p-8">
+      <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
+          className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-8">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gold-400/10">
               <HeartPulse size={22} className="text-gold-400" />
             </div>
@@ -148,7 +148,7 @@ export default function HealthPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
               onClick={() => setShowPrivacy(!showPrivacy)}
               className="glass flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-white/40 hover:text-white/60 transition-colors">
@@ -200,9 +200,9 @@ export default function HealthPage() {
             </GlassCard>
 
             <GlassCard className="p-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
                 <h3 className="font-serif text-base font-semibold text-white/90">Family History</h3>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-wrap items-center gap-1">
                   <Filter size={12} className="text-white/20" />
                   {(["all", "hereditary", "chronic", "autoimmune", "mental_health"] as FilterType[]).map((f) => (
                     <button key={f} onClick={() => setFilter(f)}
@@ -259,12 +259,12 @@ export default function HealthPage() {
             )}
 
             <GlassCard className="p-6">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
                 <div>
                   <h3 className="font-serif text-lg font-semibold text-white/90">Inheritance View</h3>
                   <p className="text-xs text-white/30 mt-0.5">Click a condition to trace its genetic thread</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-2">
                   <span className="flex items-center gap-1 text-[10px] text-white/25">
                     <span className="w-6 h-0.5 bg-gold-400/40 rounded" /> Genetic link
                   </span>

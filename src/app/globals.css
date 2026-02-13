@@ -52,6 +52,11 @@
   --map-flat-border: rgba(255, 255, 255, 0.06);
 }
 
+html,
+body {
+  height: 100%;
+}
+
 html.theme-blue {
   --accent-50: #eff6ff;
   --accent-100: #dbeafe;
@@ -162,8 +167,28 @@ body {
   color: var(--foreground);
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+@supports (height: 100dvh) {
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+}
+
+/* iOS ergonomics: avoid input auto-zoom and reserve bottom space for home indicator. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+.safe-mobile-bottom {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem);
 }
 
 ::selection {
