@@ -12,7 +12,6 @@ import {
   Linkedin,
   Facebook,
   Phone,
-  ExternalLink,
 } from "lucide-react";
 import type { SocialLinks } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -91,8 +90,7 @@ export function SocialDock({ links, className }: SocialDockProps) {
             {/* Tooltip */}
             <span
               className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-lg
-                text-[10px] font-medium text-white/80 bg-black/80 backdrop-blur-sm
-                border border-white/10 opacity-0 group-hover:opacity-100
+                text-[10px] font-medium text-white/80 app-popover opacity-0 group-hover:opacity-100
                 transition-opacity duration-200 pointer-events-none whitespace-nowrap"
             >
               {social.key === "phone_number" ? value : `@${value}`}
@@ -100,12 +98,6 @@ export function SocialDock({ links, className }: SocialDockProps) {
           </motion.a>
         );
       })}
-
-      {/* External link indicator */}
-      <div className="w-px h-5 bg-white/10 mx-0.5" />
-      <div className="flex items-center justify-center w-7 h-7">
-        <ExternalLink size={12} className="text-white/20" />
-      </div>
     </motion.div>
   );
 }

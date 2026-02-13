@@ -29,7 +29,13 @@ interface FamilyTreeProps {
   connections: TreeConnection[];
   highlightedMembers?: Set<string>;
   dimNonHighlighted?: boolean;
+  viewerId?: string;
+  showPercentages?: boolean;
+  showRelationLabels?: boolean;
+  showLastNames?: boolean;
   onMemberClick?: (id: string) => void;
+  canvasWidth?: number;
+  canvasHeight?: number;
   className?: string;
 }
 
@@ -42,29 +48,35 @@ export function FamilyTree({
   connections,
   highlightedMembers,
   dimNonHighlighted = false,
+  viewerId,
+  showPercentages = true,
+  showRelationLabels = true,
+  showLastNames = false,
   onMemberClick,
+  canvasWidth = 800,
+  canvasHeight = 560,
   className,
 }: FamilyTreeProps) {
   const hasHighlight = dimNonHighlighted && highlightedMembers && highlightedMembers.size > 0;
 
   return (
     <div className={cn("relative w-full overflow-x-auto", className)}>
-      <div className="relative min-w-[800px]" style={{ minHeight: 560 }}>
+      <div className="relative" style={{ minWidth: canvasWidth, minHeight: canvasHeight }}>
         {/* ── SVG Connection Layer ─────────────────── */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ minHeight: 560 }}>
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ minHeight: canvasHeight }}>
           <defs>
             <linearGradient id="goldThread" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgba(212, 165, 116, 0.5)" />
-              <stop offset="100%" stopColor="rgba(212, 165, 116, 0.3)" />
+              <stop offset="0%" stopColor="var(--accent-300)" stopOpacity="0.56" />
+              <stop offset="100%" stopColor="var(--accent-200)" stopOpacity="0.34" />
             </linearGradient>
             <linearGradient id="dimThread" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stopColor="rgba(255,255,255,0.04)" />
               <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
             </linearGradient>
             <linearGradient id="spouseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="rgba(212, 165, 116, 0.25)" />
-              <stop offset="50%" stopColor="rgba(212, 165, 116, 0.4)" />
-              <stop offset="100%" stopColor="rgba(212, 165, 116, 0.25)" />
+              <stop offset="0%" stopColor="var(--accent-300)" stopOpacity="0.22" />
+              <stop offset="50%" stopColor="var(--accent-300)" stopOpacity="0.38" />
+              <stop offset="100%" stopColor="var(--accent-200)" stopOpacity="0.26" />
             </linearGradient>
             <linearGradient id="spouseGradDim" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="rgba(255,255,255,0.02)" />
@@ -102,8 +114,8 @@ export function FamilyTree({
                   <motion.line
                     x1={x1} y1={y} x2={x2} y2={y}
                     stroke={isDimmed ? "rgba(255,255,255,0.03)" : "url(#spouseGrad)"}
-                    strokeWidth={isDimmed ? 0.5 : 1}
-                    strokeDasharray={isDimmed ? "4 4" : "none"}
+                    strokeWidth={isDimmed ? 0.5 : 0.9}
+                    strokeDasharray={isDimmed ? "4 4" : "5 4"}
                     initial={{ pathLength: 0, opacity: 0 }}
                     animate={{ pathLength: 1, opacity: 1 }}
                     transition={{ duration: 0.8, delay: 0.5 }}
@@ -112,7 +124,8 @@ export function FamilyTree({
                   {!isDimmed && (
                     <motion.circle
                       cx={midX} cy={y} r={2.5}
-                      fill="rgba(212, 165, 116, 0.4)"
+                      fill="var(--accent-300)"
+                      fillOpacity="0.45"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ delay: 0.9, type: "spring" }}
@@ -147,6 +160,7 @@ export function FamilyTree({
         {members.map((member, i) => {
           const isHighlighted = highlightedMembers?.has(member.profile.id);
           const isDimmed = hasHighlight && !isHighlighted;
+          const isViewerNode = viewerId === member.profile.id;
           const initials = getInitials(member.profile.first_name, member.profile.last_name);
 
           return (
@@ -155,7 +169,7 @@ export function FamilyTree({
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{
                 opacity: isDimmed ? 0.25 : 1,
-                scale: 1,
+                scale: isViewerNode ? 1.06 : 1,
               }}
               transition={{
                 delay: 0.2 + i * 0.06,
@@ -173,12 +187,21 @@ export function FamilyTree({
               <div className="flex flex-col items-center">
                 <GeneticMatchRing
                   percentage={member.match.percentage}
-                  size={80}
+                  size={isViewerNode ? 86 : 80}
                   strokeWidth={2.5}
                   avatarUrl={member.profile.avatar_url}
                   initials={initials}
-                  showPercentage={member.match.percentage > 0 && member.match.relationship !== "Self"}
+                  showPercentage={
+                    showPercentages &&
+                    member.match.percentage > 0 &&
+                    member.match.relationship !== "Self"
+                  }
                 />
+                {isViewerNode && (
+                  <span className="mt-1.5 inline-flex items-center rounded-full bg-gold-400/15 border border-gold-400/30 px-2 py-0.5 text-[9px] font-semibold tracking-wider text-gold-300">
+                    YOU
+                  </span>
+                )}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: isDimmed ? 0.3 : 1 }}
@@ -186,14 +209,22 @@ export function FamilyTree({
                   className="mt-2 text-center"
                 >
                   <p className={cn(
-                    "text-xs font-medium",
-                    isHighlighted ? "text-gold-300 text-glow-gold" : "text-white/70"
+                    "text-xs",
+                    isViewerNode
+                      ? "font-semibold text-gold-300 text-glow-gold"
+                      : isHighlighted
+                        ? "font-medium text-gold-300 text-glow-gold"
+                        : "font-medium text-white/70"
                   )}>
-                    {member.profile.first_name}
+                    {showLastNames
+                      ? `${member.profile.first_name} ${member.profile.last_name}`
+                      : member.profile.first_name}
                   </p>
-                  <p className="text-[10px] text-white/30 mt-0.5">
-                    {member.match.relationship}
-                  </p>
+                  {showRelationLabels && (
+                    <p className="text-[10px] text-white/30 mt-0.5">
+                      {member.match.relationship}
+                    </p>
+                  )}
                   {!member.profile.is_alive && (
                     <p className="text-[9px] text-white/15 italic mt-0.5">In Memoriam</p>
                   )}
@@ -207,7 +238,7 @@ export function FamilyTree({
                   animate={{ scale: [1, 1.3, 1], opacity: [0, 0.4, 0] }}
                   transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                   className="absolute top-0 left-1/2 -translate-x-1/2 w-[84px] h-[84px] -mt-[2px]
-                    rounded-full border border-gold-400/30"
+                    rounded-full border border-gold-400/35"
                 />
               )}
             </motion.div>

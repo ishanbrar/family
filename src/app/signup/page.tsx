@@ -6,20 +6,32 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Crown, Mail, Lock, User, Users, ArrowRight, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { savePendingSignup } from "@/lib/pending-signup";
+import type { Gender } from "@/lib/types";
+
+const GENDER_OPTIONS: { value: Gender; label: string }[] = [
+  { value: "female", label: "Female" },
+  { value: "male", label: "Male" },
+];
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialMode: "create" | "join" =
+    searchParams.get("mode") === "join" ? "join" : "create";
+  const initialInviteCode = searchParams.get("code")?.trim().toUpperCase() || "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [gender, setGender] = useState<Gender | "">("");
   const [familyName, setFamilyName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
-  const [mode, setMode] = useState<"create" | "join">("create");
+  const [inviteCode, setInviteCode] = useState(initialInviteCode);
+  const [mode, setMode] = useState<"create" | "join">(initialMode);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -28,6 +40,12 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    if (!gender) {
+      setError("Please select gender.");
+      setLoading(false);
+      return;
+    }
+    const selectedGender = gender;
 
     const supabase = createClient();
 
@@ -39,6 +57,7 @@ export default function SignupPage() {
         data: {
           first_name: firstName,
           last_name: lastName,
+          gender: selectedGender,
         },
       },
     });
@@ -57,10 +76,63 @@ export default function SignupPage() {
 
     const userId = authData.user.id;
 
-    // 2. Handle family — create or join
-    let familyId: string | null = null;
+    // With email-confirmation flows there is no session yet, so RLS-protected
+    // family/profile writes should happen after first authenticated sign-in.
+    if (!authData.session) {
+      savePendingSignup({
+        mode,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        gender: selectedGender,
+        family_name: mode === "create" ? familyName.trim() : undefined,
+        invite_code: mode === "join" ? inviteCode.trim().toUpperCase() : undefined,
+      });
+      setSuccess(true);
+      setLoading(false);
+      return;
+    }
 
-    if (mode === "create" && familyName.trim()) {
+    if (mode === "join") {
+      const normalizedCode = inviteCode.trim().toUpperCase();
+      const { data: resolvedFamilyId, error: joinErr } = await supabase.rpc(
+        "lookup_family_by_invite_code",
+        { p_invite_code: normalizedCode }
+      );
+      const matchedFamilyId =
+        typeof resolvedFamilyId === "string" && resolvedFamilyId.length > 0
+          ? resolvedFamilyId
+          : null;
+
+      if (joinErr || !matchedFamilyId) {
+        setError("Invalid invite code. Please check and try again.");
+        setLoading(false);
+        return;
+      }
+
+      const { error: profileErr } = await supabase.from("profiles").upsert({
+        id: userId,
+        auth_user_id: userId,
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        gender: selectedGender,
+        role: "MEMBER",
+        family_id: null,
+      }, { onConflict: "id" });
+
+      if (profileErr) {
+        setError("Account created, but profile setup failed. Please sign in and retry.");
+        setLoading(false);
+        return;
+      }
+
+      router.push(`/join?code=${encodeURIComponent(normalizedCode)}`);
+      router.refresh();
+      return;
+    }
+
+    // 2. Create family for new family flow
+    let familyId: string | null = null;
+    if (familyName.trim()) {
       const { data: family, error: famErr } = await supabase
         .from("families")
         .insert({ name: familyName.trim(), created_by: userId })
@@ -68,43 +140,26 @@ export default function SignupPage() {
         .single();
 
       if (famErr) {
-        console.error("Family creation error:", famErr);
-      } else {
-        familyId = family.id;
-      }
-    } else if (mode === "join" && inviteCode.trim()) {
-      const { data: family } = await supabase
-        .from("families")
-        .select("id")
-        .eq("invite_code", inviteCode.trim())
-        .single();
-
-      if (family) {
-        familyId = family.id;
-      } else {
-        setError("Invalid invite code. Please check and try again.");
+        setError("Could not create family. Please try again.");
         setLoading(false);
         return;
       }
+      familyId = family.id;
     }
 
-    // 3. Create profile
-    const { error: profileErr } = await supabase.from("profiles").insert({
+    // 3. Upsert profile fields (trigger may have already created the row)
+    const { error: profileErr } = await supabase.from("profiles").upsert({
       id: userId,
+      auth_user_id: userId,
       first_name: firstName.trim(),
       last_name: lastName.trim(),
-      role: mode === "create" ? "ADMIN" : "MEMBER",
+      gender: selectedGender,
+      role: "ADMIN",
       family_id: familyId,
-    });
+    }, { onConflict: "id" });
 
     if (profileErr) {
-      console.error("Profile creation error:", profileErr);
-      // The profile might already exist via a DB trigger — that's OK
-    }
-
-    // If email confirmation is enabled, show success message
-    if (authData.user && !authData.session) {
-      setSuccess(true);
+      setError("Account created, but profile setup failed. Please sign in and retry.");
       setLoading(false);
       return;
     }
@@ -127,7 +182,8 @@ export default function SignupPage() {
           <h1 className="font-serif text-2xl font-bold text-white/95 mb-2">Check your email</h1>
           <p className="text-sm text-white/40 mb-8">
             We&apos;ve sent a confirmation link to <span className="text-gold-300">{email}</span>.
-            Click the link to activate your account.
+            Click the link to activate your account. After your first sign-in,
+            we&apos;ll automatically complete your family setup.
           </p>
           <Link href="/login" className="text-sm text-gold-400/70 hover:text-gold-300 transition-colors font-medium">
             Back to sign in
@@ -154,9 +210,17 @@ export default function SignupPage() {
           <span className="font-serif text-2xl font-semibold text-white/90 tracking-wide">Legacy</span>
         </div>
 
-        <div className="rounded-3xl p-8" style={{ background: "rgba(17,17,17,0.8)", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="rounded-3xl p-8 app-surface">
           <h1 className="font-serif text-2xl font-bold text-white/95 mb-1">Create your legacy</h1>
           <p className="text-sm text-white/35 mb-6">Start or join a family platform</p>
+
+          {mode === "join" && inviteCode && (
+            <div className="mb-4 rounded-xl border border-gold-400/15 bg-gold-400/[0.06] px-3 py-2">
+              <p className="text-xs text-gold-300/85">
+                Invitation detected. Continue signup to join via code <span className="font-mono tracking-wide">{inviteCode}</span>.
+              </p>
+            </div>
+          )}
 
           {/* Mode toggle */}
           <div className="flex rounded-xl bg-white/[0.03] p-1 mb-6">
@@ -185,6 +249,23 @@ export default function SignupPage() {
             </div>
 
             <div className="relative">
+              <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value as Gender | "")}
+                required
+                className={inputClass}
+              >
+                <option value="" disabled>Select gender</option>
+                {GENDER_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative">
               <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email address" required className={inputClass} />
@@ -206,7 +287,7 @@ export default function SignupPage() {
               <div className="relative">
                 <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
                 <input type="text" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="Family invite code" required className={inputClass} />
+                  placeholder="Family invite code" required autoCapitalize="none" className={inputClass} />
               </div>
             )}
 

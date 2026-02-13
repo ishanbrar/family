@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase/client";
+import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -34,6 +35,11 @@ export function Sidebar() {
   const pathname = usePathname();
 
   const handleSignOut = async () => {
+    if (isDevSuperAdminClient()) {
+      disableDevSuperAdmin();
+      window.location.href = "/login";
+      return;
+    }
     const supabase = createClient();
     await supabase.auth.signOut();
     window.location.href = "/login";

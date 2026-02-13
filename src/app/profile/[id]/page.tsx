@@ -9,10 +9,10 @@ import { motion } from "framer-motion";
 import { useState, use } from "react";
 import { useRouter } from "next/navigation";
 import {
-  User,
   MapPin,
   Briefcase,
   Calendar,
+  User,
   Edit3,
   Shield,
   Crown,
@@ -20,6 +20,7 @@ import {
   Heart,
   Quote,
   Loader2,
+  PawPrint,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -29,6 +30,7 @@ import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
 import { EditProfileModal } from "@/components/ui/EditProfileModal";
 import { useFamilyData } from "@/hooks/use-family-data";
 import { calculateGeneticMatch } from "@/lib/genetic-match";
+import { formatGenderLabel } from "@/lib/display-format";
 import type { Profile } from "@/lib/types";
 
 export default function MemberProfilePage({
@@ -52,10 +54,21 @@ export default function MemberProfilePage({
 
   const member = members.find((m) => m.id === id);
 
-  if (loading || !viewer) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <Loader2 size={24} className="text-gold-400 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!viewer) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-sm text-white/50 mb-3">You need to sign in to view profiles.</p>
+          <a href="/login" className="text-sm text-gold-300 hover:text-gold-200 transition-colors">Go to login</a>
+        </div>
       </div>
     );
   }
@@ -74,7 +87,7 @@ export default function MemberProfilePage({
 
   const geneticMatch = isViewer
     ? { percentage: 100, relationship: "Self", path: [viewer.id] }
-    : calculateGeneticMatch(viewer.id, member.id, relationships);
+    : calculateGeneticMatch(viewer.id, member.id, relationships, member.gender);
 
   const memberConditions = userConditions.filter((uc) => uc.user_id === member.id);
 
@@ -89,12 +102,19 @@ export default function MemberProfilePage({
     );
 
   const age = member.date_of_birth
-    ? Math.floor((Date.now() - new Date(member.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    ? (() => {
+        const birth = new Date(member.date_of_birth);
+        const today = new Date();
+        let years = today.getFullYear() - birth.getFullYear();
+        const monthOffset = today.getMonth() - birth.getMonth();
+        if (monthOffset < 0 || (monthOffset === 0 && today.getDate() < birth.getDate())) years--;
+        return years;
+      })()
     : null;
 
   const connections = members.filter((p) => p.id !== member.id).map((p) => ({
     profile: p,
-    match: calculateGeneticMatch(member.id, p.id, relationships),
+    match: calculateGeneticMatch(member.id, p.id, relationships, p.gender),
   }));
 
   const handleSave = async (updates: Partial<Profile> & { avatarFile?: File }) => {
@@ -125,6 +145,11 @@ export default function MemberProfilePage({
               <h1 className="font-serif text-3xl font-bold text-white/95">
                 {member.first_name} {member.last_name}
               </h1>
+              {member.display_name && (
+                <p className="text-sm text-gold-300/80 mt-0.5">
+                  {member.display_name}
+                </p>
+              )}
               <p className="text-sm text-white/35 mt-0.5">
                 {isViewer ? "Your profile" : `${geneticMatch.relationship} · ${geneticMatch.percentage}% blood match`}
               </p>
@@ -151,6 +176,9 @@ export default function MemberProfilePage({
               <h2 className="mt-5 font-serif text-2xl font-bold text-white/95">
                 {member.first_name} {member.last_name}
               </h2>
+              {member.display_name && (
+                <p className="text-xs text-gold-300/85 mt-1">{member.display_name}</p>
+              )}
 
               <div className="mt-2 flex items-center gap-2">
                 {member.role === "ADMIN" ? (
@@ -181,7 +209,14 @@ export default function MemberProfilePage({
 
               <div className="mt-5 w-full space-y-3">
                 {[
+                  { icon: User, label: "Display Name", value: member.display_name },
+                  {
+                    icon: User,
+                    label: "Gender",
+                    value: formatGenderLabel(member.gender),
+                  },
                   { icon: Briefcase, label: "Profession", value: member.profession },
+                  { icon: PawPrint, label: "Pets", value: member.pets.length > 0 ? member.pets.join(", ") : null },
                   { icon: MapPin, label: "Location", value: member.location_city },
                   {
                     icon: Calendar, label: "Date of Birth",

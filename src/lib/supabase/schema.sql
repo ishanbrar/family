@@ -5,6 +5,7 @@
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ──────────────────────────────────────────────
 -- 1. FAMILIES (Grouping) — must come first
@@ -26,6 +27,8 @@ CREATE TABLE profiles (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   first_name      TEXT NOT NULL,
   last_name       TEXT NOT NULL,
+  display_name    TEXT,
+  gender          TEXT CHECK (gender IN ('female', 'male')),
   avatar_url      TEXT,
   date_of_birth   DATE,
   place_of_birth  TEXT,
@@ -33,6 +36,7 @@ CREATE TABLE profiles (
   location_city   TEXT,
   location_lat    DOUBLE PRECISION,
   location_lng    DOUBLE PRECISION,
+  pets            TEXT[] DEFAULT '{}'::TEXT[],
   social_links    JSONB DEFAULT '{}'::JSONB,
   about_me        TEXT,
   country_code    TEXT,
@@ -62,12 +66,16 @@ CREATE TRIGGER profiles_updated_at
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, auth_user_id, first_name, last_name)
+  INSERT INTO public.profiles (id, auth_user_id, first_name, last_name, gender)
   VALUES (
     NEW.id,
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'first_name', 'New'),
-    COALESCE(NEW.raw_user_meta_data->>'last_name', 'User')
+    COALESCE(NEW.raw_user_meta_data->>'last_name', 'User'),
+    CASE
+      WHEN NEW.raw_user_meta_data->>'gender' IN ('female', 'male') THEN NEW.raw_user_meta_data->>'gender'
+      ELSE NULL
+    END
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
@@ -88,7 +96,8 @@ CREATE TABLE relationships (
   type        TEXT NOT NULL CHECK (type IN (
     'parent', 'child', 'sibling', 'spouse',
     'half_sibling', 'grandparent', 'grandchild',
-    'aunt_uncle', 'niece_nephew', 'cousin'
+    'aunt_uncle', 'maternal_aunt', 'paternal_aunt', 'maternal_uncle', 'paternal_uncle',
+    'niece_nephew', 'cousin'
   )),
   created_at  TIMESTAMPTZ DEFAULT NOW(),
 
@@ -211,8 +220,31 @@ CREATE POLICY "Family members can view relationships"
 CREATE POLICY "Admins can manage relationships"
   ON relationships FOR ALL
   USING (
-    EXISTS (
-      SELECT 1 FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+    user_id IN (
+      SELECT p.id FROM profiles p
+      WHERE p.family_id IN (
+        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+      )
+    )
+    AND relative_id IN (
+      SELECT p.id FROM profiles p
+      WHERE p.family_id IN (
+        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+      )
+    )
+  )
+  WITH CHECK (
+    user_id IN (
+      SELECT p.id FROM profiles p
+      WHERE p.family_id IN (
+        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+      )
+    )
+    AND relative_id IN (
+      SELECT p.id FROM profiles p
+      WHERE p.family_id IN (
+        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+      )
     )
   );
 
@@ -224,7 +256,8 @@ CREATE POLICY "Anyone can read conditions"
 -- User conditions: Own or family
 CREATE POLICY "Users can manage own conditions"
   ON user_conditions FOR ALL
-  USING (user_id IN (SELECT id FROM profiles WHERE auth_user_id = auth.uid()));
+  USING (user_id IN (SELECT id FROM profiles WHERE auth_user_id = auth.uid()))
+  WITH CHECK (user_id IN (SELECT id FROM profiles WHERE auth_user_id = auth.uid()));
 
 CREATE POLICY "Family can view conditions"
   ON user_conditions FOR SELECT

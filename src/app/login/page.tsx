@@ -6,26 +6,41 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Crown, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { DEV_SUPER_ADMIN_ENABLED, enableDevSuperAdmin } from "@/lib/dev-auth";
+import { clearPendingSignup, readPendingSignup } from "@/lib/pending-signup";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inviteCodeFromUrl = searchParams.get("code")?.trim().toUpperCase() || "";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
+    if (
+      DEV_SUPER_ADMIN_ENABLED &&
+      identifier.trim().toLowerCase() === "admin" &&
+      password === "password"
+    ) {
+      enableDevSuperAdmin();
+      router.push("/dashboard");
+      router.refresh();
+      return;
+    }
+
     const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: identifier,
       password,
     });
 
@@ -35,7 +50,64 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/dashboard");
+    let redirectPath = inviteCodeFromUrl
+      ? `/join?code=${encodeURIComponent(inviteCodeFromUrl)}`
+      : "/dashboard";
+
+    // Complete any deferred family setup from email-confirmation signup flow.
+    const pending = readPendingSignup();
+    if (pending && authData.user) {
+      try {
+        if (pending.mode === "create" && pending.family_name?.trim()) {
+          let familyId: string | null = null;
+
+          const { data: family, error: famErr } = await supabase
+            .from("families")
+            .insert({ name: pending.family_name.trim(), created_by: authData.user.id })
+            .select("id")
+            .single();
+          if (famErr || !family) throw famErr || new Error("Family creation failed");
+          familyId = family.id;
+
+          const { error: profileErr } = await supabase.from("profiles").upsert({
+            id: authData.user.id,
+            auth_user_id: authData.user.id,
+            first_name: pending.first_name || "Family",
+            last_name: pending.last_name || "Member",
+            gender: pending.gender || null,
+            role: "ADMIN",
+            family_id: familyId,
+          }, { onConflict: "id" });
+
+          if (profileErr) throw profileErr;
+          redirectPath = "/dashboard";
+        } else if (pending.mode === "join") {
+          const pendingCode = pending.invite_code?.trim().toUpperCase() || "";
+          if (!pendingCode) {
+            throw new Error("Missing pending invite code");
+          }
+
+          const { error: profileErr } = await supabase.from("profiles").upsert({
+            id: authData.user.id,
+            auth_user_id: authData.user.id,
+            first_name: pending.first_name || "Family",
+            last_name: pending.last_name || "Member",
+            gender: pending.gender || null,
+            role: "MEMBER",
+            family_id: null,
+          }, { onConflict: "id" });
+
+          if (profileErr) throw profileErr;
+          redirectPath = `/join?code=${encodeURIComponent(pendingCode)}`;
+        }
+
+        clearPendingSignup();
+      } catch (err) {
+        console.error("Deferred signup completion failed:", err);
+      }
+    }
+
+    router.push(redirectPath);
     router.refresh();
   };
 
@@ -67,7 +139,7 @@ export default function LoginPage() {
         </div>
 
         {/* Card */}
-        <div className="rounded-3xl p-8" style={{ background: "rgba(17,17,17,0.8)", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="rounded-3xl p-8 app-surface">
           <h1 className="font-serif text-2xl font-bold text-white/95 mb-1">Welcome back</h1>
           <p className="text-sm text-white/35 mb-8">Sign in to your family platform</p>
 
@@ -75,8 +147,8 @@ export default function LoginPage() {
             <div className="relative">
               <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
               <input
-                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email address" required autoFocus className={inputClass}
+                type="text" value={identifier} onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Email or username" required autoFocus className={inputClass}
               />
             </div>
             <div className="relative">
@@ -112,6 +184,11 @@ export default function LoginPage() {
             Create one
           </Link>
         </p>
+          {DEV_SUPER_ADMIN_ENABLED && (
+            <p className="text-center text-[11px] text-white/20 mt-2">
+              Dev super admin: <span className="text-white/35">admin / password</span>
+            </p>
+          )}
       </motion.div>
     </div>
   );

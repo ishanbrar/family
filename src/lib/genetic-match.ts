@@ -16,7 +16,7 @@
 // First Cousin              → 12.5% (r = 0.125)
 // ══════════════════════════════════════════════════════════
 
-import type { Relationship, RelationshipType, GeneticMatchResult } from "./types";
+import type { Relationship, RelationshipType, GeneticMatchResult, Gender } from "./types";
 
 /** Coefficient of relationship for each edge type */
 const RELATIONSHIP_COEFFICIENTS: Record<RelationshipType, number> = {
@@ -28,6 +28,10 @@ const RELATIONSHIP_COEFFICIENTS: Record<RelationshipType, number> = {
   grandparent: 0.25,
   grandchild: 0.25,
   aunt_uncle: 0.25,
+  maternal_aunt: 0.25,
+  paternal_aunt: 0.25,
+  maternal_uncle: 0.25,
+  paternal_uncle: 0.25,
   niece_nephew: 0.25,
   cousin: 0.125,
 };
@@ -42,6 +46,10 @@ const RELATIONSHIP_LABELS: Record<RelationshipType, string> = {
   grandparent: "Grandparent",
   grandchild: "Grandchild",
   aunt_uncle: "Aunt/Uncle",
+  maternal_aunt: "Maternal Aunt",
+  paternal_aunt: "Paternal Aunt",
+  maternal_uncle: "Maternal Uncle",
+  paternal_uncle: "Paternal Uncle",
   niece_nephew: "Niece/Nephew",
   cousin: "First Cousin",
 };
@@ -75,9 +83,57 @@ function invertRelationship(type: RelationshipType): RelationshipType {
     grandparent: "grandchild",
     grandchild: "grandparent",
     aunt_uncle: "niece_nephew",
+    maternal_aunt: "niece_nephew",
+    paternal_aunt: "niece_nephew",
+    maternal_uncle: "niece_nephew",
+    paternal_uncle: "niece_nephew",
     niece_nephew: "aunt_uncle",
   };
   return inversions[type] || type;
+}
+
+function resolveSpecificDirectAuntUncleLabel(
+  viewerId: string,
+  targetId: string,
+  relationships: Relationship[]
+): string | null {
+  const direct = relationships.find(
+    (rel) => rel.user_id === targetId && rel.relative_id === viewerId
+  );
+  if (!direct) return null;
+
+  if (
+    direct.type === "maternal_aunt" ||
+    direct.type === "paternal_aunt" ||
+    direct.type === "maternal_uncle" ||
+    direct.type === "paternal_uncle"
+  ) {
+    return RELATIONSHIP_LABELS[direct.type];
+  }
+
+  return null;
+}
+
+function applyGenderToRelationshipLabel(
+  label: string,
+  gender?: Gender | null
+): string {
+  if (!gender) return label;
+
+  const map: Record<string, { female: string; male: string }> = {
+    Parent: { female: "Mother", male: "Father" },
+    Child: { female: "Daughter", male: "Son" },
+    Sibling: { female: "Sister", male: "Brother" },
+    Spouse: { female: "Wife", male: "Husband" },
+    Grandparent: { female: "Grandmother", male: "Grandfather" },
+    Grandchild: { female: "Granddaughter", male: "Grandson" },
+    "Aunt/Uncle": { female: "Aunt", male: "Uncle" },
+    "Great Aunt/Uncle": { female: "Great Aunt", male: "Great Uncle" },
+    "Half-Aunt/Uncle": { female: "Half-Aunt", male: "Half-Uncle" },
+    "Niece/Nephew": { female: "Niece", male: "Nephew" },
+  };
+
+  return map[label]?.[gender] || label;
 }
 
 // ── Core algorithm ──────────────────────────────────────
@@ -94,7 +150,8 @@ function invertRelationship(type: RelationshipType): RelationshipType {
 export function calculateGeneticMatch(
   viewerId: string,
   targetId: string,
-  relationships: Relationship[]
+  relationships: Relationship[],
+  targetGender?: Gender | null
 ): GeneticMatchResult {
   if (viewerId === targetId) {
     return { percentage: 100, relationship: "Self", path: [viewerId] };
@@ -128,14 +185,16 @@ export function calculateGeneticMatch(
 
         let label: string;
         if (viewerPerspective.length === 1) {
-          label = RELATIONSHIP_LABELS[viewerPerspective[0]];
+          label =
+            resolveSpecificDirectAuntUncleLabel(viewerId, targetId, relationships) ||
+            RELATIONSHIP_LABELS[viewerPerspective[0]];
         } else {
           label = inferRelationship(viewerPerspective);
         }
 
         return {
           percentage: Math.round(coefficient * 100 * 10) / 10,
-          relationship: label,
+          relationship: applyGenderToRelationshipLabel(label, targetGender),
           path,
         };
       }
@@ -240,16 +299,31 @@ export function findSharedConditionAncestors(
 // ── Visual helpers ──────────────────────────────────────
 
 export function getMatchColor(percentage: number): string {
-  if (percentage >= 50) return "#d4a574";
-  if (percentage >= 25) return "#c49a6c";
-  if (percentage >= 12.5) return "#a0845c";
-  if (percentage > 0) return "#7a6a50";
-  return "#3a3a3a";
+  if (percentage <= 0) return "rgba(255, 255, 255, 0.14)";
+
+  // 0% -> light gold, 50%+ -> rich gold.
+  const t = Math.max(0, Math.min(1, percentage / 50));
+  const start = { r: 232, g: 201, b: 154 }; // #e8c99a
+  const end = { r: 184, g: 134, b: 74 }; // #b8864a
+
+  const r = Math.round(start.r + (end.r - start.r) * t);
+  const g = Math.round(start.g + (end.g - start.g) * t);
+  const b = Math.round(start.b + (end.b - start.b) * t);
+
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 export function getMatchGlow(percentage: number): string {
-  if (percentage >= 50) return "0 0 20px rgba(212, 165, 116, 0.6)";
-  if (percentage >= 25) return "0 0 15px rgba(196, 154, 108, 0.4)";
-  if (percentage >= 12.5) return "0 0 10px rgba(160, 132, 92, 0.3)";
-  return "none";
+  if (percentage <= 0) return "none";
+
+  const t = Math.max(0, Math.min(1, percentage / 50));
+  const blur = Math.round(10 + t * 14);
+  const alpha = 0.22 + t * 0.32;
+  return `0 0 ${blur}px rgba(212, 165, 116, ${alpha.toFixed(2)})`;
+}
+
+export function getMatchTextColor(percentage: number): string {
+  if (percentage >= 25) return "#fff7eb";
+  if (percentage > 0) return "#2b1906";
+  return "#fff7eb";
 }

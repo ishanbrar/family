@@ -5,7 +5,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   X,
   Camera,
@@ -15,16 +15,21 @@ import {
   Calendar,
   FileText,
   GitBranch,
+  PawPrint,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
-import type { Profile, RelationshipType } from "@/lib/types";
+import type { Profile, RelationshipType, Gender } from "@/lib/types";
 
 interface AddMemberModalProps {
   existingMembers: Profile[];
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (member: Omit<Profile, "id" | "created_at" | "updated_at">, relationship: { relativeId: string; type: RelationshipType }) => void;
+  onAdd: (
+    member: Omit<Profile, "id" | "created_at" | "updated_at">,
+    relationship: { relativeId: string; type: RelationshipType },
+    avatarFile?: File
+  ) => void;
 }
 
 const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string }[] = [
@@ -34,11 +39,23 @@ const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string }[] = [
   { value: "spouse", label: "Spouse of" },
   { value: "grandparent", label: "Grandparent of" },
   { value: "grandchild", label: "Grandchild of" },
-  { value: "aunt_uncle", label: "Aunt/Uncle of" },
+  { value: "maternal_aunt", label: "Maternal Aunt of" },
+  { value: "paternal_aunt", label: "Paternal Aunt of" },
+  { value: "maternal_uncle", label: "Maternal Uncle of" },
+  { value: "paternal_uncle", label: "Paternal Uncle of" },
   { value: "niece_nephew", label: "Niece/Nephew of" },
   { value: "cousin", label: "Cousin of" },
   { value: "half_sibling", label: "Half-Sibling of" },
 ];
+
+const GENDER_OPTIONS: { value: Gender; label: string }[] = [
+  { value: "female", label: "Female" },
+  { value: "male", label: "Male" },
+];
+
+function normalizeName(first: string, last: string) {
+  return `${first.trim().toLowerCase()}::${last.trim().toLowerCase()}`;
+}
 
 export function AddMemberModal({
   existingMembers,
@@ -48,9 +65,14 @@ export function AddMemberModal({
 }: AddMemberModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const avatarObjectUrlRef = useRef<string | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [gender, setGender] = useState<Gender | "">("");
   const [profession, setProfession] = useState("");
+  const [petsText, setPetsText] = useState("");
   const [locationCity, setLocationCity] = useState("");
   const [dob, setDob] = useState("");
   const [placeOfBirth, setPlaceOfBirth] = useState("");
@@ -58,44 +80,79 @@ export function AddMemberModal({
   const [isAlive, setIsAlive] = useState(true);
   const [relativeId, setRelativeId] = useState("");
   const [relType, setRelType] = useState<RelationshipType>("child");
+  const duplicateExisting = useMemo(() => {
+    if (!firstName.trim() || !lastName.trim()) return null;
+    const target = normalizeName(firstName, lastName);
+    return existingMembers.find((m) => normalizeName(m.first_name, m.last_name) === target) || null;
+  }, [firstName, lastName, existingMembers]);
 
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
-    setAvatarPreview(URL.createObjectURL(file));
+    setAvatarFile(file);
+    if (avatarObjectUrlRef.current) URL.revokeObjectURL(avatarObjectUrlRef.current);
+    const url = URL.createObjectURL(file);
+    avatarObjectUrlRef.current = url;
+    setAvatarPreview(url);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (avatarObjectUrlRef.current) URL.revokeObjectURL(avatarObjectUrlRef.current);
+    };
   }, []);
 
   const handleSubmit = () => {
-    if (!firstName.trim() || !lastName.trim() || !relativeId) return;
+    if (!firstName.trim() || !lastName.trim() || !gender || !relativeId || duplicateExisting) return;
+    const parsedPets = Array.from(
+      new Set(
+        petsText
+          .split(/[\n,]/)
+          .map((pet) => pet.trim())
+          .filter(Boolean)
+      )
+    );
 
     onAdd(
       {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
-        avatar_url: avatarPreview,
+        display_name: displayName.trim() || null,
+        gender: gender || null,
+        avatar_url: null,
         date_of_birth: dob || null,
         place_of_birth: placeOfBirth || null,
         profession: profession || null,
         location_city: locationCity || null,
         location_lat: null,
         location_lng: null,
+        pets: parsedPets,
         social_links: {},
         about_me: aboutMe || null,
         country_code: null,
         role: "MEMBER",
         is_alive: isAlive,
       },
-      { relativeId, type: relType }
+      { relativeId, type: relType },
+      avatarFile || undefined
     );
 
     // Reset
     setFirstName("");
     setLastName("");
+    setDisplayName("");
+    setGender("");
     setProfession("");
+    setPetsText("");
     setLocationCity("");
     setDob("");
     setPlaceOfBirth("");
     setAboutMe("");
+    if (avatarObjectUrlRef.current) {
+      URL.revokeObjectURL(avatarObjectUrlRef.current);
+      avatarObjectUrlRef.current = null;
+    }
     setAvatarPreview(null);
+    setAvatarFile(null);
     setIsAlive(true);
     onClose();
   };
@@ -113,7 +170,7 @@ export function AddMemberModal({
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
+            className="fixed inset-0 app-overlay backdrop-blur-sm z-50"
           />
 
           <motion.div
@@ -123,8 +180,7 @@ export function AddMemberModal({
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
             className="fixed inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
               sm:w-full sm:max-w-lg sm:max-h-[85vh] z-50
-              rounded-3xl overflow-hidden flex flex-col"
-            style={{ background: "rgba(17,17,17,0.97)", border: "1px solid rgba(255,255,255,0.08)" }}
+              rounded-3xl overflow-hidden flex flex-col app-surface"
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
@@ -167,8 +223,26 @@ export function AddMemberModal({
                     className={inputClass} placeholder="First name *" />
                   <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
                     className={inputClass} placeholder="Last name *" />
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className={inputClass}
+                    placeholder="Display name / nickname"
+                  />
+                  <select value={gender} onChange={(e) => setGender(e.target.value as Gender | "")} className={selectClass} required>
+                    <option value="" disabled>Select gender</option>
+                    {GENDER_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
+              {duplicateExisting && (
+                <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.08] px-3 py-2 text-xs text-amber-200/90">
+                  Looks like this person already exists: {duplicateExisting.first_name} {duplicateExisting.last_name}
+                </div>
+              )}
 
               {/* Relationship (REQUIRED) */}
               <div className="p-4 rounded-xl bg-gold-400/[0.04] border border-gold-400/10">
@@ -213,6 +287,19 @@ export function AddMemberModal({
                     className={inputClass} placeholder="e.g., Doctor" />
                 </div>
                 <div>
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <PawPrint size={10} /> Pets
+                  </label>
+                  <input
+                    type="text"
+                    value={petsText}
+                    onChange={(e) => setPetsText(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g., Luna, Bruno"
+                  />
+                  <p className="mt-1 text-[10px] text-white/25">Separate multiple pets with commas.</p>
+                </div>
+                <div>
                   <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">City</label>
                   <CitySearch value={locationCity} onChange={setLocationCity} placeholder="Search a city..." />
                 </div>
@@ -251,7 +338,7 @@ export function AddMemberModal({
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 onClick={handleSubmit}
-                disabled={!firstName.trim() || !lastName.trim() || !relativeId}
+                disabled={!firstName.trim() || !lastName.trim() || !gender || !relativeId || !!duplicateExisting}
                 className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium
                   hover:bg-gold-400/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >

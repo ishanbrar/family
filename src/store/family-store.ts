@@ -16,7 +16,7 @@ import { calculateGeneticMatch } from "@/lib/genetic-match";
 interface FamilyState {
   // Viewer
   viewer: Profile | null;
-  setViewer: (profile: Profile) => void;
+  setViewer: (profile: Profile | null) => void;
   updateViewer: (updates: Partial<Profile>) => void;
 
   // Members

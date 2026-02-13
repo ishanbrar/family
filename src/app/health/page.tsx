@@ -6,7 +6,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   HeartPulse,
   Dna,
@@ -23,12 +23,14 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
 import { CommandSearch } from "@/components/ui/CommandSearch";
 import { FamilyTree } from "@/components/tree/FamilyTree";
-import type { TreeConnection } from "@/components/tree/FamilyTree";
+import { GenerationInsights } from "@/components/tree/GenerationInsights";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { useFamilyData } from "@/hooks/use-family-data";
 import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findSharedConditionAncestors } from "@/lib/genetic-match";
-import type { MedicalCondition, UserCondition } from "@/lib/types";
+import type { MedicalCondition } from "@/lib/types";
+import { createFamilyTreeLayout } from "@/lib/tree-layout";
+import { createGenerationAnalytics } from "@/lib/generation-insights";
 
 type FilterType = "all" | "hereditary" | "chronic" | "autoimmune" | "mental_health";
 
@@ -61,10 +63,41 @@ export default function HealthPage() {
     [viewer, userConditions, addCondition]
   );
 
-  if (loading || !viewer) {
+  const treeLayout = useMemo(() => {
+    if (!viewer) return { nodes: [], connections: [], width: 800, height: 560 };
+    return createFamilyTreeLayout(members, relationships, viewer.id);
+  }, [members, relationships, viewer]);
+
+  const treeMembers = useMemo(() => {
+    if (!viewer) return [];
+    return treeLayout.nodes.map((n) => ({
+      profile: n.profile,
+      match: calculateGeneticMatch(viewer.id, n.profile.id, relationships, n.profile.gender),
+      x: n.x,
+      y: n.y,
+    }));
+  }, [treeLayout.nodes, viewer, relationships]);
+
+  const generationAnalytics = useMemo(
+    () => createGenerationAnalytics(treeLayout.nodes),
+    [treeLayout.nodes]
+  );
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <Loader2 size={24} className="text-gold-400 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!viewer) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-sm text-white/50 mb-3">You need to sign in to view health insights.</p>
+          <a href="/login" className="text-sm text-gold-300 hover:text-gold-200 transition-colors">Go to login</a>
+        </div>
       </div>
     );
   }
@@ -93,34 +126,6 @@ export default function HealthPage() {
     : [];
 
   const highlightedMemberIds = new Set([viewer.id, ...sharedAncestors.map((a) => a.memberId)]);
-
-  // Tree layout
-  const treePositions: Record<string, { x: number; y: number }> = {
-    "grandparent-001": { x: 330, y: 80 }, "grandparent-002": { x: 470, y: 80 },
-    "parent-001": { x: 240, y: 270 }, "parent-002": { x: 380, y: 270 },
-    "uncle-001": { x: 600, y: 270 }, "viewer-001": { x: 240, y: 460 },
-    "sibling-001": { x: 380, y: 460 }, "cousin-001": { x: 600, y: 460 },
-  };
-
-  const treeMembers = members.filter((p) => treePositions[p.id]).map((p) => ({
-    profile: p,
-    match: calculateGeneticMatch(viewer.id, p.id, relationships),
-    ...treePositions[p.id],
-  }));
-
-  const treeConnections: TreeConnection[] = [
-    { from: "grandparent-001", to: "grandparent-002", type: "spouse" },
-    { from: "parent-001", to: "parent-002", type: "spouse" },
-    { from: "grandparent-001", to: "parent-001", type: "parent" },
-    { from: "grandparent-002", to: "parent-001", type: "parent" },
-    { from: "grandparent-001", to: "uncle-001", type: "parent" },
-    { from: "grandparent-002", to: "uncle-001", type: "parent" },
-    { from: "parent-001", to: "viewer-001", type: "parent" },
-    { from: "parent-002", to: "viewer-001", type: "parent" },
-    { from: "parent-001", to: "sibling-001", type: "parent" },
-    { from: "parent-002", to: "sibling-001", type: "parent" },
-    { from: "uncle-001", to: "cousin-001", type: "parent" },
-  ];
 
   const highlightedConditionName = highlightedCondition
     ? allConditions.find((c) => c.id === highlightedCondition)?.name : null;
@@ -199,7 +204,7 @@ export default function HealthPage() {
                 <h3 className="font-serif text-base font-semibold text-white/90">Family History</h3>
                 <div className="flex items-center gap-1">
                   <Filter size={12} className="text-white/20" />
-                  {(["all", "hereditary", "autoimmune", "mental_health"] as FilterType[]).map((f) => (
+                  {(["all", "hereditary", "chronic", "autoimmune", "mental_health"] as FilterType[]).map((f) => (
                     <button key={f} onClick={() => setFilter(f)}
                       className={`px-2 py-0.5 rounded-lg text-[10px] font-medium transition-colors ${
                         filter === f ? "bg-gold-400/15 text-gold-300" : "text-white/25 hover:text-white/40"
@@ -268,9 +273,12 @@ export default function HealthPage() {
                   </span>
                 </div>
               </div>
-              <FamilyTree members={treeMembers} connections={treeConnections}
+              <FamilyTree members={treeMembers} connections={treeLayout.connections}
                 highlightedMembers={highlightedCondition ? highlightedMemberIds : new Set<string>()}
-                dimNonHighlighted={!!highlightedCondition} />
+                dimNonHighlighted={!!highlightedCondition}
+                canvasWidth={treeLayout.width}
+                canvasHeight={treeLayout.height} />
+              <GenerationInsights analytics={generationAnalytics} />
             </GlassCard>
 
             {sharedAncestors.length > 0 && (

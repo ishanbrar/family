@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
 /* ══════════════════════════════════════════════
@@ -8,29 +7,138 @@
 :root {
   --background: #0a0a0a;
   --foreground: #f5f5f5;
-  --gold-300: #d4a574;
-  --gold-400: #c49a6c;
-  --gold-500: #b8864a;
-  --gold-600: #a0744a;
-  --gold-700: #7a5a3a;
+  --accent-50: #fdf8f0;
+  --accent-100: #f5e6d0;
+  --accent-200: #e8c99a;
+  --accent-300: #d4a574;
+  --accent-400: #c49a6c;
+  --accent-500: #b8864a;
+  --accent-600: #a0744a;
+  --accent-700: #7a5a3a;
+  --accent-800: #5a4228;
+  --accent-900: #3a2a1a;
+  --accent-rgb: 212 165 116;
+  --gold-300: var(--accent-300);
+  --gold-400: var(--accent-400);
+  --gold-500: var(--accent-500);
+  --gold-600: var(--accent-600);
+  --gold-700: var(--accent-700);
   --glass-bg: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-highlight: rgba(255, 255, 255, 0.05);
+  --cmdk-bg: rgba(17, 17, 17, 0.95);
+  --cmdk-border: rgba(255, 255, 255, 0.1);
+  --cmdk-input-border: rgba(255, 255, 255, 0.08);
+  --cmdk-text: #f5f5f5;
+  --cmdk-muted: #666666;
+  --cmdk-item: #a0a0a0;
+  --cmdk-item-hover: rgba(255, 255, 255, 0.05);
+  --cmdk-item-selected: rgb(var(--accent-rgb) / 0.1);
+  --surface-bg: rgba(17, 17, 17, 0.96);
+  --surface-border: rgba(255, 255, 255, 0.08);
+  --popover-bg: rgba(20, 20, 20, 0.97);
+  --popover-border: rgba(255, 255, 255, 0.1);
+  --overlay-bg: rgba(0, 0, 0, 0.68);
+  --map-globe-bg: #0d0d0d;
+  --map-globe-stroke: rgba(255, 255, 255, 0.07);
+  --map-graticule: rgba(255, 255, 255, 0.03);
+  --map-country-fill: rgba(255, 255, 255, 0.03);
+  --map-country-stroke: rgba(255, 255, 255, 0.08);
+  --map-country-member-fill: rgb(var(--accent-rgb) / 0.18);
+  --map-country-member-stroke: rgb(var(--accent-rgb) / 0.42);
+  --map-country-focus-fill: rgb(var(--accent-rgb) / 0.3);
+  --map-country-focus-stroke: rgb(var(--accent-rgb) / 0.68);
+  --map-flat-bg: rgba(255, 255, 255, 0.02);
+  --map-flat-border: rgba(255, 255, 255, 0.06);
+}
+
+html.theme-blue {
+  --accent-50: #eff6ff;
+  --accent-100: #dbeafe;
+  --accent-200: #bfdbfe;
+  --accent-300: #93c5fd;
+  --accent-400: #60a5fa;
+  --accent-500: #3b82f6;
+  --accent-600: #2563eb;
+  --accent-700: #1d4ed8;
+  --accent-800: #1e40af;
+  --accent-900: #1e3a8a;
+  --accent-rgb: 96 165 250;
+}
+
+html.theme-red {
+  --accent-50: #fef2f2;
+  --accent-100: #fee2e2;
+  --accent-200: #fecaca;
+  --accent-300: #fca5a5;
+  --accent-400: #f87171;
+  --accent-500: #ef4444;
+  --accent-600: #dc2626;
+  --accent-700: #b91c1c;
+  --accent-800: #991b1b;
+  --accent-900: #7f1d1d;
+  --accent-rgb: 248 113 113;
+}
+
+html.theme-yellow {
+  --accent-50: #fefce8;
+  --accent-100: #fef9c3;
+  --accent-200: #fef08a;
+  --accent-300: #fde047;
+  --accent-400: #facc15;
+  --accent-500: #eab308;
+  --accent-600: #ca8a04;
+  --accent-700: #a16207;
+  --accent-800: #854d0e;
+  --accent-900: #713f12;
+  --accent-rgb: 250 204 21;
+}
+
+html.light {
+  --background: #f5f7fb;
+  --foreground: #0f172a;
+  --glass-bg: rgba(15, 23, 42, 0.04);
+  --glass-border: rgba(15, 23, 42, 0.12);
+  --glass-highlight: rgba(15, 23, 42, 0.06);
+  --cmdk-bg: rgba(255, 255, 255, 0.98);
+  --cmdk-border: rgba(15, 23, 42, 0.14);
+  --cmdk-input-border: rgba(15, 23, 42, 0.12);
+  --cmdk-text: #0f172a;
+  --cmdk-muted: #64748b;
+  --cmdk-item: #334155;
+  --cmdk-item-hover: rgba(15, 23, 42, 0.05);
+  --cmdk-item-selected: rgb(var(--accent-rgb) / 0.2);
+  --surface-bg: rgba(255, 255, 255, 0.96);
+  --surface-border: rgba(15, 23, 42, 0.16);
+  --popover-bg: rgba(255, 255, 255, 0.98);
+  --popover-border: rgba(15, 23, 42, 0.16);
+  --overlay-bg: rgba(15, 23, 42, 0.36);
+  --map-globe-bg: #ebf2f8;
+  --map-globe-stroke: rgba(15, 23, 42, 0.2);
+  --map-graticule: rgba(15, 23, 42, 0.2);
+  --map-country-fill: rgba(15, 23, 42, 0.12);
+  --map-country-stroke: rgba(15, 23, 42, 0.26);
+  --map-country-member-fill: rgb(var(--accent-rgb) / 0.2);
+  --map-country-member-stroke: rgb(var(--accent-rgb) / 0.5);
+  --map-country-focus-fill: rgb(var(--accent-rgb) / 0.3);
+  --map-country-focus-stroke: rgb(var(--accent-rgb) / 0.72);
+  --map-flat-bg: rgba(255, 255, 255, 0.92);
+  --map-flat-border: rgba(15, 23, 42, 0.18);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-gold-50: #fdf8f0;
-  --color-gold-100: #f5e6d0;
-  --color-gold-200: #e8c99a;
-  --color-gold-300: #d4a574;
-  --color-gold-400: #c49a6c;
-  --color-gold-500: #b8864a;
-  --color-gold-600: #a0744a;
-  --color-gold-700: #7a5a3a;
-  --color-gold-800: #5a4228;
-  --color-gold-900: #3a2a1a;
+  --color-gold-50: var(--accent-50);
+  --color-gold-100: var(--accent-100);
+  --color-gold-200: var(--accent-200);
+  --color-gold-300: var(--accent-300);
+  --color-gold-400: var(--accent-400);
+  --color-gold-500: var(--accent-500);
+  --color-gold-600: var(--accent-600);
+  --color-gold-700: var(--accent-700);
+  --color-gold-800: var(--accent-800);
+  --color-gold-900: var(--accent-900);
   --color-glass-bg: rgba(255, 255, 255, 0.03);
   --color-glass-border: rgba(255, 255, 255, 0.08);
   --color-glass-highlight: rgba(255, 255, 255, 0.05);
@@ -55,69 +163,88 @@ body {
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 ::selection {
-  background: rgba(212, 165, 116, 0.3);
-  color: #fff;
+  background: rgb(var(--accent-rgb) / 0.3);
+  color: var(--foreground);
 }
 
 /* ── Glassmorphism Utilities ──────────────────── */
 
 .glass {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
 }
 
 .glass-elevated {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--glass-bg) 85%, transparent);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 90%, transparent);
 }
 
 .glass-card {
   background: linear-gradient(
     135deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    rgba(255, 255, 255, 0.01) 100%
+    color-mix(in srgb, var(--glass-bg) 90%, transparent) 0%,
+    color-mix(in srgb, var(--glass-bg) 40%, transparent) 100%
   );
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 85%, transparent);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 8px 32px color-mix(in srgb, var(--foreground) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 90%, transparent);
+}
+
+.app-surface {
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+}
+
+.app-popover {
+  background: var(--popover-bg);
+  border: 1px solid var(--popover-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.app-overlay {
+  background: var(--overlay-bg);
 }
 
 /* ── Gold Glow Effects ────────────────────────── */
 
 .glow-gold {
   box-shadow:
-    0 0 20px rgba(212, 165, 116, 0.15),
-    0 0 40px rgba(212, 165, 116, 0.05);
+    0 0 20px rgb(var(--accent-rgb) / 0.15),
+    0 0 40px rgb(var(--accent-rgb) / 0.05);
 }
 
 .glow-gold-intense {
   box-shadow:
-    0 0 30px rgba(212, 165, 116, 0.3),
-    0 0 60px rgba(212, 165, 116, 0.1);
+    0 0 30px rgb(var(--accent-rgb) / 0.3),
+    0 0 60px rgb(var(--accent-rgb) / 0.1);
 }
 
 .text-glow-gold {
-  text-shadow: 0 0 20px rgba(212, 165, 116, 0.4);
+  text-shadow: 0 0 20px rgb(var(--accent-rgb) / 0.4);
 }
 
 /* ── Blood Ring Animation ─────────────────────── */
 
 @keyframes blood-pulse {
   0%, 100% {
-    filter: drop-shadow(0 0 8px rgba(212, 165, 116, 0.3));
+    filter: drop-shadow(0 0 8px rgb(var(--accent-rgb) / 0.3));
   }
   50% {
-    filter: drop-shadow(0 0 16px rgba(212, 165, 116, 0.6));
+    filter: drop-shadow(0 0 16px rgb(var(--accent-rgb) / 0.55));
   }
 }
 
@@ -172,30 +299,30 @@ h1, h2, h3, .heading {
 /* ── CMDK Overrides ───────────────────────────── */
 
 [cmdk-root] {
-  background: rgba(17, 17, 17, 0.95);
+  background: var(--cmdk-bg);
   backdrop-filter: blur(30px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--cmdk-border);
   border-radius: 16px;
   overflow: hidden;
   box-shadow:
     0 25px 50px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+    0 0 0 1px color-mix(in srgb, var(--cmdk-border) 60%, transparent);
 }
 
 [cmdk-input] {
   width: 100%;
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--cmdk-input-border);
   padding: 16px 20px;
   font-size: 16px;
-  color: #f5f5f5;
+  color: var(--cmdk-text);
   outline: none;
   font-family: "Inter", system-ui, sans-serif;
 }
 
 [cmdk-input]::placeholder {
-  color: #666;
+  color: var(--cmdk-muted);
 }
 
 [cmdk-list] {
@@ -208,7 +335,7 @@ h1, h2, h3, .heading {
   padding: 10px 14px;
   border-radius: 10px;
   cursor: pointer;
-  color: #a0a0a0;
+  color: var(--cmdk-item);
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -217,12 +344,12 @@ h1, h2, h3, .heading {
 }
 
 [cmdk-item][data-selected="true"] {
-  background: rgba(212, 165, 116, 0.1);
-  color: #f5f5f5;
+  background: var(--cmdk-item-selected);
+  color: var(--cmdk-text);
 }
 
 [cmdk-item]:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--cmdk-item-hover);
 }
 
 [cmdk-group-heading] {
@@ -231,19 +358,19 @@ h1, h2, h3, .heading {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #666;
+  color: var(--cmdk-muted);
 }
 
 [cmdk-separator] {
   height: 1px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--cmdk-input-border);
   margin: 4px 0;
 }
 
 [cmdk-empty] {
   padding: 32px;
   text-align: center;
-  color: #666;
+  color: var(--cmdk-muted);
   font-size: 14px;
 }
 
@@ -255,7 +382,95 @@ h1, h2, h3, .heading {
   cursor: pointer;
 }
 
-.privacy-blur:hover,
 .privacy-blur.revealed {
   filter: blur(0);
+}
+
+/* ── Light mode compatibility overrides for existing dark utility classes ── */
+
+html.light .bg-\[\#0a0a0a\],
+html.light .bg-\[\#050505\] {
+  background-color: var(--background) !important;
+}
+
+html.light .text-white {
+  color: rgba(15, 23, 42, 0.92) !important;
+}
+
+html.light [class*="text-white/"] {
+  color: rgba(15, 23, 42, 0.84) !important;
+}
+
+html.light [class*="border-white/"] {
+  border-color: rgba(15, 23, 42, 0.16) !important;
+}
+
+html.light [class*="bg-white/"] {
+  background-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+html.light [class*="bg-black/"] {
+  background-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+html.light .text-white\/95 {
+  color: rgba(15, 23, 42, 0.95) !important;
+}
+
+html.light .text-white\/90 {
+  color: rgba(15, 23, 42, 0.9) !important;
+}
+
+html.light .text-white\/80 {
+  color: rgba(15, 23, 42, 0.82) !important;
+}
+
+html.light .text-white\/70 {
+  color: rgba(15, 23, 42, 0.74) !important;
+}
+
+html.light .text-white\/60 {
+  color: rgba(15, 23, 42, 0.66) !important;
+}
+
+html.light .text-white\/50 {
+  color: rgba(15, 23, 42, 0.56) !important;
+}
+
+html.light .text-white\/40 {
+  color: rgba(15, 23, 42, 0.48) !important;
+}
+
+html.light .text-white\/35 {
+  color: rgba(15, 23, 42, 0.42) !important;
+}
+
+html.light .text-white\/30 {
+  color: rgba(15, 23, 42, 0.36) !important;
+}
+
+html.light .text-white\/25 {
+  color: rgba(15, 23, 42, 0.3) !important;
+}
+
+html.light .text-white\/20 {
+  color: rgba(15, 23, 42, 0.24) !important;
+}
+
+html.light .text-white\/15 {
+  color: rgba(15, 23, 42, 0.2) !important;
+}
+
+html.light .text-gold-300 {
+  color: var(--accent-700) !important;
+}
+
+html.light .text-gold-400 {
+  color: var(--accent-800) !important;
+}
+
+html.light .bg-gold-400\/10,
+html.light .bg-gold-400\/12,
+html.light .bg-gold-400\/15 {
+  background-color: rgb(var(--accent-rgb) / 0.12) !important;
 }

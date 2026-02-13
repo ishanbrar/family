@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 
 export type Role = "ADMIN" | "MEMBER";
+export type Gender = "female" | "male";
 
 export type RelationshipType =
   | "parent"
@@ -13,6 +14,10 @@ export type RelationshipType =
   | "grandparent"
   | "grandchild"
   | "aunt_uncle"
+  | "maternal_aunt"
+  | "paternal_aunt"
+  | "maternal_uncle"
+  | "paternal_uncle"
   | "niece_nephew"
   | "cousin";
 
@@ -22,6 +27,8 @@ export interface Profile {
   id: string;
   first_name: string;
   last_name: string;
+  display_name: string | null;
+  gender: Gender | null;
   avatar_url: string | null;
   date_of_birth: string | null;
   place_of_birth: string | null;
@@ -29,6 +36,7 @@ export interface Profile {
   location_city: string | null;
   location_lat: number | null;
   location_lng: number | null;
+  pets: string[];
   social_links: SocialLinks;
   about_me: string | null;
   country_code: string | null;

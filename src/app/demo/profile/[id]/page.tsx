@@ -8,8 +8,8 @@ import { motion } from "framer-motion";
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import {
-  MapPin, Briefcase, Calendar, Shield, Crown,
-  ArrowLeft, Heart, Quote, Edit3,
+  MapPin, Briefcase, Calendar, User, Shield, Crown,
+  ArrowLeft, Heart, Quote, Edit3, PawPrint,
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
@@ -24,6 +24,7 @@ import {
   MOCK_USER_CONDITIONS,
 } from "@/lib/mock-data";
 import { calculateGeneticMatch } from "@/lib/genetic-match";
+import { formatGenderLabel } from "@/lib/display-format";
 import type { Profile } from "@/lib/types";
 
 export default function DemoProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,7 +54,7 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
   const isViewer = member.id === viewer.id;
   const geneticMatch = isViewer
     ? { percentage: 100, relationship: "Self", path: [viewer.id] }
-    : calculateGeneticMatch(viewer.id, member.id, relationships);
+    : calculateGeneticMatch(viewer.id, member.id, relationships, member.gender);
 
   const memberConditions = MOCK_USER_CONDITIONS.filter((uc) => uc.user_id === member.id);
   const isImmediate = isViewer || relationships.some((r) =>
@@ -62,11 +63,18 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
   );
 
   const age = member.date_of_birth
-    ? Math.floor((Date.now() - new Date(member.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    ? (() => {
+        const birth = new Date(member.date_of_birth);
+        const today = new Date();
+        let years = today.getFullYear() - birth.getFullYear();
+        const monthOffset = today.getMonth() - birth.getMonth();
+        if (monthOffset < 0 || (monthOffset === 0 && today.getDate() < birth.getDate())) years--;
+        return years;
+      })()
     : null;
 
   const connections = members.filter((p) => p.id !== member.id).map((p) => ({
-    profile: p, match: calculateGeneticMatch(member.id, p.id, relationships),
+    profile: p, match: calculateGeneticMatch(member.id, p.id, relationships, p.gender),
   }));
 
   const handleSave = (updates: Partial<Profile> & { avatarFile?: File }) => {
@@ -102,6 +110,9 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
             </button>
             <div>
               <h1 className="font-serif text-3xl font-bold text-white/95">{member.first_name} {member.last_name}</h1>
+              {member.display_name && (
+                <p className="text-sm text-gold-300/80 mt-0.5">{member.display_name}</p>
+              )}
               <p className="text-sm text-white/35 mt-0.5">
                 {isViewer ? "Your profile" : `${geneticMatch.relationship} · ${geneticMatch.percentage}% blood match`}
               </p>
@@ -121,6 +132,7 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
                 avatarUrl={member.avatar_url} initials={`${member.first_name[0]}${member.last_name[0]}`}
                 showPercentage={!isViewer} label={isViewer ? "You" : geneticMatch.relationship} />
               <h2 className="mt-5 font-serif text-2xl font-bold text-white/95">{member.first_name} {member.last_name}</h2>
+              {member.display_name && <p className="text-xs text-gold-300/85 mt-1">{member.display_name}</p>}
               <div className="mt-2 flex items-center gap-2">
                 {member.role === "ADMIN" ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gold-400/10 text-gold-300 text-[10px] font-semibold uppercase">
@@ -150,7 +162,10 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
 
               <div className="mt-5 w-full space-y-3">
                 {[
+                  { icon: User, label: "Display Name", value: member.display_name },
+                  { icon: User, label: "Gender", value: formatGenderLabel(member.gender) },
                   { icon: Briefcase, label: "Profession", value: member.profession },
+                  { icon: PawPrint, label: "Pets", value: member.pets.length > 0 ? member.pets.join(", ") : null },
                   { icon: MapPin, label: "Location", value: member.location_city },
                   { icon: Calendar, label: "Date of Birth", value: member.date_of_birth
                     ? `${new Date(member.date_of_birth).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}${age !== null ? ` (${age})` : ""}` : null },

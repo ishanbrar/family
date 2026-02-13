@@ -7,9 +7,10 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
-import { MapPin, Briefcase, Calendar, Star } from "lucide-react";
+import { MapPin, Briefcase, Calendar, Star, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
+import { formatGenderLabel } from "@/lib/display-format";
 import { GeneticMatchRing } from "./GeneticMatchRing";
 import { SocialDock } from "./SocialDock";
 import { GlassCard } from "./GlassCard";
@@ -87,6 +88,11 @@ export function ProfileCard({
         >
           {profile.first_name} {profile.last_name}
         </motion.h3>
+        {profile.display_name && (
+          <p className="mt-1 text-xs text-gold-300/85">
+            {profile.display_name}
+          </p>
+        )}
 
         {/* Alive/Deceased Badge */}
         {!profile.is_alive && (
@@ -112,6 +118,12 @@ export function ProfileCard({
             <div className="flex items-center justify-center gap-1.5 text-xs text-white/40">
               <Briefcase size={12} />
               <span>{profile.profession}</span>
+            </div>
+          )}
+          {profile.gender && (
+            <div className="flex items-center justify-center gap-1.5 text-xs text-white/40">
+              <User size={12} />
+              <span>{formatGenderLabel(profile.gender)}</span>
             </div>
           )}
           {profile.location_city && (

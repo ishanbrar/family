@@ -24,6 +24,7 @@ export function CitySearch({
   placeholder = "Search a city...",
   className,
 }: CitySearchProps) {
+  const MAX_RESULTS = 14;
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<City[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -37,11 +38,11 @@ export function CitySearch({
 
   const handleSearch = useCallback((text: string) => {
     setQuery(text);
-    const matches = searchCities(text);
+    const matches = searchCities(text, MAX_RESULTS);
     setResults(matches);
-    setIsOpen(matches.length > 0 && text.length >= 2);
+    setIsOpen(matches.length > 0);
     setActiveIndex(-1);
-  }, []);
+  }, [MAX_RESULTS]);
 
   const handleSelect = useCallback(
     (city: City) => {
@@ -86,7 +87,9 @@ export function CitySearch({
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           onFocus={() => {
-            if (results.length > 0) setIsOpen(true);
+            const matches = searchCities(query, MAX_RESULTS);
+            setResults(matches);
+            setIsOpen(matches.length > 0);
           }}
           onBlur={() => {
             // Delay to allow click on dropdown
@@ -98,7 +101,7 @@ export function CitySearch({
             text-sm text-white/90 placeholder:text-white/20 outline-none
             focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200"
         />
-        {query.length > 0 && results.length === 0 && query.length >= 2 && (
+        {query.length > 0 && results.length === 0 && (
           <Search
             size={12}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-white/10"
@@ -115,8 +118,7 @@ export function CitySearch({
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
             className="absolute z-50 top-full mt-1 left-0 right-0
-              rounded-xl overflow-hidden shadow-2xl border border-white/[0.1]"
-            style={{ background: "rgba(20, 20, 20, 0.97)", backdropFilter: "blur(20px)" }}
+              rounded-xl overflow-hidden shadow-2xl app-popover"
           >
             {results.map((city, i) => (
               <button

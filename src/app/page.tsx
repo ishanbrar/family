@@ -1,33 +1,78 @@
 "use client";
 
-// ══════════════════════════════════════════════════════════
-// Legacy – Landing Page
-// Routes to login/signup when auth is active.
-// ══════════════════════════════════════════════════════════
-
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Crown, ArrowRight, GitBranch, HeartPulse, Globe, LogIn, UserPlus } from "lucide-react";
+import { Crown, ArrowRight, LogIn, Eye, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+const HOW_IT_WORKS_STEPS = [
+  {
+    number: "1",
+    title: "Create your profile",
+    description: "Add yourself first so your tree starts from the right root person.",
+    screenshotPath: "/signup",
+  },
+  {
+    number: "2",
+    title: "Add 3 core relatives",
+    description: "Use starter templates and suggestions to quickly add your first branch.",
+    screenshotPath: "/demo",
+  },
+  {
+    number: "3",
+    title: "Invite 1 family member",
+    description: "Share your invite code so your family can join the same network.",
+    screenshotPath: "/signup?mode=join&code=DEMO1234",
+  },
+];
+
+function ScreenshotFrame({ src, title }: { src: string; title: string }) {
+  return (
+    <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/[0.1] bg-[#050505]">
+      <div className="absolute left-0 top-0 z-10 flex items-center gap-1.5 px-3 py-2">
+        <span className="w-2 h-2 rounded-full bg-red-400/70" />
+        <span className="w-2 h-2 rounded-full bg-yellow-400/70" />
+        <span className="w-2 h-2 rounded-full bg-green-400/70" />
+      </div>
+      <div className="absolute inset-0 overflow-hidden">
+        <iframe
+          title={title}
+          src={src}
+          className="border-0 pointer-events-none absolute left-0 top-0 h-[220%] w-[220%] origin-top-left scale-[0.455]"
+          loading="lazy"
+        />
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+    </div>
+  );
+}
 
 export default function LandingPage() {
+  const router = useRouter();
+  const [joinCode, setJoinCode] = useState("");
+
+  const handleJoinByCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    const normalized = joinCode.trim().toUpperCase();
+    if (!normalized) return;
+    router.push(`/signup?mode=join&code=${encodeURIComponent(normalized)}`);
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div
-          className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(212,165,116,0.04) 0%, transparent 70%)" }}
+          className="absolute top-[-220px] left-1/2 -translate-x-1/2 w-[860px] h-[860px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(212,165,116,0.08) 0%, transparent 72%)" }}
         />
         <div
-          className="absolute bottom-0 left-0 right-0 h-[400px]"
-          style={{ background: "linear-gradient(180deg, transparent 0%, rgba(212,165,116,0.02) 100%)" }}
+          className="absolute bottom-0 left-0 right-0 h-[420px]"
+          style={{ background: "linear-gradient(180deg, transparent 0%, rgba(212,165,116,0.03) 100%)" }}
         />
       </div>
 
-      <motion.header
-        initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="relative z-10 flex items-center justify-between px-8 lg:px-16 py-6"
-      >
+      <header className="relative z-10 flex items-center justify-between px-6 lg:px-16 py-6">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gold-400/10 border border-gold-400/20">
             <Crown size={20} className="text-gold-400" />
@@ -35,83 +80,147 @@ export default function LandingPage() {
           <span className="font-serif text-xl font-semibold text-white/90 tracking-wide">Legacy</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Link href="/login">
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className="glass flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white/60 hover:text-gold-300 hover:border-gold-400/30 transition-all duration-300">
-              <LogIn size={14} /> Sign In
-            </motion.button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/demo"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs text-white/55 hover:text-white/75 hover:bg-white/[0.04] transition-colors"
+          >
+            <Eye size={13} />
+            View Demo
           </Link>
-          <Link href="/signup">
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 transition-colors">
-              <UserPlus size={14} /> Get Started
-            </motion.button>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.1] text-xs text-white/70 hover:text-gold-300 hover:border-gold-400/30 transition-colors"
+          >
+            <LogIn size={13} />
+            Sign In
           </Link>
         </div>
-      </motion.header>
+      </header>
 
-      <main className="relative z-10 flex flex-col items-center justify-center px-8 pt-24 lg:pt-32">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="glass inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8">
-          <span className="w-1.5 h-1.5 rounded-full bg-gold-400 animate-pulse" />
-          <span className="text-xs font-medium text-white/50 tracking-wider uppercase">Ancestry & Health Intelligence</span>
-        </motion.div>
+      <main className="relative z-10 px-6 lg:px-16 pb-20">
+        <section className="pt-16 lg:pt-24 max-w-5xl mx-auto text-center">
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-gold-400/20 bg-gold-400/[0.07] text-[11px] tracking-wide uppercase text-gold-300/85"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-gold-300" />
+            Family tree onboarding that actually finishes
+          </motion.p>
 
-        <motion.h1 initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.8 }}
-          className="font-serif text-5xl lg:text-7xl xl:text-8xl font-bold text-center leading-tight">
-          <span className="text-white/95">Know Your</span><br />
-          <span style={{
-            background: "linear-gradient(135deg, #d4a574 0%, #e8c99a 50%, #c49a6c 100%)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-          }}>Bloodline</span>
-        </motion.h1>
+          <motion.h1
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+            className="mt-6 font-serif text-4xl sm:text-5xl lg:text-7xl leading-tight"
+          >
+            <span className="text-white/95">Build your family network</span>
+            <br />
+              <span
+                style={{
+                  background: "linear-gradient(135deg, var(--accent-300) 0%, var(--accent-200) 45%, var(--accent-500) 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+            >
+              in 10 minutes.
+            </span>
+          </motion.h1>
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-          className="mt-6 text-lg lg:text-xl text-white/40 text-center max-w-xl leading-relaxed">
-          Trace your genetic legacy. Understand inherited health patterns.<br />Connect with family across the globe.
-        </motion.p>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.15 }}
+            className="mt-5 text-base lg:text-lg text-white/45 max-w-2xl mx-auto"
+          >
+            One guided flow: add yourself, add 3 core relatives, invite 1 family member. No blank-canvas confusion.
+          </motion.p>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.2 }} className="mt-10 flex items-center gap-4">
-          <Link href="/signup">
-            <motion.button whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }}
-              className="group flex items-center gap-3 px-7 py-3.5 rounded-2xl
-                bg-gradient-to-r from-gold-500 to-gold-400 text-[#0a0a0a]
-                font-semibold text-sm tracking-wide shadow-lg glow-gold hover:glow-gold-intense transition-all duration-300">
-              Explore Your Legacy
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </motion.button>
-          </Link>
-        </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="mt-8 space-y-3"
+          >
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl bg-gradient-to-r from-gold-500 to-gold-400 text-[#0a0a0a] text-sm font-semibold shadow-lg hover:opacity-95 transition-opacity"
+            >
+              Build your family network in 10 minutes
+              <ArrowRight size={15} />
+            </Link>
 
-        <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.6, duration: 0.8 }}
-          className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full">
-          {[
-            { icon: GitBranch, title: "Blood Match", desc: "Scientifically accurate genetic relationship coefficients visualized as glowing Blood Rings." },
-            { icon: HeartPulse, title: "Health DNA", desc: "Track hereditary conditions across generations. See genetic threads connecting your family." },
-            { icon: Globe, title: "Global Family", desc: "Interactive globe showing your family's worldwide presence with real-time location pulses." },
-          ].map((feature, i) => {
-            const Icon = feature.icon;
-            return (
-              <motion.div key={feature.title}
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.8 + i * 0.15 }} whileHover={{ y: -4 }}
-                className="glass-card rounded-2xl p-6 group cursor-default">
-                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gold-400/10 mb-4 group-hover:bg-gold-400/15 transition-colors duration-300">
-                  <Icon size={22} className="text-gold-400/70 group-hover:text-gold-300 transition-colors" />
+            <form onSubmit={handleJoinByCode} className="max-w-md mx-auto flex gap-2">
+              <input
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="Already have a family code?"
+                className="flex-1 h-11 rounded-xl bg-white/[0.03] border border-white/[0.12] px-3 text-sm text-white/85 placeholder:text-white/28 outline-none focus:border-gold-400/35"
+                autoCapitalize="none"
+              />
+              <button
+                type="submit"
+                className="h-11 px-4 rounded-xl bg-white/[0.04] border border-white/[0.14] text-sm text-white/80 hover:text-white/95 hover:border-gold-400/28 transition-colors"
+              >
+                Join by Code
+              </button>
+            </form>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.35 }}
+            className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-white/35"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle2 size={12} className="text-gold-300/80" />
+              Guided onboarding
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle2 size={12} className="text-gold-300/80" />
+              Invite-code sharing
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle2 size={12} className="text-gold-300/80" />
+              Shared family tree
+            </span>
+          </motion.div>
+        </section>
+
+        <section className="mt-20 lg:mt-24 max-w-6xl mx-auto">
+          <div className="mb-8">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-white/35">How it works</p>
+            <h2 className="font-serif text-3xl lg:text-4xl text-white/92 mt-2">
+              Three steps, real product screens
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {HOW_IT_WORKS_STEPS.map((step, index) => (
+              <motion.article
+                key={step.number}
+                initial={{ opacity: 0, y: 18 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ delay: index * 0.08 }}
+                className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4"
+              >
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-gold-400/15 text-gold-300 text-xs font-semibold">
+                      {step.number}
+                    </span>
+                    <h3 className="mt-2 font-serif text-xl text-white/90">{step.title}</h3>
+                  </div>
                 </div>
-                <h3 className="font-serif text-lg font-semibold text-white/90 mb-2">{feature.title}</h3>
-                <p className="text-sm text-white/35 leading-relaxed">{feature.desc}</p>
-              </motion.div>
-            );
-          })}
-        </motion.div>
-
-        <div className="h-32" />
+                <p className="text-sm text-white/45 mb-4">{step.description}</p>
+                <ScreenshotFrame src={step.screenshotPath} title={step.title} />
+              </motion.article>
+            ))}
+          </div>
+        </section>
       </main>
     </div>
   );

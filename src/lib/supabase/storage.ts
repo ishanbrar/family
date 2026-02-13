@@ -12,11 +12,19 @@ const BUCKET = "avatars";
  */
 export async function uploadAvatar(
   supabase: SupabaseClient,
-  userId: string,
+  targetUserId: string,
   file: File
 ): Promise<string | null> {
+  if (!file.type.startsWith("image/")) return null;
+  if (file.size > 8 * 1024 * 1024) return null; // 8MB hard cap
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  const path = `${userId}/avatar-${Date.now()}.${ext}`;
+  const path = `${user.id}/${targetUserId}/avatar-${Date.now()}.${ext}`;
 
   const { error } = await supabase.storage
     .from(BUCKET)

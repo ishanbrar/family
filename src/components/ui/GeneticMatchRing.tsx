@@ -8,7 +8,7 @@
 
 import { motion } from "framer-motion";
 import { cn } from "@/lib/cn";
-import { getMatchColor, getMatchGlow } from "@/lib/genetic-match";
+import { getMatchColor, getMatchGlow, getMatchTextColor } from "@/lib/genetic-match";
 
 interface GeneticMatchRingProps {
   percentage: number;
@@ -36,6 +36,7 @@ export function GeneticMatchRing({
   const progress = (percentage / 100) * circumference;
   const color = getMatchColor(percentage);
   const glow = getMatchGlow(percentage);
+  const badgeTextColor = getMatchTextColor(percentage);
 
   return (
     <div className={cn("relative flex flex-col items-center gap-2", className)}>
@@ -91,7 +92,7 @@ export function GeneticMatchRing({
             <div
               className="w-full h-full rounded-full flex items-center justify-center text-white/80 font-serif font-medium"
               style={{
-                background: `linear-gradient(135deg, rgba(212, 165, 116, 0.15) 0%, rgba(212, 165, 116, 0.05) 100%)`,
+                background: "linear-gradient(135deg, rgb(var(--accent-rgb) / 0.24) 0%, rgb(var(--accent-rgb) / 0.16) 100%)",
                 fontSize: size * 0.25,
               }}
             >
@@ -109,7 +110,7 @@ export function GeneticMatchRing({
             className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-xs font-medium"
             style={{
               background: color,
-              color: "#0a0a0a",
+              color: badgeTextColor,
               boxShadow: glow,
             }}
           >

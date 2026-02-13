@@ -18,6 +18,11 @@ const RAW: [string, string, string, string][] = [
   ["Chicago", "IL", "USA", "USA"],
   ["Houston", "TX", "USA", "USA"],
   ["Dallas", "TX", "USA", "USA"],
+  ["Fort Worth", "TX", "USA", "USA"],
+  ["Plano", "TX", "USA", "USA"],
+  ["Arlington", "TX", "USA", "USA"],
+  ["Irving", "TX", "USA", "USA"],
+  ["Frisco", "TX", "USA", "USA"],
   ["Phoenix", "AZ", "USA", "USA"],
   ["Philadelphia", "PA", "USA", "USA"],
   ["San Antonio", "TX", "USA", "USA"],
@@ -324,18 +329,129 @@ export const WORLD_CITIES: City[] = RAW.map(([name, region, country, countryCode
     : `${name}, ${country}`,
 }));
 
+const PRIORITY_COUNTRIES = new Set([
+  "USA",
+  "CAN",
+  "IND",
+  "GBR",
+  "FRA",
+  "DEU",
+  "ESP",
+  "ITA",
+  "NLD",
+  "BEL",
+  "CHE",
+  "AUT",
+  "CZE",
+  "POL",
+  "HUN",
+  "PRT",
+  "IRL",
+  "DNK",
+  "SWE",
+  "NOR",
+  "FIN",
+  "GRC",
+  "ROU",
+]);
+
+const REGION_ALIASES: Record<string, string[]> = {
+  TX: ["texas"],
+  CA: ["california"],
+  NY: ["new york state"],
+  IL: ["illinois"],
+  AZ: ["arizona"],
+  PA: ["pennsylvania"],
+  WA: ["washington state"],
+  CO: ["colorado"],
+  FL: ["florida"],
+  NC: ["north carolina"],
+  TN: ["tennessee"],
+  MA: ["massachusetts"],
+  OR: ["oregon"],
+  NV: ["nevada"],
+  GA: ["georgia"],
+  DC: ["district of columbia", "washington dc"],
+  ON: ["ontario"],
+  BC: ["british columbia"],
+  QC: ["quebec"],
+  AB: ["alberta"],
+  NS: ["nova scotia"],
+  MB: ["manitoba"],
+  NCR: ["delhi ncr", "national capital region"],
+  "Punjab/Haryana": ["punjab", "haryana"],
+};
+
+const FEATURED_CITY_NAMES = new Set([
+  "New York",
+  "Los Angeles",
+  "Chicago",
+  "Houston",
+  "Dallas",
+  "Plano",
+  "San Francisco",
+  "Toronto",
+  "Vancouver",
+  "London",
+  "Paris",
+  "Berlin",
+  "Madrid",
+  "Rome",
+  "Amsterdam",
+  "Dublin",
+  "Mumbai",
+  "Delhi",
+  "Bangalore",
+  "Chandigarh",
+]);
+
+function cityScore(city: City, q: string): number {
+  const name = city.name.toLowerCase();
+  const region = city.region.toLowerCase();
+  const country = city.country.toLowerCase();
+  const label = city.label.toLowerCase();
+  const aliasBucket = REGION_ALIASES[city.region] || [];
+  const aliases = aliasBucket.map((a) => a.toLowerCase());
+  const priorityBonus = PRIORITY_COUNTRIES.has(city.countryCode) ? 12 : 0;
+
+  if (!q) {
+    const featuredBonus = FEATURED_CITY_NAMES.has(city.name) ? 60 : 0;
+    return featuredBonus + priorityBonus + (city.countryCode === "USA" ? 8 : 0);
+  }
+
+  let score = 0;
+  if (name === q) score += 140;
+  if (name.startsWith(q)) score += 90;
+  if (name.includes(q)) score += 55;
+  if (region.includes(q)) score += 40;
+  if (country.includes(q)) score += 38;
+  if (label.includes(q)) score += 25;
+  if (aliases.some((a) => a.includes(q))) score += 45;
+  score += priorityBonus;
+
+  return score;
+}
+
+export function getPopularCities(limit = 14): City[] {
+  return WORLD_CITIES
+    .map((city) => ({ city, score: cityScore(city, "") }))
+    .sort((a, b) => b.score - a.score || a.city.name.localeCompare(b.city.name))
+    .slice(0, limit)
+    .map((entry) => entry.city);
+}
+
 /**
- * Search cities by query string. Returns top 8 matches.
- * Matches on city name, region, or country.
+ * Search cities by query string with priority ranking for
+ * USA, Canada, Europe, and India. Empty query returns popular cities.
  */
-export function searchCities(query: string): City[] {
-  if (!query || query.length < 2) return [];
-  const q = query.toLowerCase();
-  return WORLD_CITIES.filter(
-    (c) =>
-      c.name.toLowerCase().includes(q) ||
-      c.region.toLowerCase().includes(q) ||
-      c.country.toLowerCase().includes(q) ||
-      c.label.toLowerCase().includes(q)
-  ).slice(0, 8);
+export function searchCities(query: string, limit = 14): City[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return getPopularCities(limit);
+
+  return WORLD_CITIES
+    .map((city) => ({ city, score: cityScore(city, q) }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || a.city.name.localeCompare(b.city.name))
+    .slice(0, limit)
+    .map((entry) => entry.city);
 }

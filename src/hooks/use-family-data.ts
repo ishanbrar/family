@@ -10,19 +10,28 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   getProfile,
+  getFamily,
   getFamilyProfiles,
   getFamilyRelationships,
   getAllConditions,
   getUserConditions,
+  regenerateFamilyInviteCode as dbRegenerateFamilyInviteCode,
+  getFamilyInviteCodes as dbGetFamilyInviteCodes,
+  createFamilyInviteCode as dbCreateFamilyInviteCode,
+  updateFamilyInviteCode as dbUpdateFamilyInviteCode,
+  deleteFamilyInviteCode as dbDeleteFamilyInviteCode,
   updateProfile as dbUpdateProfile,
   addRelationship as dbAddRelationship,
   addFamilyMember as dbAddFamilyMember,
   addUserCondition as dbAddUserCondition,
+  type FamilyRecord,
+  type InviteCodeRecord,
 } from "@/lib/supabase/db";
 import { uploadAvatar, deleteAvatar } from "@/lib/supabase/storage";
 import { useFamilyStore } from "@/store/family-store";
 import type { Profile, Relationship, MedicalCondition, UserCondition, RelationshipType } from "@/lib/types";
 import { isConfigured as isSupabaseConfigured } from "@/lib/supabase/config";
+import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
 import {
   MOCK_PROFILES,
   MOCK_RELATIONSHIPS,
@@ -32,6 +41,8 @@ import {
 
 interface FamilyData {
   viewer: Profile | null;
+  family: FamilyRecord | null;
+  inviteCodes: InviteCodeRecord[];
   members: Profile[];
   relationships: Relationship[];
   conditions: MedicalCondition[];
@@ -42,9 +53,14 @@ interface FamilyData {
   updateProfile: (userId: string, updates: Partial<Profile>, avatarFile?: File) => Promise<void>;
   addMember: (
     member: Omit<Profile, "id" | "created_at" | "updated_at">,
-    rel: { relativeId: string; type: RelationshipType }
+    rel: { relativeId: string; type: RelationshipType },
+    avatarFile?: File
   ) => Promise<void>;
   addCondition: (userId: string, conditionId: string) => Promise<void>;
+  regenerateInviteCode: () => Promise<void>;
+  createInviteCode: (customCode?: string, label?: string) => Promise<void>;
+  updateInviteCode: (inviteCodeId: string, nextCode: string, label?: string) => Promise<void>;
+  deleteInviteCode: (inviteCodeId: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -53,22 +69,60 @@ export function useFamilyData(): FamilyData {
   const store = useFamilyStore();
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(false);
+  const [family, setFamily] = useState<FamilyRecord | null>(null);
+  const [inviteCodes, setInviteCodes] = useState<InviteCodeRecord[]>([]);
   const [conditions, setConditions] = useState<MedicalCondition[]>([]);
   const [userConds, setUserConds] = useState<UserCondition[]>([]);
   const [familyId, setFamilyId] = useState<string | null>(null);
 
   const supabase = createClient();
 
+  const makeLocalInviteCode = (familyName?: string) => {
+    const tokens = (familyName || "Family")
+      .trim()
+      .toUpperCase()
+      .split(/\s+/)
+      .map((part) => part.replace(/[^A-Z]/g, ""))
+      .filter(Boolean);
+    let base = "";
+    for (let i = tokens.length - 1; i >= 0; i -= 1) {
+      if (tokens[i] !== "FAMILY") {
+        base = tokens[i];
+        break;
+      }
+    }
+    if (!base) base = tokens[tokens.length - 1] || "";
+    if (!base || base.length < 2) base = "FAMILY";
+    base = base.slice(0, 24);
+    const digits = `${Math.floor(Math.random() * 10000)}`.padStart(4, "0");
+    return `${base}${digits}`;
+  };
+
   const loadData = useCallback(async () => {
     setLoading(true);
 
-    if (!isSupabaseConfigured()) {
-      // ── Offline / Mock mode ──
+    if (!isSupabaseConfigured() || isDevSuperAdminClient()) {
+      // ── Offline / Dev super-admin mode ──
       store.setViewer(MOCK_PROFILES[0]);
       store.setMembers(MOCK_PROFILES);
       store.setRelationships(MOCK_RELATIONSHIPS);
       setConditions(MOCK_CONDITIONS);
       setUserConds(MOCK_USER_CONDITIONS);
+      setFamily({
+        id: "mock-family",
+        name: "Montague Family",
+        invite_code: "MONTAGUE1234",
+      });
+      setInviteCodes([
+        {
+          id: "mock-invite-1",
+          family_id: "mock-family",
+          code: "MONTAGUE1234",
+          label: "Primary",
+          is_active: true,
+          created_at: new Date().toISOString(),
+        },
+      ]);
       setIsOnline(false);
       setLoading(false);
       return;
@@ -79,7 +133,15 @@ export function useFamilyData(): FamilyData {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        // Not logged in — will be redirected by middleware
+        setFamilyId(null);
+        store.setViewer(null);
+        store.setMembers([]);
+        store.setRelationships([]);
+        setConditions([]);
+        setUserConds([]);
+        setFamily(null);
+        setInviteCodes([]);
+        setIsOnline(false);
         setLoading(false);
         return;
       }
@@ -87,6 +149,15 @@ export function useFamilyData(): FamilyData {
       // Load viewer profile
       const viewerProfile = await getProfile(supabase, user.id);
       if (!viewerProfile) {
+        setFamilyId(null);
+        store.setViewer(null);
+        store.setMembers([]);
+        store.setRelationships([]);
+        setConditions([]);
+        setUserConds([]);
+        setFamily(null);
+        setInviteCodes([]);
+        setIsOnline(false);
         setLoading(false);
         return;
       }
@@ -98,15 +169,19 @@ export function useFamilyData(): FamilyData {
       if (viewerProfile.family_id) {
         setFamilyId(viewerProfile.family_id);
 
-        const [profiles, rels, conds] = await Promise.all([
+        const [profiles, rels, conds, codes] = await Promise.all([
           getFamilyProfiles(supabase, viewerProfile.family_id),
           getFamilyRelationships(supabase, viewerProfile.family_id),
           getAllConditions(supabase),
+          dbGetFamilyInviteCodes(supabase, viewerProfile.family_id),
         ]);
+        const fam = await getFamily(supabase, viewerProfile.family_id);
 
         store.setMembers(profiles);
         store.setRelationships(rels);
         setConditions(conds);
+        setFamily(fam);
+        setInviteCodes(codes);
 
         // Load user conditions for all family members
         const memberIds = profiles.map((p) => p.id);
@@ -114,19 +189,24 @@ export function useFamilyData(): FamilyData {
         setUserConds(uConds);
       } else {
         // No family yet — just load conditions
+        setFamilyId(null);
         const conds = await getAllConditions(supabase);
         setConditions(conds);
         store.setMembers([viewerProfile]);
         store.setRelationships([]);
+        setFamily(null);
+        setInviteCodes([]);
       }
     } catch (err) {
+      setFamilyId(null);
       console.error("Error loading family data:", err);
-      // Fall back to mock
-      store.setViewer(MOCK_PROFILES[0]);
-      store.setMembers(MOCK_PROFILES);
-      store.setRelationships(MOCK_RELATIONSHIPS);
-      setConditions(MOCK_CONDITIONS);
-      setUserConds(MOCK_USER_CONDITIONS);
+      store.setViewer(null);
+      store.setMembers([]);
+      store.setRelationships([]);
+      setConditions([]);
+      setUserConds([]);
+      setFamily(null);
+      setInviteCodes([]);
       setIsOnline(false);
     }
 
@@ -174,7 +254,11 @@ export function useFamilyData(): FamilyData {
         if (url) avatarUrl = url;
       }
 
-      const finalUpdates = { ...updates };
+      const finalUpdates: Partial<Profile> = { ...updates };
+      if (avatarFile) {
+        // Never persist a local blob URL; only store a real storage URL.
+        delete finalUpdates.avatar_url;
+      }
       if (avatarUrl) finalUpdates.avatar_url = avatarUrl;
 
       const updated = await dbUpdateProfile(supabase, userId, finalUpdates);
@@ -194,13 +278,21 @@ export function useFamilyData(): FamilyData {
   const addMember = useCallback(
     async (
       memberData: Omit<Profile, "id" | "created_at" | "updated_at">,
-      rel: { relativeId: string; type: RelationshipType }
+      rel: { relativeId: string; type: RelationshipType },
+      avatarFile?: File
     ) => {
       if (!isOnline) {
         // Mock mode
         const newId = `member-${Date.now()}`;
         const now = new Date().toISOString();
-        const newProfile: Profile = { ...memberData, id: newId, created_at: now, updated_at: now };
+        const localAvatar = avatarFile ? URL.createObjectURL(avatarFile) : memberData.avatar_url;
+        const newProfile: Profile = {
+          ...memberData,
+          avatar_url: localAvatar,
+          id: newId,
+          created_at: now,
+          updated_at: now,
+        };
         store.addMember(newProfile);
         store.addRelationship({
           id: `rel-${Date.now()}`, user_id: newId, relative_id: rel.relativeId,
@@ -218,9 +310,22 @@ export function useFamilyData(): FamilyData {
       });
 
       if (newProfile) {
-        store.addMember(newProfile);
+        let finalProfile = newProfile;
+
+        if (avatarFile) {
+          const avatarUrl = await uploadAvatar(supabase, newProfile.id, avatarFile);
+          if (avatarUrl) {
+            const updated = await dbUpdateProfile(supabase, newProfile.id, { avatar_url: avatarUrl });
+            if (updated) finalProfile = updated;
+          }
+        }
+
+        store.addMember(finalProfile);
         const newRel = await dbAddRelationship(
-          supabase, newProfile.id, rel.relativeId, rel.type
+          supabase,
+          finalProfile.id,
+          rel.relativeId,
+          rel.type
         );
         if (newRel) store.addRelationship(newRel);
       }
@@ -250,7 +355,105 @@ export function useFamilyData(): FamilyData {
     [isOnline, conditions]
   );
 
+  const regenerateInviteCode = useCallback(async () => {
+    if (!familyId && !family) return;
+    if (!isOnline) {
+      const code = makeLocalInviteCode(family?.name);
+      const mockCode: InviteCodeRecord = {
+        id: `mock-invite-${Date.now()}`,
+        family_id: family?.id || "mock-family",
+        code,
+        label: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      };
+      setInviteCodes((prev) => [mockCode, ...prev]);
+      setFamily((prev) => (prev ? { ...prev, invite_code: code } : prev));
+      return;
+    }
+    if (!familyId) return;
+    const updated = await dbRegenerateFamilyInviteCode(supabase, familyId);
+    if (updated) setFamily(updated);
+    const nextCodes = await dbGetFamilyInviteCodes(supabase, familyId);
+    setInviteCodes(nextCodes);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, familyId, family]);
+
+  const createInviteCode = useCallback(async (customCode?: string, label?: string) => {
+    if (!familyId) return;
+    if (!isOnline) {
+      const code = customCode?.trim().toUpperCase() || makeLocalInviteCode(family?.name);
+      const mockCode: InviteCodeRecord = {
+        id: `mock-invite-${Date.now()}`,
+        family_id: familyId,
+        code,
+        label: label?.trim() || null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+      };
+      setInviteCodes((prev) => [mockCode, ...prev]);
+      setFamily((prev) => (prev ? { ...prev, invite_code: code } : prev));
+      return;
+    }
+
+    const created = await dbCreateFamilyInviteCode(supabase, familyId, customCode, label);
+    if (!created) return;
+    const [fam, codes] = await Promise.all([
+      getFamily(supabase, familyId),
+      dbGetFamilyInviteCodes(supabase, familyId),
+    ]);
+    if (fam) setFamily(fam);
+    setInviteCodes(codes);
+  }, [isOnline, familyId, family, supabase]);
+
+  const updateInviteCode = useCallback(async (inviteCodeId: string, nextCode: string, label?: string) => {
+    if (!familyId) return;
+    if (!isOnline) {
+      const normalized = nextCode.trim().toUpperCase();
+      setInviteCodes((prev) =>
+        prev.map((code) =>
+          code.id === inviteCodeId
+            ? { ...code, code: normalized, label: label === undefined ? code.label : (label.trim() || null) }
+            : code
+        )
+      );
+      setFamily((prev) => (prev ? { ...prev, invite_code: normalized } : prev));
+      return;
+    }
+
+    const updated = await dbUpdateFamilyInviteCode(supabase, inviteCodeId, nextCode, label);
+    if (!updated) return;
+    const [fam, codes] = await Promise.all([
+      getFamily(supabase, familyId),
+      dbGetFamilyInviteCodes(supabase, familyId),
+    ]);
+    if (fam) setFamily(fam);
+    setInviteCodes(codes);
+  }, [isOnline, familyId, supabase]);
+
+  const deleteInviteCode = useCallback(async (inviteCodeId: string) => {
+    if (!familyId) return;
+    if (!isOnline) {
+      setInviteCodes((prev) => prev.filter((code) => code.id !== inviteCodeId));
+      return;
+    }
+
+    const ok = await dbDeleteFamilyInviteCode(supabase, inviteCodeId);
+    if (!ok) return;
+    const [fam, codes] = await Promise.all([
+      getFamily(supabase, familyId),
+      dbGetFamilyInviteCodes(supabase, familyId),
+    ]);
+    if (fam) setFamily(fam);
+    setInviteCodes(codes);
+  }, [isOnline, familyId, supabase]);
+
   const signOut = useCallback(async () => {
+    if (isDevSuperAdminClient()) {
+      disableDevSuperAdmin();
+      window.location.href = "/login";
+      return;
+    }
     if (isOnline) {
       await supabase.auth.signOut();
     }
@@ -260,15 +463,21 @@ export function useFamilyData(): FamilyData {
 
   return {
     viewer: store.viewer,
-    members: store.members.length > 0 ? store.members : MOCK_PROFILES,
-    relationships: store.relationships.length > 0 ? store.relationships : MOCK_RELATIONSHIPS,
-    conditions: conditions.length > 0 ? conditions : MOCK_CONDITIONS,
-    userConditions: userConds.length > 0 ? userConds : MOCK_USER_CONDITIONS,
+    family,
+    inviteCodes,
+    members: store.members,
+    relationships: store.relationships,
+    conditions,
+    userConditions: userConds,
     loading,
     isOnline,
     updateProfile,
     addMember,
     addCondition,
+    regenerateInviteCode,
+    createInviteCode,
+    updateInviteCode,
+    deleteInviteCode,
     signOut,
     refresh: loadData,
   };

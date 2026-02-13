@@ -6,7 +6,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   X,
   Camera,
@@ -19,10 +19,16 @@ import {
   Calendar,
   User,
   FileText,
+  PawPrint,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
-import type { Profile, SocialLinks } from "@/lib/types";
+import type { Profile, SocialLinks, Gender } from "@/lib/types";
+
+const GENDER_OPTIONS: { value: Gender; label: string }[] = [
+  { value: "female", label: "Female" },
+  { value: "male", label: "Male" },
+];
 
 interface EditProfileModalProps {
   profile: Profile;
@@ -38,12 +44,16 @@ export function EditProfileModal({
   onSave,
 }: EditProfileModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarObjectUrlRef = useRef<string | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.avatar_url);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [firstName, setFirstName] = useState(profile.first_name);
   const [lastName, setLastName] = useState(profile.last_name);
+  const [displayName, setDisplayName] = useState(profile.display_name || "");
+  const [gender, setGender] = useState<Gender | "">(profile.gender || "");
   const [profession, setProfession] = useState(profile.profession || "");
   const [locationCity, setLocationCity] = useState(profile.location_city || "");
+  const [petsText, setPetsText] = useState((profile.pets || []).join(", "));
   const [dob, setDob] = useState(profile.date_of_birth || "");
   const [placeOfBirth, setPlaceOfBirth] = useState(profile.place_of_birth || "");
   const [aboutMe, setAboutMe] = useState(profile.about_me || "");
@@ -58,10 +68,28 @@ export function EditProfileModal({
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
     setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
+    if (avatarObjectUrlRef.current) URL.revokeObjectURL(avatarObjectUrlRef.current);
+    const url = URL.createObjectURL(file);
+    avatarObjectUrlRef.current = url;
+    setAvatarPreview(url);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (avatarObjectUrlRef.current) URL.revokeObjectURL(avatarObjectUrlRef.current);
+    };
   }, []);
 
   const handleSubmit = () => {
+    const parsedPets = Array.from(
+      new Set(
+        petsText
+          .split(/[\n,]/)
+          .map((pet) => pet.trim())
+          .filter(Boolean)
+      )
+    );
+
     const cleanSocial: SocialLinks = {};
     if (social.instagram) cleanSocial.instagram = social.instagram;
     if (social.linkedin) cleanSocial.linkedin = social.linkedin;
@@ -71,8 +99,11 @@ export function EditProfileModal({
     onSave({
       first_name: firstName,
       last_name: lastName,
+      display_name: displayName.trim() || null,
+      gender: gender || null,
       profession: profession || null,
       location_city: locationCity || null,
+      pets: parsedPets,
       date_of_birth: dob || null,
       place_of_birth: placeOfBirth || null,
       about_me: aboutMe || null,
@@ -95,7 +126,7 @@ export function EditProfileModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50"
+            className="fixed inset-0 app-overlay backdrop-blur-sm z-50"
           />
 
           <motion.div
@@ -168,6 +199,30 @@ export function EditProfileModal({
                   <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">Last Name</label>
                   <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClass} />
                 </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">Display Name / Nickname</label>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g., Alex"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">Gender</label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value as Gender | "")}
+                    className={cn(inputClass, "px-4")}
+                    required
+                  >
+                    <option value="" disabled>Select gender</option>
+                    {GENDER_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* About Me */}
@@ -191,6 +246,20 @@ export function EditProfileModal({
                     <Briefcase size={10} /> Profession
                   </label>
                   <input type="text" value={profession} onChange={(e) => setProfession(e.target.value)} className={inputClass} placeholder="e.g., Software Engineer" />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <PawPrint size={10} /> Pets
+                  </label>
+                  <input
+                    type="text"
+                    value={petsText}
+                    onChange={(e) => setPetsText(e.target.value)}
+                    className={inputClass}
+                    placeholder="e.g., Luna, Bruno"
+                  />
+                  <p className="mt-1 text-[10px] text-white/25">Separate multiple pets with commas.</p>
                 </div>
 
                 <div>
@@ -253,6 +322,7 @@ export function EditProfileModal({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSubmit}
+                disabled={!firstName.trim() || !lastName.trim() || !gender}
                 className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 transition-colors"
               >
                 <Save size={14} />

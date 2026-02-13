@@ -9,11 +9,7 @@ import { useEffect, useMemo, useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
-  HeartPulse,
-  MapPin,
-  Activity,
-  Command,
-  Search,
+  GitBranch,
   Filter,
   X,
   UserPlus,
@@ -23,21 +19,20 @@ import {
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ProfileCard } from "@/components/ui/ProfileCard";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
-import { CommandSearch } from "@/components/ui/CommandSearch";
 import { InteractiveGlobe } from "@/components/globe/InteractiveGlobe";
 import { FamilyTree } from "@/components/tree/FamilyTree";
+import { GenerationInsights } from "@/components/tree/GenerationInsights";
 import type { TreeConnection } from "@/components/tree/FamilyTree";
 import { AddMemberModal } from "@/components/ui/AddMemberModal";
 import { useFamilyStore } from "@/store/family-store";
 import {
   MOCK_PROFILES,
   MOCK_RELATIONSHIPS,
-  MOCK_CONDITIONS,
-  MOCK_USER_CONDITIONS,
 } from "@/lib/mock-data";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { groupByCountry, type CountryGroup } from "@/lib/country-utils";
-import type { MedicalCondition, Profile, RelationshipType } from "@/lib/types";
+import { createGenerationAnalytics } from "@/lib/generation-insights";
+import type { Profile, RelationshipType } from "@/lib/types";
 
 const TREE_POSITIONS: Record<string, { x: number; y: number }> = {
   "grandparent-001": { x: 330, y: 80 },
@@ -69,6 +64,11 @@ export default function DemoPage() {
   const store = useFamilyStore();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
+  const [focusedCountryCode, setFocusedCountryCode] = useState<string | null>(null);
+  const [focusSignal, setFocusSignal] = useState(0);
+  const [showPercentages, setShowPercentages] = useState(true);
+  const [showRelationLabels, setShowRelationLabels] = useState(true);
+  const [showLastNames, setShowLastNames] = useState(false);
 
   useEffect(() => {
     store.setViewer(MOCK_PROFILES[0]);
@@ -90,10 +90,15 @@ export default function DemoPage() {
     if (!viewer) return [];
     return members.filter((p) => TREE_POSITIONS[p.id]).map((p) => ({
       profile: p,
-      match: calculateGeneticMatch(viewer.id, p.id, relationships),
+      match: calculateGeneticMatch(viewer.id, p.id, relationships, p.gender),
       ...TREE_POSITIONS[p.id],
     }));
   }, [viewer, members, relationships]);
+
+  const generationAnalytics = useMemo(
+    () => createGenerationAnalytics(treeMembers),
+    [treeMembers]
+  );
 
   const highlightedIds = useMemo(() => {
     if (!store.relatedByFilter) return new Set<string>();
@@ -104,28 +109,43 @@ export default function DemoPage() {
     if (!viewer) return [];
     return members.filter((p) => p.id !== viewer.id).map((p) => ({
       profile: p,
-      match: calculateGeneticMatch(viewer.id, p.id, relationships),
+      match: calculateGeneticMatch(viewer.id, p.id, relationships, p.gender),
     }));
   }, [viewer, members, relationships]);
 
   const countryGroups = useMemo(() => groupByCountry(members), [members]);
 
   const handleAddMember = useCallback(
-    (memberData: Omit<Profile, "id" | "created_at" | "updated_at">, rel: { relativeId: string; type: RelationshipType }) => {
+    (
+      memberData: Omit<Profile, "id" | "created_at" | "updated_at">,
+      rel: { relativeId: string; type: RelationshipType },
+      avatarFile?: File
+    ) => {
       const newId = `member-${Date.now()}`;
       const now = new Date().toISOString();
-      store.addMember({ ...memberData, id: newId, created_at: now, updated_at: now });
+      const localAvatar = avatarFile ? URL.createObjectURL(avatarFile) : memberData.avatar_url;
+      store.addMember({
+        ...memberData,
+        avatar_url: localAvatar,
+        id: newId,
+        created_at: now,
+        updated_at: now,
+      });
       store.addRelationship({ id: `rel-${Date.now()}`, user_id: newId, relative_id: rel.relativeId, type: rel.type, created_at: now });
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
+  const handleFocusCountry = useCallback((code: string) => {
+    setFocusedCountryCode(code);
+    setFocusSignal((prev) => prev + 1);
+  }, []);
+
   if (!viewer) return null;
 
   const totalMembers = members.length;
-  const livingMembers = members.filter((m) => m.is_alive).length;
-  const totalConditions = MOCK_USER_CONDITIONS.length;
+  const totalGenerations = generationAnalytics.totalGenerations;
   const locations = new Set(members.map((m) => m.location_city).filter(Boolean)).size;
   const filterMember = store.relatedByFilter ? members.find((p) => p.id === store.relatedByFilter) : null;
 
@@ -148,7 +168,6 @@ export default function DemoPage() {
         </div>
       </motion.aside>
 
-      <CommandSearch conditions={MOCK_CONDITIONS} onSelect={() => {}} />
       <AddMemberModal existingMembers={members} isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)} onAdd={handleAddMember} />
 
@@ -169,7 +188,7 @@ export default function DemoPage() {
           <div>
             <h1 className="font-serif text-3xl font-bold text-white/95">
               Welcome back,{" "}
-              <span style={{ background: "linear-gradient(135deg, #d4a574, #e8c99a)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              <span style={{ background: "linear-gradient(135deg, var(--accent-300), var(--accent-200))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                 {viewer.first_name}
               </span>
             </h1>
@@ -181,44 +200,8 @@ export default function DemoPage() {
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold-400/10 text-gold-300 text-sm font-medium hover:bg-gold-400/15 transition-colors border border-gold-400/10">
               <UserPlus size={14} /><span className="hidden sm:inline">Add Member</span>
             </motion.button>
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className="glass flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-white/30 hover:text-white/50 transition-colors"
-              onClick={() => useFamilyStore.getState().setCommandOpen(true)}>
-              <Search size={14} />
-              <span className="hidden sm:inline">Search conditions...</span>
-              <kbd className="ml-2 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-white/5 text-[10px] font-mono border border-white/10">
-                <Command size={10} />K
-              </kbd>
-            </motion.button>
           </div>
         </motion.div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: "Family Members", value: totalMembers, icon: Users, color: "text-gold-300" },
-            { label: "Living", value: livingMembers, icon: Activity, color: "text-severity-mild" },
-            { label: "Health Records", value: totalConditions, icon: HeartPulse, color: "text-severity-moderate" },
-            { label: "Locations", value: locations, icon: MapPin, color: "text-gold-400" },
-          ].map((stat, i) => {
-            const Icon = stat.icon;
-            return (
-              <GlassCard key={stat.label} className="p-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-white/35 font-medium uppercase tracking-wider">{stat.label}</p>
-                    <motion.p initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 0.3 + i * 0.1, type: "spring" }}
-                      className="text-2xl font-serif font-bold text-white/90 mt-1">{stat.value}</motion.p>
-                  </div>
-                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/5">
-                    <Icon size={18} className={stat.color} />
-                  </div>
-                </div>
-              </GlassCard>
-            );
-          })}
-        </div>
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -249,6 +232,33 @@ export default function DemoPage() {
                     </motion.button>
                   )}
                 </div>
+                <label className="inline-flex items-center gap-1.5 text-[11px] text-white/45 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showPercentages}
+                    onChange={(e) => setShowPercentages(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400 focus:ring-gold-400/30"
+                  />
+                  Show %
+                </label>
+                <label className="inline-flex items-center gap-1.5 text-[11px] text-white/45 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showRelationLabels}
+                    onChange={(e) => setShowRelationLabels(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400 focus:ring-gold-400/30"
+                  />
+                  Show relations
+                </label>
+                <label className="inline-flex items-center gap-1.5 text-[11px] text-white/45 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showLastNames}
+                    onChange={(e) => setShowLastNames(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400 focus:ring-gold-400/30"
+                  />
+                  Show last names
+                </label>
               </div>
             </div>
             {filterMember && (
@@ -263,7 +273,29 @@ export default function DemoPage() {
             )}
             <FamilyTree members={treeMembers} connections={TREE_CONNECTIONS}
               highlightedMembers={highlightedIds} dimNonHighlighted={!!store.relatedByFilter}
+              viewerId={viewer.id}
+              showPercentages={showPercentages}
+              showRelationLabels={showRelationLabels}
+              showLastNames={showLastNames}
               onMemberClick={(id) => navigateToProfile(id)} />
+            <div className="mt-4 mb-4 grid grid-cols-2 gap-3">
+              {[
+                { label: "Family Members", value: totalMembers, icon: Users, color: "text-gold-300" },
+                { label: "Generations", value: totalGenerations, icon: GitBranch, color: "text-severity-mild" },
+              ].map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={stat.label} className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-white/35 font-medium uppercase tracking-wider">{stat.label}</p>
+                      <Icon size={13} className={stat.color} />
+                    </div>
+                    <p className="mt-1.5 text-lg font-serif font-semibold text-white/90">{stat.value}</p>
+                  </div>
+                );
+              })}
+            </div>
+            <GenerationInsights analytics={generationAnalytics} />
           </GlassCard>
 
           <div className="space-y-6">
@@ -272,7 +304,12 @@ export default function DemoPage() {
               <p className="text-xs text-white/30 mb-4">{locations} cities across the globe</p>
               <div className="flex gap-4">
                 <div className="flex-1 flex justify-center">
-                  <InteractiveGlobe members={members} onMemberClick={(m) => navigateToProfile(m.id)} />
+                  <InteractiveGlobe
+                    members={members}
+                    focusCountryCode={focusedCountryCode}
+                    focusSignal={focusSignal}
+                    onMemberClick={(m) => navigateToProfile(m.id)}
+                  />
                 </div>
                 {countryGroups.length > 0 && (
                   <div className="w-[130px] flex flex-col gap-1 overflow-y-auto max-h-[300px] pr-1"
@@ -280,6 +317,7 @@ export default function DemoPage() {
                     {countryGroups.map((g) => (
                       <CountryRow key={g.code} group={g} isExpanded={expandedCountry === g.code}
                         onToggle={() => setExpandedCountry(expandedCountry === g.code ? null : g.code)}
+                        onFocusCountry={handleFocusCountry}
                         onMemberClick={navigateToProfile} />
                     ))}
                   </div>
@@ -313,12 +351,20 @@ export default function DemoPage() {
   );
 }
 
-function CountryRow({ group, isExpanded, onToggle, onMemberClick }: {
-  group: CountryGroup; isExpanded: boolean; onToggle: () => void; onMemberClick: (id: string) => void;
+function CountryRow({ group, isExpanded, onToggle, onFocusCountry, onMemberClick }: {
+  group: CountryGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onFocusCountry: (code: string) => void;
+  onMemberClick: (id: string) => void;
 }) {
   return (
     <div>
-      <button onClick={onToggle}
+      <button
+        onClick={() => {
+          onToggle();
+          onFocusCountry(group.code);
+        }}
         className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors text-left group">
         <span className="text-sm leading-none">{group.flag}</span>
         <span className="flex-1 text-[11px] text-white/50 group-hover:text-white/70 truncate transition-colors">{group.name}</span>
