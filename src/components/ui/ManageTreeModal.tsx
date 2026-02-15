@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { GitBranch, Link2, Trash2, UserMinus, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Profile, Relationship, RelationshipType } from "@/lib/types";
+import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 
 interface ManageTreeModalProps {
   isOpen: boolean;
@@ -59,6 +60,10 @@ export function ManageTreeModal({
   onRemoveRelationship,
   onRemoveMember,
 }: ManageTreeModalProps) {
+  const { dialogRef } = useAccessibleDialog({
+    isOpen,
+    onClose,
+  });
   const [sourceId, setSourceId] = useState(viewer.id);
   const [targetId, setTargetId] = useState("");
   const [relationType, setRelationType] = useState<RelationshipType>("parent");
@@ -192,13 +197,18 @@ export function ManageTreeModal({
             initial={{ opacity: 0, y: 20, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.98 }}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="manage-tree-title"
+            tabIndex={-1}
             className="fixed z-[73] inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
               sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
               w-auto sm:w-[min(760px,94vw)] rounded-3xl app-surface overflow-hidden flex flex-col"
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08]">
               <div>
-                <h2 className="font-serif text-lg text-white/92">Manage Tree Structure</h2>
+                <h2 id="manage-tree-title" className="font-serif text-lg text-white/92">Manage Tree Structure</h2>
                 <p className="text-xs text-white/55 mt-0.5">
                   Connect existing members, remove wrong links, or remove unclaimed member nodes.
                 </p>
@@ -223,7 +233,7 @@ export function ManageTreeModal({
                   <select
                     value={sourceId}
                     onChange={(e) => setSourceId(e.target.value)}
-                    className="h-10 rounded-xl bg-white/[0.04] border border-white/[0.12] px-3 text-sm text-white/88 outline-none focus:border-gold-400/30"
+                    className="h-10 rounded-xl app-input px-3 text-sm outline-none"
                   >
                     {members.map((member) => (
                       <option key={member.id} value={member.id}>
@@ -235,7 +245,7 @@ export function ManageTreeModal({
                   <select
                     value={relationType}
                     onChange={(e) => setRelationType(e.target.value as RelationshipType)}
-                    className="h-10 rounded-xl bg-white/[0.04] border border-white/[0.12] px-3 text-sm text-white/88 outline-none focus:border-gold-400/30"
+                    className="h-10 rounded-xl app-input px-3 text-sm outline-none"
                   >
                     {RELATIONSHIP_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -247,7 +257,7 @@ export function ManageTreeModal({
                   <select
                     value={targetId}
                     onChange={(e) => setTargetId(e.target.value)}
-                    className="h-10 rounded-xl bg-white/[0.04] border border-white/[0.12] px-3 text-sm text-white/88 outline-none focus:border-gold-400/30"
+                    className="h-10 rounded-xl app-input px-3 text-sm outline-none"
                   >
                     <option value="">Choose member...</option>
                     {members.map((member) => (
@@ -323,7 +333,7 @@ export function ManageTreeModal({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search members by name, city, or profession..."
-                  className="w-full h-10 rounded-xl bg-white/[0.04] border border-white/[0.12] px-3 text-sm text-white/88 placeholder:text-white/50 outline-none focus:border-gold-400/30"
+                  className="w-full h-10 rounded-xl app-input px-3 text-sm outline-none"
                 />
 
                 <div className="mt-3 max-h-[220px] overflow-y-auto space-y-2 pr-1">

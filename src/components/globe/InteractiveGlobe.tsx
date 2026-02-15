@@ -50,6 +50,8 @@ interface ResolvedMemberLocation {
 }
 
 const TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+const TOPO_LOCAL_URL = "/data/countries-110m.json";
+const TOPO_CACHE_KEY = "legacy:world-topology:v1";
 const BASE_ROTATION: [number, number] = [-20, -15];
 const MAP_MIN_ZOOM = 1;
 const MAP_OPEN_ZOOM = 1.3;
@@ -110,6 +112,8 @@ export function InteractiveGlobe({
   const [hoveredMember, setHoveredMember] = useState<Profile | null>(null);
   const [countries, setCountries] = useState<CountryFeature[]>([]);
   const [autoRotate, setAutoRotate] = useState(true);
+  const [loadingTopology, setLoadingTopology] = useState(true);
+  const [mapLoadError, setMapLoadError] = useState<string | null>(null);
 
   const dragStart = useRef<{
     x: number;
@@ -125,23 +129,72 @@ export function InteractiveGlobe({
 
   const autoSpinRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    fetch(TOPO_URL)
-      .then((r) => r.json())
-      .then((topology) => {
-        if (cancelled) return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const geo = feature(topology, topology.objects.countries) as any;
-        setCountries(geo.features as CountryFeature[]);
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
+  const extractCountries = useCallback((topology: unknown): CountryFeature[] => {
+    if (!topology || typeof topology !== "object") return [];
+    const topoObject = topology as { objects?: { countries?: unknown } };
+    if (!topoObject.objects?.countries) return [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const geo = feature(topology as any, topoObject.objects.countries as any) as any;
+    if (!Array.isArray(geo?.features)) return [];
+    return geo.features as CountryFeature[];
   }, []);
+
+  const loadTopology = useCallback(
+    async () => {
+      setLoadingTopology(true);
+      setMapLoadError(null);
+
+      const trySources = [TOPO_LOCAL_URL, TOPO_URL];
+      for (const source of trySources) {
+        try {
+          const response = await fetch(source);
+          if (!response.ok) continue;
+          const topology = await response.json();
+          const features = extractCountries(topology);
+          if (features.length === 0) continue;
+          setCountries(features);
+          if (typeof window !== "undefined") {
+            window.localStorage.setItem(TOPO_CACHE_KEY, JSON.stringify(topology));
+          }
+          setLoadingTopology(false);
+          return;
+        } catch {
+          // Try next source.
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        const cached = window.localStorage.getItem(TOPO_CACHE_KEY);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            const features = extractCountries(parsed);
+            if (features.length > 0) {
+              setCountries(features);
+              setLoadingTopology(false);
+              return;
+            }
+          } catch {
+            // Ignore malformed cache.
+          }
+        }
+      }
+
+      setCountries([]);
+      setMapLoadError("Map data failed to load. Check your connection or retry.");
+      setLoadingTopology(false);
+    },
+    [extractCountries]
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadTopology();
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [loadTopology]);
 
   const countryFeatureByCode = useMemo(() => {
     const mapping = new Map<string, CountryFeature>();
@@ -654,9 +707,23 @@ export function InteractiveGlobe({
           {isFlatMap ? "drag to pan · double-click to zoom in" : "drag to rotate · double-click to open map"}
         </div>
 
-        {countries.length === 0 && (
+        {loadingTopology && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-5 h-5 border border-gold-400/35 border-t-gold-400 rounded-full animate-spin" />
+          </div>
+        )}
+        {!loadingTopology && mapLoadError && (
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="max-w-[220px] rounded-xl app-popover border border-white/[0.14] px-3 py-2.5 text-center">
+              <p className="text-[11px] app-text-secondary">{mapLoadError}</p>
+              <button
+                type="button"
+                onClick={() => void loadTopology()}
+                className="mt-2 h-7 px-2.5 rounded-lg bg-white/[0.05] border border-white/[0.12] text-[11px] app-text-primary hover:bg-white/[0.08] transition-colors"
+              >
+                Retry map load
+              </button>
+            </div>
           </div>
         )}
       </div>

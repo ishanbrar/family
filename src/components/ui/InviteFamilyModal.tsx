@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { FamilyRecord, InviteCodeRecord } from "@/lib/supabase/db";
+import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 
 interface InviteFamilyModalProps {
   isOpen: boolean;
@@ -59,6 +60,10 @@ export function InviteFamilyModal({
   onUpdateCode,
   onDeleteCode,
 }: InviteFamilyModalProps) {
+  const { dialogRef } = useAccessibleDialog({
+    isOpen,
+    onClose,
+  });
   const [copyDoneId, setCopyDoneId] = useState<string | null>(null);
   const [copyLinkDoneId, setCopyLinkDoneId] = useState<string | null>(null);
   const [customCode, setCustomCode] = useState("");
@@ -153,13 +158,18 @@ export function InviteFamilyModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 260, damping: 28 }}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invite-family-title"
+            tabIndex={-1}
             className="fixed z-[81] inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
               sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
               w-auto sm:w-[min(760px,94vw)] sm:max-h-[86vh] rounded-3xl overflow-hidden app-surface"
           >
             <div className="px-4 sm:px-6 py-4 border-b border-white/[0.06] flex items-center justify-between">
               <div>
-                <h2 className="font-serif text-xl text-white/95">Invite Codes</h2>
+                <h2 id="invite-family-title" className="font-serif text-xl text-white/95">Invite Codes</h2>
                 <p className="text-xs text-white/35 mt-0.5">
                   {family.name} · {memberCount} member{memberCount !== 1 ? "s" : ""}
                 </p>
@@ -181,13 +191,13 @@ export function InviteFamilyModal({
                     value={customCode}
                     onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
                     placeholder="Custom code (e.g., MONTAGUE4821)"
-                    className="h-10 rounded-xl bg-white/[0.04] border border-white/[0.08] px-3 text-sm text-white/85 placeholder:text-white/28 outline-none focus:border-gold-400/35"
+                    className="h-10 rounded-xl app-input px-3 text-sm outline-none"
                   />
                   <input
                     value={label}
                     onChange={(e) => setLabel(e.target.value)}
                     placeholder="Label (optional)"
-                    className="h-10 rounded-xl bg-white/[0.04] border border-white/[0.08] px-3 text-sm text-white/85 placeholder:text-white/28 outline-none focus:border-gold-400/35"
+                    className="h-10 rounded-xl app-input px-3 text-sm outline-none"
                   />
                   <button
                     onClick={handleCreateCustom}
@@ -237,7 +247,7 @@ export function InviteFamilyModal({
                                 <input
                                   value={editingCode}
                                   onChange={(e) => setEditingCode(e.target.value.toUpperCase())}
-                                  className="h-9 min-w-[220px] rounded-lg bg-white/[0.04] border border-white/[0.12] px-2.5 text-sm text-white/85 outline-none focus:border-gold-400/35"
+                                  className="h-9 min-w-[220px] rounded-lg app-input px-2.5 text-sm outline-none"
                                 />
                                 <button
                                   onClick={handleSaveEdit}

@@ -42,6 +42,7 @@ CREATE TABLE profiles (
   country_code    TEXT,
   role            TEXT NOT NULL DEFAULT 'MEMBER' CHECK (role IN ('ADMIN', 'MEMBER')),
   is_alive        BOOLEAN DEFAULT TRUE,
+  onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
   family_id       UUID REFERENCES families(id) ON DELETE SET NULL,
   auth_user_id    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   created_at      TIMESTAMPTZ DEFAULT NOW(),

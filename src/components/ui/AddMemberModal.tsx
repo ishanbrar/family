@@ -21,6 +21,7 @@ import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
 import type { Profile, RelationshipType, Gender } from "@/lib/types";
 import { inferCountryCodeFromCity } from "@/lib/cities";
+import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 
 interface AddMemberModalProps {
   existingMembers: Profile[];
@@ -58,12 +59,20 @@ function normalizeName(first: string, last: string) {
   return `${first.trim().toLowerCase()}::${last.trim().toLowerCase()}`;
 }
 
+function normalizeCity(value: string | null | undefined) {
+  return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export function AddMemberModal({
   existingMembers,
   isOpen,
   onClose,
   onAdd,
 }: AddMemberModalProps) {
+  const { dialogRef } = useAccessibleDialog({
+    isOpen,
+    onClose,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -81,11 +90,28 @@ export function AddMemberModal({
   const [isAlive, setIsAlive] = useState(true);
   const [relativeId, setRelativeId] = useState("");
   const [relType, setRelType] = useState<RelationshipType>("child");
-  const duplicateExisting = useMemo(() => {
+  const [allowDuplicateAdd, setAllowDuplicateAdd] = useState(false);
+
+  const duplicateMatch = useMemo(() => {
     if (!firstName.trim() || !lastName.trim()) return null;
     const target = normalizeName(firstName, lastName);
-    return existingMembers.find((m) => normalizeName(m.first_name, m.last_name) === target) || null;
-  }, [firstName, lastName, existingMembers]);
+    const sameNameMembers = existingMembers.filter(
+      (m) => normalizeName(m.first_name, m.last_name) === target
+    );
+    if (sameNameMembers.length === 0) return null;
+
+    const normalizedCity = normalizeCity(locationCity);
+    const likely = sameNameMembers.find((m) => {
+      if (dob && m.date_of_birth && dob === m.date_of_birth) return true;
+      if (normalizedCity && normalizeCity(m.location_city) === normalizedCity) return true;
+      return false;
+    });
+
+    return {
+      member: likely || sameNameMembers[0],
+      confidence: likely ? "high" : ("low" as "high" | "low"),
+    };
+  }, [firstName, lastName, dob, locationCity, existingMembers]);
 
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -103,7 +129,15 @@ export function AddMemberModal({
   }, []);
 
   const handleSubmit = () => {
-    if (!firstName.trim() || !lastName.trim() || !gender || !relativeId || duplicateExisting) return;
+    if (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !gender ||
+      !relativeId ||
+      (!!duplicateMatch && !allowDuplicateAdd)
+    ) {
+      return;
+    }
     const parsedPets = Array.from(
       new Set(
         petsText
@@ -159,10 +193,10 @@ export function AddMemberModal({
   };
 
   const inputClass =
-    "w-full bg-white/[0.04] border border-white/[0.12] rounded-xl px-4 py-2.5 text-sm text-white/92 placeholder:text-white/40 outline-none focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200";
+    "w-full app-input rounded-xl px-4 py-2.5 text-sm outline-none transition-all duration-200";
 
   const selectClass =
-    "w-full bg-white/[0.04] border border-white/[0.12] rounded-xl px-4 py-2.5 text-sm text-white/82 outline-none focus:border-gold-400/30 transition-all duration-200 appearance-none cursor-pointer";
+    "w-full app-input rounded-xl px-4 py-2.5 text-sm outline-none transition-all duration-200 appearance-none cursor-pointer";
 
   return (
     <AnimatePresence>
@@ -179,6 +213,11 @@ export function AddMemberModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 30 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-member-title"
+            tabIndex={-1}
             className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
               sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
               sm:w-full sm:max-w-lg sm:max-h-[85vh] z-50
@@ -190,9 +229,10 @@ export function AddMemberModal({
                 <div className="w-8 h-8 rounded-lg bg-gold-400/10 flex items-center justify-center">
                   <UserPlus size={16} className="text-gold-400" />
                 </div>
-                <h2 className="font-serif text-lg font-semibold text-white/90">Add Family Member</h2>
+                <h2 id="add-member-title" className="font-serif text-lg font-semibold text-white/90">Add Family Member</h2>
               </div>
               <button onClick={onClose}
+                aria-label="Close add member dialog"
                 className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-white/5 transition-colors text-white/30 hover:text-white/60">
                 <X size={18} />
               </button>
@@ -221,9 +261,15 @@ export function AddMemberModal({
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
                 </div>
                 <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                  <input type="text" value={firstName} onChange={(e) => {
+                    setFirstName(e.target.value);
+                    setAllowDuplicateAdd(false);
+                  }}
                     className={inputClass} placeholder="First name *" />
-                  <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
+                  <input type="text" value={lastName} onChange={(e) => {
+                    setLastName(e.target.value);
+                    setAllowDuplicateAdd(false);
+                  }}
                     className={inputClass} placeholder="Last name *" />
                   <input
                     type="text"
@@ -240,9 +286,24 @@ export function AddMemberModal({
                   </select>
                 </div>
               </div>
-              {duplicateExisting && (
+              {duplicateMatch && (
                 <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.08] px-3 py-2 text-xs text-amber-200/90">
-                  Looks like this person already exists: {duplicateExisting.first_name} {duplicateExisting.last_name}
+                  {duplicateMatch.confidence === "high"
+                    ? "Likely duplicate found"
+                    : "Potential duplicate found"}
+                  : {duplicateMatch.member.first_name} {duplicateMatch.member.last_name}
+                  {duplicateMatch.confidence === "high"
+                    ? " (matching name plus city/date)."
+                    : " (matching name only)."}
+                  {!allowDuplicateAdd && (
+                    <button
+                      type="button"
+                      onClick={() => setAllowDuplicateAdd(true)}
+                      className="ml-2 underline underline-offset-2 hover:text-amber-100"
+                    >
+                      Add anyway
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -303,14 +364,29 @@ export function AddMemberModal({
                 </div>
                 <div>
                   <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">City</label>
-                  <CitySearch value={locationCity} onChange={setLocationCity} placeholder="Search a city..." />
+                  <CitySearch
+                    value={locationCity}
+                    onChange={(next) => {
+                      setLocationCity(next);
+                      setAllowDuplicateAdd(false);
+                    }}
+                    placeholder="Search a city..."
+                  />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                       <Calendar size={10} /> Date of Birth
                     </label>
-                    <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className={cn(inputClass, "appearance-none")} />
+                    <input
+                      type="date"
+                      value={dob}
+                      onChange={(e) => {
+                        setDob(e.target.value);
+                        setAllowDuplicateAdd(false);
+                      }}
+                      className={cn(inputClass, "appearance-none")}
+                    />
                   </div>
                   <div>
                     <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">Place of Birth</label>
@@ -340,7 +416,7 @@ export function AddMemberModal({
               <motion.button
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
                 onClick={handleSubmit}
-                disabled={!firstName.trim() || !lastName.trim() || !gender || !relativeId || !!duplicateExisting}
+                disabled={!firstName.trim() || !lastName.trim() || !gender || !relativeId || (!!duplicateMatch && !allowDuplicateAdd)}
                 className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium
                   hover:bg-gold-400/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               >

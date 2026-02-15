@@ -48,7 +48,7 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
   const member = members.find((m) => m.id === id);
 
   if (!viewer || !member) {
-    return <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center"><p className="text-white/40">Member not found</p></div>;
+    return <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center"><p className="text-white/40">Member not found</p></div>;
   }
 
   const isViewer = member.id === viewer.id;
@@ -89,7 +89,7 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[color:var(--background)]">
       <EditProfileModal profile={member} isOpen={editOpen} onClose={() => setEditOpen(false)} onSave={handleSave} />
 
       <main className="max-w-6xl mx-auto p-6 lg:p-8">

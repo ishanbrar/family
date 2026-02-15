@@ -25,6 +25,7 @@ import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
 import type { Profile, SocialLinks, Gender } from "@/lib/types";
 import { inferCountryCodeFromCity } from "@/lib/cities";
+import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: "female", label: "Female" },
@@ -44,6 +45,10 @@ export function EditProfileModal({
   onClose,
   onSave,
 }: EditProfileModalProps) {
+  const { dialogRef } = useAccessibleDialog({
+    isOpen,
+    onClose,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarObjectUrlRef = useRef<string | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.avatar_url);
@@ -117,7 +122,7 @@ export function EditProfileModal({
   };
 
   const inputClass =
-    "w-full bg-white/[0.04] border border-white/[0.12] rounded-xl px-4 py-2.5 text-sm text-white/92 placeholder:text-white/40 outline-none focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200";
+    "w-full app-input rounded-xl px-4 py-2.5 text-sm outline-none transition-all duration-200";
 
   return (
     <AnimatePresence>
@@ -136,6 +141,11 @@ export function EditProfileModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 30 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-profile-title"
+            tabIndex={-1}
             className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
               sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
               sm:w-full sm:max-w-lg sm:max-h-[85vh] z-50
@@ -143,11 +153,12 @@ export function EditProfileModal({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/[0.06]">
-              <h2 className="font-serif text-lg font-semibold text-white/90">
+              <h2 id="edit-profile-title" className="font-serif text-lg font-semibold text-white/90">
                 Edit Profile
               </h2>
               <button
                 onClick={onClose}
+                aria-label="Close edit profile dialog"
                 className="flex items-center justify-center w-8 h-8 rounded-lg
                   hover:bg-white/5 transition-colors text-white/30 hover:text-white/60"
               >

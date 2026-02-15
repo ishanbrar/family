@@ -114,10 +114,10 @@ function LoginPageContent() {
   };
 
   const inputClass =
-    "w-full bg-white/[0.04] border border-white/[0.08] rounded-xl pl-11 pr-4 py-3 text-sm text-white/90 placeholder:text-white/20 outline-none focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200";
+    "w-full app-input rounded-xl pl-11 pr-4 py-3 text-sm outline-none transition-all duration-200";
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center relative overflow-hidden">
       {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div
@@ -147,14 +147,14 @@ function LoginPageContent() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="relative">
-              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
               <input
                 type="text" value={identifier} onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="Email or username" required autoFocus className={inputClass}
               />
             </div>
             <div className="relative">
-              <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+              <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
               <input
                 type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password" required className={inputClass}
@@ -198,7 +198,7 @@ function LoginPageContent() {
 
 function LoginFallback() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+    <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
       <div className="flex items-center gap-2 text-white/50 text-sm">
         <Loader2 size={16} className="animate-spin text-gold-400" />
         Loading sign in...

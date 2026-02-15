@@ -16,6 +16,7 @@ import type { Profile, Relationship, RelationshipType, Gender } from "@/lib/type
 import { cn } from "@/lib/cn";
 import { CitySearch } from "@/components/ui/CitySearch";
 import { inferCountryCodeFromCity } from "@/lib/cities";
+import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 
 interface InviteFamilyLite {
   id: string;
@@ -85,12 +86,17 @@ function emptyMemberDraft() {
     gender: "" as Gender | "",
     relation: "" as RelationshipType | "",
     city: "",
+    dateOfBirth: "",
     profession: "",
   };
 }
 
 function normalizeName(first: string, last: string): string {
   return `${first.trim().toLowerCase()}::${last.trim().toLowerCase()}`;
+}
+
+function normalizeCity(value: string | null | undefined): string {
+  return (value || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function invertDirectRelation(type: RelationshipType): RelationshipType {
@@ -112,6 +118,11 @@ export function FamilyOnboardingWizard({
   updateProfile,
   addMember,
 }: FamilyOnboardingWizardProps) {
+  const { dialogRef } = useAccessibleDialog({
+    isOpen,
+    onClose: onDismiss,
+    closeOnEscape: !mandatory,
+  });
   const [step, setStep] = useState(1);
 
   const [selfProfile, setSelfProfile] = useState({
@@ -126,6 +137,8 @@ export function FamilyOnboardingWizard({
   });
 
   const [stepTwoDraft, setStepTwoDraft] = useState(emptyMemberDraft());
+  const [allowDuplicateStepTwo, setAllowDuplicateStepTwo] = useState(false);
+  const [compactStepTwo, setCompactStepTwo] = useState(false);
   const [linksForged, setLinksForged] = useState(0);
 
   const [savingSelf, setSavingSelf] = useState(false);
@@ -157,6 +170,10 @@ export function FamilyOnboardingWizard({
       aboutMe: viewer.about_me || "",
     });
     setStepTwoDraft(emptyMemberDraft());
+    setAllowDuplicateStepTwo(false);
+    if (typeof window !== "undefined") {
+      setCompactStepTwo(window.innerWidth < 900);
+    }
   }, [isOpen, viewer]);
 
   const directRelativeIds = useMemo(() => {
@@ -218,8 +235,21 @@ export function FamilyOnboardingWizard({
   const duplicateInMembers = useMemo(() => {
     const target = normalizeName(stepTwoDraft.firstName, stepTwoDraft.lastName);
     if (!stepTwoDraft.firstName.trim() || !stepTwoDraft.lastName.trim()) return null;
-    return members.find((m) => normalizeName(m.first_name, m.last_name) === target) || null;
-  }, [stepTwoDraft.firstName, stepTwoDraft.lastName, members]);
+    const sameNameMembers = members.filter((m) => normalizeName(m.first_name, m.last_name) === target);
+    if (sameNameMembers.length === 0) return null;
+
+    const draftCity = normalizeCity(stepTwoDraft.city);
+    const likely = sameNameMembers.find((member) => {
+      if (stepTwoDraft.dateOfBirth && member.date_of_birth === stepTwoDraft.dateOfBirth) return true;
+      if (draftCity && normalizeCity(member.location_city) === draftCity) return true;
+      return false;
+    });
+
+    return {
+      member: likely || sameNameMembers[0],
+      confidence: likely ? ("high" as const) : ("low" as const),
+    };
+  }, [stepTwoDraft.firstName, stepTwoDraft.lastName, stepTwoDraft.city, stepTwoDraft.dateOfBirth, members]);
 
   const inviteLink = useMemo(() => {
     if (!family || typeof window === "undefined") return "";
@@ -230,17 +260,17 @@ export function FamilyOnboardingWizard({
   }, [family]);
 
   const inputClass =
-    "w-full bg-white/[0.04] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/90 placeholder:text-white/42 outline-none focus:border-gold-400/30 transition-colors";
+    "w-full app-input rounded-xl px-3 py-2.5 text-sm outline-none transition-colors";
 
   const createMemberPayload = useMemo(
     () =>
-      (draft: { firstName: string; lastName: string; gender: Gender | ""; city: string; profession: string }) => ({
+      (draft: { firstName: string; lastName: string; gender: Gender | ""; city: string; dateOfBirth: string; profession: string }) => ({
         first_name: draft.firstName.trim(),
         last_name: draft.lastName.trim(),
         display_name: null,
         gender: draft.gender || null,
         avatar_url: null,
-        date_of_birth: null,
+        date_of_birth: draft.dateOfBirth || null,
         place_of_birth: null,
         profession: draft.profession.trim() || null,
         location_city: draft.city.trim() || null,
@@ -312,8 +342,8 @@ export function FamilyOnboardingWizard({
       setStepError("Please select gender for this relative.");
       return;
     }
-    if (duplicateInMembers) {
-      setStepError("Looks like this person already exists in your tree.");
+    if (duplicateInMembers && !allowDuplicateStepTwo) {
+      setStepError("Possible duplicate found. Confirm 'Add anyway' if this is intentional.");
       return;
     }
 
@@ -380,13 +410,18 @@ export function FamilyOnboardingWizard({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 260, damping: 28 }}
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="onboarding-title"
+            tabIndex={-1}
             className="fixed z-[71] inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
               sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(960px,94vw)] sm:max-h-[90vh] sm:-translate-x-1/2 sm:-translate-y-1/2
               rounded-3xl overflow-hidden app-surface flex flex-col"
           >
             <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/[0.06]">
               <div>
-                <h2 className="font-serif text-xl text-white/95">Build Your Family Network</h2>
+                <h2 id="onboarding-title" className="font-serif text-xl text-white/95">Build Your Family Network</h2>
                 <p className="text-xs text-white/35 mt-0.5">
                   {mandatory
                     ? "Mandatory quick start: profile, 3 core relatives, invite 1 family member"
@@ -519,91 +554,129 @@ export function FamilyOnboardingWizard({
                   </div>
 
                   <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1.5">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                       <p className="text-xs text-white/40">
-                        Select a relation from the tree map. Parents are above you, siblings are beside you, and children are below.
+                        {compactStepTwo
+                          ? "Quick picker mode: tap a relation to add relatives fast on smaller screens."
+                          : "Visual tree mode: parents above, siblings beside, children below."}
                       </p>
-                      <span className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gold-400/[0.08] text-[11px] text-gold-300/85">
-                        Links forged: {linksForged}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setCompactStepTwo((prev) => !prev)}
+                          className="h-7 px-2.5 rounded-lg border border-white/[0.12] bg-white/[0.03] text-[11px] text-white/65 hover:text-white/88 hover:border-gold-400/24 transition-colors"
+                        >
+                          {compactStepTwo ? "Switch to Visual Tree" : "Switch to Quick Picker"}
+                        </button>
+                        <span className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gold-400/[0.08] text-[11px] text-gold-300/85">
+                          Links forged: {linksForged}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="relative mt-4 h-[360px] rounded-2xl border border-white/[0.08] bg-white/[0.03] overflow-hidden">
-                      <div
-                        className="absolute inset-0 opacity-60"
-                        style={{ background: "radial-gradient(circle at center, rgba(212,165,116,0.14) 0%, transparent 72%)" }}
-                      />
-
-                      <svg className="absolute inset-0 h-full w-full pointer-events-none">
-                        {RELATION_ACTIONS.map((action) => (
-                          <line
-                            key={`line-${action.value}`}
-                            x1="50%"
-                            y1="50%"
-                            x2={`${action.leftPct}%`}
-                            y2={`${action.topPct}%`}
-                            stroke="rgba(212,165,116,0.28)"
-                            strokeWidth="1"
-                          />
-                        ))}
-                      </svg>
-
-                      {RELATION_ACTIONS.map((action) => {
-                        const isSelected = stepTwoDraft.relation === action.value;
-                        const slotRelatives = directRelativesByRelation.get(action.value) || [];
-                        return (
-                          <div
-                            key={action.value}
-                            className="absolute -translate-x-1/2 -translate-y-1/2 w-[170px] text-center"
-                            style={{
-                              left: `${action.leftPct}%`,
-                              top: `${action.topPct}%`,
-                            }}
-                          >
+                    {compactStepTwo ? (
+                      <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        {RELATION_ACTIONS.map((action) => {
+                          const isSelected = stepTwoDraft.relation === action.value;
+                          const slotRelatives = directRelativesByRelation.get(action.value) || [];
+                          return (
                             <button
+                              key={action.value}
+                              type="button"
                               onClick={() => handleSelectRelationAction(action.value)}
                               className={cn(
-                                "rounded-xl border px-3 py-1.5 text-xs transition-colors",
+                                "rounded-xl border px-3 py-2 text-left transition-colors",
                                 isSelected
                                   ? "border-gold-400/35 bg-gold-400/15 text-gold-300"
                                   : "border-white/[0.12] bg-white/[0.04] text-white/78 hover:border-gold-400/25 hover:text-white/92"
                               )}
                             >
-                              Add {action.label}
+                              <p className="text-xs font-medium">Add {action.label}</p>
+                              <p className="text-[10px] text-white/45 mt-1">
+                                {slotRelatives.length} linked
+                              </p>
                             </button>
-                            {slotRelatives.length > 0 && (
-                              <div className="mt-1.5 space-y-1">
-                                {slotRelatives.slice(0, 2).map((member) => (
-                                  <div
-                                    key={member.id}
-                                    className="mx-auto w-fit rounded-md border border-severity-mild/20 bg-white/[0.08] px-2 py-1"
-                                  >
-                                    <p className="text-[10px] text-white/85 leading-none">
-                                      {member.first_name}
-                                    </p>
-                                    <p className="text-[9px] text-severity-mild/80 leading-none mt-1">
-                                      {relationLabel(directRelationById.get(member.id) || "sibling")}
-                                    </p>
-                                  </div>
-                                ))}
-                                {slotRelatives.length > 2 && (
-                                  <p className="text-[10px] text-white/40">+{slotRelatives.length - 2} more</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="relative mt-4 h-[360px] rounded-2xl border border-white/[0.08] bg-white/[0.03] overflow-hidden">
+                        <div
+                          className="absolute inset-0 opacity-60"
+                          style={{ background: "radial-gradient(circle at center, rgba(212,165,116,0.14) 0%, transparent 72%)" }}
+                        />
 
-                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                        <div className="w-28 h-28 rounded-full border border-gold-400/35 bg-white/[0.06] flex flex-col items-center justify-center text-center shadow-[0_0_32px_rgba(212,165,116,0.2)]">
-                          <p className="text-[10px] text-gold-300/85 uppercase tracking-wider">You</p>
-                          <p className="text-xs text-white/90 font-medium leading-tight px-2">
-                            {viewer.first_name} {viewer.last_name}
-                          </p>
+                        <svg className="absolute inset-0 h-full w-full pointer-events-none">
+                          {RELATION_ACTIONS.map((action) => (
+                            <line
+                              key={`line-${action.value}`}
+                              x1="50%"
+                              y1="50%"
+                              x2={`${action.leftPct}%`}
+                              y2={`${action.topPct}%`}
+                              stroke="rgba(212,165,116,0.28)"
+                              strokeWidth="1"
+                            />
+                          ))}
+                        </svg>
+
+                        {RELATION_ACTIONS.map((action) => {
+                          const isSelected = stepTwoDraft.relation === action.value;
+                          const slotRelatives = directRelativesByRelation.get(action.value) || [];
+                          return (
+                            <div
+                              key={action.value}
+                              className="absolute -translate-x-1/2 -translate-y-1/2 w-[170px] text-center"
+                              style={{
+                                left: `${action.leftPct}%`,
+                                top: `${action.topPct}%`,
+                              }}
+                            >
+                              <button
+                                onClick={() => handleSelectRelationAction(action.value)}
+                                className={cn(
+                                  "rounded-xl border px-3 py-1.5 text-xs transition-colors",
+                                  isSelected
+                                    ? "border-gold-400/35 bg-gold-400/15 text-gold-300"
+                                    : "border-white/[0.12] bg-white/[0.04] text-white/78 hover:border-gold-400/25 hover:text-white/92"
+                                )}
+                              >
+                                Add {action.label}
+                              </button>
+                              {slotRelatives.length > 0 && (
+                                <div className="mt-1.5 space-y-1">
+                                  {slotRelatives.slice(0, 2).map((member) => (
+                                    <div
+                                      key={member.id}
+                                      className="mx-auto w-fit rounded-md border border-severity-mild/20 bg-white/[0.08] px-2 py-1"
+                                    >
+                                      <p className="text-[10px] text-white/85 leading-none">
+                                        {member.first_name}
+                                      </p>
+                                      <p className="text-[9px] text-severity-mild/80 leading-none mt-1">
+                                        {relationLabel(directRelationById.get(member.id) || "sibling")}
+                                      </p>
+                                    </div>
+                                  ))}
+                                  {slotRelatives.length > 2 && (
+                                    <p className="text-[10px] text-white/40">+{slotRelatives.length - 2} more</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                          <div className="w-28 h-28 rounded-full border border-gold-400/35 bg-white/[0.06] flex flex-col items-center justify-center text-center shadow-[0_0_32px_rgba(212,165,116,0.2)]">
+                            <p className="text-[10px] text-gold-300/85 uppercase tracking-wider">You</p>
+                            <p className="text-xs text-white/90 font-medium leading-tight px-2">
+                              {viewer.first_name} {viewer.last_name}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
@@ -627,13 +700,19 @@ export function FamilyOnboardingWizard({
                             className={inputClass}
                             placeholder="First name"
                             value={stepTwoDraft.firstName}
-                            onChange={(e) => setStepTwoDraft((s) => ({ ...s, firstName: e.target.value }))}
+                            onChange={(e) => {
+                              setAllowDuplicateStepTwo(false);
+                              setStepTwoDraft((s) => ({ ...s, firstName: e.target.value }));
+                            }}
                           />
                           <input
                             className={inputClass}
                             placeholder="Last name"
                             value={stepTwoDraft.lastName}
-                            onChange={(e) => setStepTwoDraft((s) => ({ ...s, lastName: e.target.value }))}
+                            onChange={(e) => {
+                              setAllowDuplicateStepTwo(false);
+                              setStepTwoDraft((s) => ({ ...s, lastName: e.target.value }));
+                            }}
                           />
                           <select
                             className={inputClass}
@@ -649,20 +728,43 @@ export function FamilyOnboardingWizard({
                           </select>
                           <CitySearch
                             value={stepTwoDraft.city}
-                            onChange={(next) => setStepTwoDraft((s) => ({ ...s, city: next }))}
+                            onChange={(next) => {
+                              setAllowDuplicateStepTwo(false);
+                              setStepTwoDraft((s) => ({ ...s, city: next }));
+                            }}
                             placeholder="City (optional)"
+                          />
+                          <input
+                            type="date"
+                            className={inputClass}
+                            value={stepTwoDraft.dateOfBirth}
+                            onChange={(e) => {
+                              setAllowDuplicateStepTwo(false);
+                              setStepTwoDraft((s) => ({ ...s, dateOfBirth: e.target.value }));
+                            }}
                           />
                         </div>
 
                         {duplicateInMembers && (
                           <div className="mt-3 px-3 py-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.08] text-xs text-amber-200/90">
-                            Looks like this person already exists: {duplicateInMembers.first_name} {duplicateInMembers.last_name}
+                            {duplicateInMembers.confidence === "high" ? "Likely duplicate" : "Potential duplicate"}:
+                            {" "}
+                            {duplicateInMembers.member.first_name} {duplicateInMembers.member.last_name}
+                            {!allowDuplicateStepTwo && (
+                              <button
+                                type="button"
+                                onClick={() => setAllowDuplicateStepTwo(true)}
+                                className="ml-2 underline underline-offset-2 hover:text-amber-100"
+                              >
+                                Add anyway
+                              </button>
+                            )}
                           </div>
                         )}
 
                         <button
                           onClick={handleAddDirectRelative}
-                          disabled={addingRelative || !!duplicateInMembers}
+                          disabled={addingRelative || (!!duplicateInMembers && !allowDuplicateStepTwo)}
                           className="mt-3 px-4 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 disabled:opacity-50 transition-colors"
                         >
                           {addingRelative ? "Adding..." : `Add ${relationLabel(stepTwoDraft.relation)}`}

@@ -42,6 +42,7 @@ export interface Profile {
   country_code: string | null;
   role: Role;
   is_alive: boolean;
+  onboarding_completed?: boolean;
   family_id?: string | null;
   created_at: string;
   updated_at: string;

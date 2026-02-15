@@ -16,7 +16,7 @@ const HOW_IT_WORKS_STEPS = [
   {
     number: "2",
     title: "Add 3 core relatives",
-    description: "Use starter templates and suggestions to quickly add your first branch.",
+    description: "Use the guided tree actions to add parents, siblings, spouse, or children quickly.",
     screenshotPath: "/demo",
   },
   {
@@ -60,7 +60,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] relative overflow-hidden">
+    <div className="min-h-screen bg-[color:var(--background)] relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div
           className="absolute top-[-220px] left-1/2 -translate-x-1/2 w-[860px] h-[860px] rounded-full"
@@ -156,7 +156,7 @@ export default function LandingPage() {
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                 placeholder="Already have a family code?"
-                className="flex-1 h-11 rounded-xl bg-white/[0.03] border border-white/[0.12] px-3 text-sm text-white/85 placeholder:text-white/28 outline-none focus:border-gold-400/35"
+                className="flex-1 h-11 rounded-xl app-input px-3 text-sm outline-none"
                 autoCapitalize="none"
               />
               <button

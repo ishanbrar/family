@@ -214,11 +214,11 @@ function SignupPageContent() {
   };
 
   const inputClass =
-    "w-full bg-white/[0.04] border border-white/[0.08] rounded-xl pl-11 pr-4 py-3 text-sm text-white/90 placeholder:text-white/20 outline-none focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200";
+    "w-full app-input rounded-xl pl-11 pr-4 py-3 text-sm outline-none transition-all duration-200";
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
           className="max-w-md mx-4 text-center">
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gold-400/10 border border-gold-400/20 mx-auto mb-6">
@@ -239,7 +239,7 @@ function SignupPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full"
           style={{ background: "radial-gradient(circle, rgba(212,165,116,0.04) 0%, transparent 70%)" }} />
@@ -282,19 +282,19 @@ function SignupPageContent() {
           <form onSubmit={handleSignup} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="relative">
-                <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+                <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
                 <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
                   placeholder="First name" required className={inputClass} />
               </div>
               <div className="relative">
-                <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+                <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
                 <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
                   placeholder="Last name" required className={inputClass} />
               </div>
             </div>
 
             <div className="relative">
-              <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+              <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
               <select
                 value={gender}
                 onChange={(e) => setGender(e.target.value as Gender | "")}
@@ -311,26 +311,26 @@ function SignupPageContent() {
             </div>
 
             <div className="relative">
-              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email address" required className={inputClass} />
             </div>
 
             <div className="relative">
-              <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+              <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password (min 6 characters)" required minLength={6} className={inputClass} />
             </div>
 
             {mode === "create" ? (
               <div className="relative">
-                <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+                <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
                 <input type="text" value={familyName} onChange={(e) => setFamilyName(e.target.value)}
                   placeholder="Family name (e.g., The Montagues)" required className={inputClass} />
               </div>
             ) : (
               <div className="relative">
-                <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+                <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
                 <input type="text" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)}
                   placeholder="Family invite code" required autoCapitalize="none" className={inputClass} />
               </div>
@@ -366,7 +366,7 @@ function SignupPageContent() {
 
 function SignupFallback() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+    <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
       <div className="flex items-center gap-2 text-white/50 text-sm">
         <Loader2 size={16} className="animate-spin text-gold-400" />
         Loading sign up...

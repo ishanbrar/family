@@ -150,7 +150,7 @@ export default function DemoPage() {
   const filterMember = store.relatedByFilter ? members.find((p) => p.id === store.relatedByFilter) : null;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[color:var(--background)]">
       {/* Lightweight demo sidebar */}
       <motion.aside
         initial={{ x: -80, opacity: 0 }} animate={{ x: 0, opacity: 1 }}

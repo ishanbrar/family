@@ -79,7 +79,7 @@ export function CitySearch({
       <div className="relative">
         <MapPin
           size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-white/35"
+          className="absolute left-3 top-1/2 -translate-y-1/2 app-input-icon"
         />
         <input
           ref={inputRef}
@@ -97,9 +97,7 @@ export function CitySearch({
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5
-            text-sm text-white/92 placeholder:text-white/45 outline-none
-            focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200"
+          className="w-full app-input rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none transition-all duration-200"
         />
         {query.length > 0 && results.length === 0 && (
           <Search

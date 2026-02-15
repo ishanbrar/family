@@ -3,10 +3,11 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Filter, GitBranch, Loader2, MapPin, Briefcase, Calendar, User, PawPrint, X, Edit3, Check } from "lucide-react";
+import { GitBranch, Loader2, MapPin, Briefcase, Calendar, User, PawPrint, X, Edit3, Check } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { FamilyTree } from "@/components/tree/FamilyTree";
+import { TreeControls } from "@/components/tree/TreeControls";
 import { useFamilyData } from "@/hooks/use-family-data";
 import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
@@ -113,7 +114,7 @@ export default function TreeExplorerPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <Loader2 size={24} className="text-gold-400 animate-spin" />
       </div>
     );
@@ -121,7 +122,7 @@ export default function TreeExplorerPage() {
 
   if (!viewer) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <div className="text-center">
           <p className="text-sm text-white/50 mb-3">You need to sign in to browse your family tree.</p>
           <a href="/login" className="text-sm text-gold-300 hover:text-gold-200 transition-colors">Go to login</a>
@@ -134,7 +135,7 @@ export default function TreeExplorerPage() {
   const filterMember = relatedByFilter ? members.find((m) => m.id === relatedByFilter) : null;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[color:var(--background)]">
       <Sidebar />
 
       <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
@@ -154,7 +155,7 @@ export default function TreeExplorerPage() {
                   value={draftFamilyName}
                   onChange={(e) => setDraftFamilyName(e.target.value)}
                   placeholder="Family name"
-                  className="h-9 min-w-[260px] rounded-lg px-3 bg-white/[0.04] border border-white/[0.12] text-sm text-white/85 outline-none focus:border-gold-400/30"
+                  className="h-9 min-w-[260px] rounded-lg px-3 app-input text-sm outline-none"
                 />
                 <button
                   onClick={handleSaveTitle}
@@ -188,76 +189,21 @@ export default function TreeExplorerPage() {
                 </span>
               </button>
             )}
-            <div className="flex items-center gap-2">
-              <Filter size={12} className="text-white/30" />
-              <select
-                value={relatedByFilter || ""}
-                onChange={(e) => setRelatedByFilter(e.target.value || null)}
-                className="h-9 rounded-lg px-3 bg-white/[0.04] border border-white/[0.12] text-xs text-white/75 outline-none focus:border-gold-400/30"
-              >
-                <option value="">Related By...</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.first_name} {member.last_name}
-                  </option>
-                ))}
-              </select>
-              {relatedByFilter && (
-                <button
-                  onClick={() => setRelatedByFilter(null)}
-                  className="w-7 h-7 rounded-lg bg-white/[0.05] border border-white/[0.08] text-white/55 hover:text-white/85"
-                  aria-label="Clear related by"
-                >
-                  <X size={12} className="mx-auto" />
-                </button>
-              )}
-            </div>
-
-            <label className="inline-flex items-center gap-1.5 text-[11px] text-white/50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showPercentages}
-                onChange={(e) => setShowPercentages(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400"
-              />
-              Show %
-            </label>
-            <label className="inline-flex items-center gap-1.5 text-[11px] text-white/50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showRelationLabels}
-                onChange={(e) => setShowRelationLabels(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400"
-              />
-              Show relations
-            </label>
-            <label className="inline-flex items-center gap-1.5 text-[11px] text-white/50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showLastNames}
-                onChange={(e) => setShowLastNames(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400"
-              />
-              Show last names
-            </label>
-            <label className="inline-flex items-center gap-1.5 text-[11px] text-white/50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showBirthYear}
-                onChange={(e) => setShowBirthYear(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400"
-              />
-              Show birth year
-            </label>
-            <label className="inline-flex items-center gap-1.5 text-[11px] text-white/50 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showDeathYear}
-                onChange={(e) => setShowDeathYear(e.target.checked)}
-                className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400"
-              />
-              Show death year
-            </label>
+            <TreeControls
+              members={members}
+              relatedByFilter={relatedByFilter}
+              onRelatedByFilterChange={setRelatedByFilter}
+              showPercentages={showPercentages}
+              onShowPercentagesChange={setShowPercentages}
+              showRelationLabels={showRelationLabels}
+              onShowRelationLabelsChange={setShowRelationLabels}
+              showLastNames={showLastNames}
+              onShowLastNamesChange={setShowLastNames}
+              showBirthYear={showBirthYear}
+              onShowBirthYearChange={setShowBirthYear}
+              showDeathYear={showDeathYear}
+              onShowDeathYearChange={setShowDeathYear}
+            />
           </div>
         </motion.div>
 
@@ -268,8 +214,8 @@ export default function TreeExplorerPage() {
           </div>
         )}
 
-        <div className={cn("grid gap-5", selectedMember ? "grid-cols-1 xl:grid-cols-3" : "grid-cols-1")}>
-          <GlassCard className={cn("p-4 sm:p-5", selectedMember ? "xl:col-span-2" : "xl:col-span-1")}>
+        <div className={cn("grid gap-5 items-start", selectedMember ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1")}>
+          <GlassCard className={cn("p-4 sm:p-5", selectedMember ? "lg:col-span-2" : "lg:col-span-1")}>
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h2 className="font-serif text-lg text-white/92">Family Network</h2>
@@ -307,7 +253,7 @@ export default function TreeExplorerPage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 24 }}
                 transition={{ duration: 0.2 }}
-                className="xl:col-span-1"
+                className="lg:col-span-1"
               >
                 <GlassCard className="p-5 sticky top-6">
                   <div className="flex items-start justify-between gap-2 mb-4">

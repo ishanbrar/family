@@ -43,7 +43,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${playfair.variable} ${inter.variable} antialiased bg-[#0a0a0a] text-white`}
+        className={`${playfair.variable} ${inter.variable} antialiased app-page-bg`}
       >
         {children}
         <ThemeToggle />

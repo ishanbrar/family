@@ -1,23 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Moon, Sun } from "lucide-react";
+import { Sun } from "lucide-react";
 import {
   resolveAppliedThemeMode,
-  resolveInitialTheme,
   setThemeMode,
   THEME_CHANGE_EVENT,
   type ThemeMode,
 } from "@/lib/theme";
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemeMode>(() => {
-    if (typeof document !== "undefined") return resolveAppliedThemeMode();
-    return resolveInitialTheme();
-  });
+  // Keep first render deterministic for SSR/CSR hydration parity.
+  const [theme, setTheme] = useState<ThemeMode>("dark");
 
   useEffect(() => {
     const sync = () => setTheme(resolveAppliedThemeMode());
+    sync();
     window.addEventListener(THEME_CHANGE_EVENT, sync);
     return () => window.removeEventListener(THEME_CHANGE_EVENT, sync);
   }, []);
@@ -37,16 +35,15 @@ export function ThemeToggle() {
       aria-label={`Switch to ${nextTheme} mode`}
       title={`Switch to ${nextTheme} mode`}
       suppressHydrationWarning
-      className="fixed right-4 top-4 z-[100] glass rounded-xl px-3 py-2.5
-        text-xs text-white/70 hover:text-gold-300 transition-colors
-        flex items-center gap-2 shadow-lg"
+      className="fixed right-4 top-4 z-30 glass rounded-xl w-10 h-10
+        text-white/70 hover:text-gold-300 transition-colors
+        inline-flex items-center justify-center shadow-lg"
       style={{
         top: "max(env(safe-area-inset-top), 0.75rem)",
         right: "max(env(safe-area-inset-right), 0.75rem)",
       }}
     >
-      {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-      <span className="hidden sm:inline">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+      <Sun size={16} />
     </button>
   );
 }

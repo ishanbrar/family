@@ -56,7 +56,7 @@ export default function MemberProfilePage({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <Loader2 size={24} className="text-gold-400 animate-spin" />
       </div>
     );
@@ -64,7 +64,7 @@ export default function MemberProfilePage({
 
   if (!viewer) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <div className="text-center">
           <p className="text-sm text-white/50 mb-3">You need to sign in to view profiles.</p>
           <a href="/login" className="text-sm text-gold-300 hover:text-gold-200 transition-colors">Go to login</a>
@@ -75,7 +75,7 @@ export default function MemberProfilePage({
 
   if (!member) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <p className="text-white/40">Member not found</p>
       </div>
     );
@@ -123,7 +123,7 @@ export default function MemberProfilePage({
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[color:var(--background)]">
       <Sidebar />
 
       <EditProfileModal

@@ -29,6 +29,7 @@ import { ProfileCard } from "@/components/ui/ProfileCard";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { InteractiveGlobe } from "@/components/globe/InteractiveGlobe";
 import { FamilyTree } from "@/components/tree/FamilyTree";
+import { TreeControls } from "@/components/tree/TreeControls";
 import { GenerationInsights } from "@/components/tree/GenerationInsights";
 import { AddMemberModal } from "@/components/ui/AddMemberModal";
 import { ManageTreeModal } from "@/components/ui/ManageTreeModal";
@@ -69,6 +70,7 @@ export default function DashboardPage() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [manageTreeOpen, setManageTreeOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [suppressAutoOnboarding, setSuppressAutoOnboarding] = useState(false);
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
   const [focusedCountryCode, setFocusedCountryCode] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
@@ -78,11 +80,12 @@ export default function DashboardPage() {
   const [showPercentages, setShowPercentages] = useState(true);
   const [showRelationLabels, setShowRelationLabels] = useState(true);
   const [showLastNames, setShowLastNames] = useState(false);
+  const [showBirthYear, setShowBirthYear] = useState(false);
+  const [showDeathYear, setShowDeathYear] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportScope, setExportScope] = useState<"entire" | "related">("entire");
   const [exportingTree, setExportingTree] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
-  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
   const navigateToProfile = useCallback(
     (id: string) => router.push(`/profile/${id}`),
@@ -227,33 +230,37 @@ export default function DashboardPage() {
     [navigateToProfile]
   );
 
+  const onboardingRequired =
+    !!viewer && isOnline && !viewer.onboarding_completed && !suppressAutoOnboarding;
+
+  const dismissOnboarding = useCallback(async () => {
+    setSuppressAutoOnboarding(true);
+    setWizardOpen(false);
+    if (viewer) {
+      try {
+        await updateProfile(viewer.id, { onboarding_completed: true });
+      } catch (err) {
+        console.error("[Onboarding] Dismiss update failed:", err);
+      }
+    }
+  }, [viewer, updateProfile]);
+
+  const completeOnboarding = useCallback(async () => {
+    setSuppressAutoOnboarding(true);
+    setWizardOpen(false);
+    if (viewer) {
+      try {
+        await updateProfile(viewer.id, { onboarding_completed: true });
+      } catch (err) {
+        console.error("[Onboarding] Complete update failed:", err);
+      }
+    }
+  }, [viewer, updateProfile]);
+
   useEffect(() => {
-    if (!viewer || typeof window === "undefined") {
-      setOnboardingCompleted(false);
-      return;
-    }
-    const completed =
-      window.localStorage.getItem(`legacy:onboarding-complete:${viewer.id}`) === "1";
-    setOnboardingCompleted(completed);
-  }, [viewer]);
-
-  const onboardingRequired = !!viewer && !onboardingCompleted;
-
-  const dismissOnboarding = useCallback(() => {
-    setOnboardingCompleted(true);
-    setWizardOpen(false);
-    if (viewer) {
-      window.localStorage.setItem(`legacy:onboarding-complete:${viewer.id}`, "1");
-    }
-  }, [viewer]);
-
-  const completeOnboarding = useCallback(() => {
-    setOnboardingCompleted(true);
-    setWizardOpen(false);
-    if (viewer) {
-      window.localStorage.setItem(`legacy:onboarding-complete:${viewer.id}`, "1");
-    }
-  }, [viewer]);
+    if (!viewer?.onboarding_completed) return;
+    setSuppressAutoOnboarding(false);
+  }, [viewer?.onboarding_completed]);
 
   const handleFocusCountry = useCallback((code: string) => {
     setFocusedCountryCode(code);
@@ -326,9 +333,20 @@ export default function DashboardPage() {
     family,
   ]);
 
+  useEffect(() => {
+    if (!exportModalOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setExportModalOpen(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [exportModalOpen]);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 size={24} className="text-gold-400 animate-spin" />
           <p className="text-xs text-white/30">Loading family data...</p>
@@ -339,7 +357,7 @@ export default function DashboardPage() {
 
   if (!viewer) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <div className="text-center">
           <p className="text-sm text-white/50 mb-3">You need to sign in to view your family dashboard.</p>
           <a href="/login" className="text-sm text-gold-300 hover:text-gold-200 transition-colors">Go to login</a>
@@ -355,7 +373,7 @@ export default function DashboardPage() {
   const filterMember = relatedByFilter ? members.find((p) => p.id === relatedByFilter) : null;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[color:var(--background)]">
       <Sidebar />
       <AddMemberModal
         existingMembers={members}
@@ -412,12 +430,16 @@ export default function DashboardPage() {
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="export-tree-title"
+              tabIndex={-1}
               className="fixed z-[71] inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
                 sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
                 w-auto sm:w-[min(560px,94vw)] rounded-2xl app-surface border border-white/[0.08] overflow-hidden"
             >
               <div className="px-5 py-4 border-b border-white/[0.06]">
-                <h3 className="font-serif text-lg text-white/92">Export Family Tree Image</h3>
+                <h3 id="export-tree-title" className="font-serif text-lg text-white/92">Export Family Tree Image</h3>
                 <p className="text-xs text-white/40 mt-1">
                   Generates a high-resolution landscape PNG in an old-school print style.
                 </p>
@@ -532,7 +554,10 @@ export default function DashboardPage() {
             <div className="flex flex-wrap items-stretch sm:items-center lg:justify-end gap-2">
               <motion.button
                 whileTap={{ scale: 0.98 }}
-                onClick={() => setWizardOpen(true)}
+                onClick={() => {
+                  setSuppressAutoOnboarding(false);
+                  setWizardOpen(true);
+                }}
                 className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.12]
                   bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
                   hover:bg-gold-400/[0.08] transition-colors"
@@ -566,9 +591,7 @@ export default function DashboardPage() {
                 onFocus={() => setMemberSearchOpen(true)}
                 onBlur={() => setTimeout(() => setMemberSearchOpen(false), 120)}
                 placeholder="Search members by name, nickname, city, country, profession, or relation..."
-                className="w-full h-10 rounded-xl pl-9 pr-3 bg-white/[0.03] border border-white/[0.1]
-                  text-sm text-white/80 placeholder:text-white/30 outline-none focus:border-gold-400/30
-                  focus:bg-white/[0.05] transition-colors"
+                className="w-full h-10 rounded-xl pl-9 pr-3 app-input text-sm outline-none transition-colors"
               />
 
               {memberSearchOpen && (
@@ -650,65 +673,26 @@ export default function DashboardPage() {
                   <Download size={12} />
                   Export Image
                 </motion.button>
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Filter size={12} className="text-white/25" />
-                  <select
-                    value={relatedByFilter || ""}
-                    onChange={(e) => setRelatedByFilter(e.target.value || null)}
-                    className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white/60 outline-none focus:border-gold-400/30 transition-colors appearance-none cursor-pointer pr-6"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='rgba(255,255,255,0.3)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 8px center",
-                    }}
-                  >
-                    <option value="">Related By...</option>
-                    {members.map((p) => (
-                      <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
-                    ))}
-                  </select>
-                  {relatedByFilter && (
-                    <motion.button
-                      initial={{ scale: 0 }} animate={{ scale: 1 }} whileTap={{ scale: 0.9 }}
-                      onClick={() => setRelatedByFilter(null)}
-                      className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-white/30"
-                    >
-                      <X size={12} />
-                    </motion.button>
-                  )}
-                </div>
                 <div className="hidden md:flex items-center gap-2 text-[10px] text-white/25">
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gold-400" /> 50%</span>
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gold-300" /> 25%</span>
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gold-200" /> 12.5%</span>
                 </div>
-                <label className="inline-flex items-center gap-1.5 text-[11px] text-white/45 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showPercentages}
-                    onChange={(e) => setShowPercentages(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400 focus:ring-gold-400/30"
-                  />
-                  Show %
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-[11px] text-white/45 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showRelationLabels}
-                    onChange={(e) => setShowRelationLabels(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400 focus:ring-gold-400/30"
-                  />
-                  Show relations
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-[11px] text-white/45 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showLastNames}
-                    onChange={(e) => setShowLastNames(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400 focus:ring-gold-400/30"
-                  />
-                  Show last names
-                </label>
+                <TreeControls
+                  members={members}
+                  relatedByFilter={relatedByFilter}
+                  onRelatedByFilterChange={setRelatedByFilter}
+                  showPercentages={showPercentages}
+                  onShowPercentagesChange={setShowPercentages}
+                  showRelationLabels={showRelationLabels}
+                  onShowRelationLabelsChange={setShowRelationLabels}
+                  showLastNames={showLastNames}
+                  onShowLastNamesChange={setShowLastNames}
+                  showBirthYear={showBirthYear}
+                  onShowBirthYearChange={setShowBirthYear}
+                  showDeathYear={showDeathYear}
+                  onShowDeathYearChange={setShowDeathYear}
+                />
               </div>
             </div>
 
@@ -735,6 +719,8 @@ export default function DashboardPage() {
               showPercentages={showPercentages}
               showRelationLabels={showRelationLabels}
               showLastNames={showLastNames}
+              showBirthYear={showBirthYear}
+              showDeathYear={showDeathYear}
               onMemberClick={(id) => navigateToProfile(id)}
               canvasWidth={treeLayout.width}
               canvasHeight={treeLayout.height}
@@ -786,9 +772,7 @@ export default function DashboardPage() {
                           value={countryQuery}
                           onChange={(e) => setCountryQuery(e.target.value)}
                           placeholder="Search..."
-                          className="w-full h-8 pl-7 pr-7 rounded-lg bg-white/[0.03] border border-white/[0.08]
-                            text-[11px] text-white/75 placeholder:text-white/20 outline-none
-                            focus:border-gold-400/30 transition-colors"
+                          className="w-full h-8 pl-7 pr-7 rounded-lg app-input text-[11px] outline-none transition-colors"
                         />
                         {countryQuery && (
                           <button

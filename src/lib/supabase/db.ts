@@ -127,6 +127,9 @@ export async function updateProfile(
   if (updates.about_me !== undefined) dbUpdates.about_me = updates.about_me;
   if (updates.country_code !== undefined) dbUpdates.country_code = updates.country_code;
   if (updates.is_alive !== undefined) dbUpdates.is_alive = updates.is_alive;
+  if (updates.onboarding_completed !== undefined) {
+    dbUpdates.onboarding_completed = updates.onboarding_completed;
+  }
 
   const { data, error } = await supabase
     .from("profiles")
@@ -535,6 +538,7 @@ function mapProfile(row: any): Profile {
     country_code: row.country_code || null,
     role: row.role || "MEMBER",
     is_alive: row.is_alive ?? true,
+    onboarding_completed: row.onboarding_completed ?? false,
     family_id: row.family_id || null,
     created_at: row.created_at,
     updated_at: row.updated_at,

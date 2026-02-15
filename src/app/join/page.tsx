@@ -137,8 +137,12 @@ function JoinFamilyPageContent() {
     if (previewProfiles.length === 0) {
       return { nodes: [], connections: [], width: 900, height: 560 };
     }
-    return createFamilyTreeLayout(previewProfiles, previewRelationships, previewProfiles[0].id);
-  }, [previewProfiles, previewRelationships]);
+    const preferredRootId =
+      (selectedClaimId && previewProfiles.some((profile) => profile.id === selectedClaimId)
+        ? selectedClaimId
+        : null) || previewProfiles[0].id;
+    return createFamilyTreeLayout(previewProfiles, previewRelationships, preferredRootId);
+  }, [previewProfiles, previewRelationships, selectedClaimId]);
 
   const treeMembers = useMemo(
     () =>
@@ -189,7 +193,7 @@ function JoinFamilyPageContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
         <div className="flex items-center gap-2 text-white/50 text-sm">
           <Loader2 size={16} className="animate-spin text-gold-400" />
           Preparing family join flow...
@@ -199,7 +203,7 @@ function JoinFamilyPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] p-6 lg:p-8">
+    <div className="min-h-screen bg-[color:var(--background)] p-6 lg:p-8">
       <main className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <button
@@ -339,7 +343,7 @@ function JoinFamilyPageContent() {
 
 function JoinFamilyFallback() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+    <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
       <div className="flex items-center gap-2 text-white/50 text-sm">
         <Loader2 size={16} className="animate-spin text-gold-400" />
         Preparing family join flow...
