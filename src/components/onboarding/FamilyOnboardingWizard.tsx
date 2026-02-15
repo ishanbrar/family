@@ -15,6 +15,7 @@ import {
 import type { Profile, Relationship, RelationshipType, Gender } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { CitySearch } from "@/components/ui/CitySearch";
+import { inferCountryCodeFromCity } from "@/lib/cities";
 
 interface InviteFamilyLite {
   id: string;
@@ -229,7 +230,7 @@ export function FamilyOnboardingWizard({
   }, [family]);
 
   const inputClass =
-    "w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-sm text-white/85 placeholder:text-white/20 outline-none focus:border-gold-400/30 transition-colors";
+    "w-full bg-white/[0.04] border border-white/[0.12] rounded-xl px-3 py-2.5 text-sm text-white/90 placeholder:text-white/42 outline-none focus:border-gold-400/30 transition-colors";
 
   const createMemberPayload = useMemo(
     () =>
@@ -248,7 +249,7 @@ export function FamilyOnboardingWizard({
         pets: [],
         social_links: {},
         about_me: null,
-        country_code: null,
+        country_code: inferCountryCodeFromCity(draft.city),
         role: "MEMBER" as const,
         is_alive: true,
       }),
@@ -280,6 +281,7 @@ export function FamilyOnboardingWizard({
         gender: selfProfile.gender || null,
         date_of_birth: selfProfile.dateOfBirth || null,
         location_city: selfProfile.locationCity.trim() || null,
+        country_code: inferCountryCodeFromCity(selfProfile.locationCity),
         place_of_birth: selfProfile.placeOfBirth.trim() || null,
         profession: selfProfile.profession.trim() || null,
         about_me: selfProfile.aboutMe.trim() || null,
@@ -526,7 +528,7 @@ export function FamilyOnboardingWizard({
                       </span>
                     </div>
 
-                    <div className="relative mt-4 h-[360px] rounded-2xl border border-white/[0.06] bg-black/25 overflow-hidden">
+                    <div className="relative mt-4 h-[360px] rounded-2xl border border-white/[0.08] bg-white/[0.03] overflow-hidden">
                       <div
                         className="absolute inset-0 opacity-60"
                         style={{ background: "radial-gradient(circle at center, rgba(212,165,116,0.14) 0%, transparent 72%)" }}
@@ -564,7 +566,7 @@ export function FamilyOnboardingWizard({
                                 "rounded-xl border px-3 py-1.5 text-xs transition-colors",
                                 isSelected
                                   ? "border-gold-400/35 bg-gold-400/15 text-gold-300"
-                                  : "border-white/[0.1] bg-black/35 text-white/70 hover:border-gold-400/25 hover:text-white/90"
+                                  : "border-white/[0.12] bg-white/[0.04] text-white/78 hover:border-gold-400/25 hover:text-white/92"
                               )}
                             >
                               Add {action.label}
@@ -574,7 +576,7 @@ export function FamilyOnboardingWizard({
                                 {slotRelatives.slice(0, 2).map((member) => (
                                   <div
                                     key={member.id}
-                                    className="mx-auto w-fit rounded-md border border-severity-mild/20 bg-black/55 px-2 py-1"
+                                    className="mx-auto w-fit rounded-md border border-severity-mild/20 bg-white/[0.08] px-2 py-1"
                                   >
                                     <p className="text-[10px] text-white/85 leading-none">
                                       {member.first_name}
@@ -594,7 +596,7 @@ export function FamilyOnboardingWizard({
                       })}
 
                       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                        <div className="w-28 h-28 rounded-full border border-gold-400/35 bg-black/65 flex flex-col items-center justify-center text-center shadow-[0_0_32px_rgba(212,165,116,0.2)]">
+                        <div className="w-28 h-28 rounded-full border border-gold-400/35 bg-white/[0.06] flex flex-col items-center justify-center text-center shadow-[0_0_32px_rgba(212,165,116,0.2)]">
                           <p className="text-[10px] text-gold-300/85 uppercase tracking-wider">You</p>
                           <p className="text-xs text-white/90 font-medium leading-tight px-2">
                             {viewer.first_name} {viewer.last_name}

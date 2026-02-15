@@ -19,10 +19,13 @@ import {
   getFamilyInviteCodes as dbGetFamilyInviteCodes,
   createFamilyInviteCode as dbCreateFamilyInviteCode,
   updateFamilyInviteCode as dbUpdateFamilyInviteCode,
+  updateFamilyName as dbUpdateFamilyName,
   deleteFamilyInviteCode as dbDeleteFamilyInviteCode,
   updateProfile as dbUpdateProfile,
   addRelationship as dbAddRelationship,
+  deleteRelationship as dbDeleteRelationship,
   addFamilyMember as dbAddFamilyMember,
+  deleteFamilyMember as dbDeleteFamilyMember,
   addUserCondition as dbAddUserCondition,
   type FamilyRecord,
   type InviteCodeRecord,
@@ -56,11 +59,15 @@ interface FamilyData {
     rel: { relativeId: string; type: RelationshipType },
     avatarFile?: File
   ) => Promise<void>;
+  linkMembers: (fromMemberId: string, toMemberId: string, type: RelationshipType) => Promise<void>;
+  unlinkRelationship: (relationshipId: string) => Promise<void>;
+  removeMember: (memberId: string) => Promise<void>;
   addCondition: (userId: string, conditionId: string) => Promise<void>;
   regenerateInviteCode: () => Promise<void>;
   createInviteCode: (customCode?: string, label?: string) => Promise<void>;
   updateInviteCode: (inviteCodeId: string, nextCode: string, label?: string) => Promise<void>;
   deleteInviteCode: (inviteCodeId: string) => Promise<void>;
+  updateFamilyName: (nextName: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -355,6 +362,87 @@ export function useFamilyData(): FamilyData {
     [isOnline, conditions]
   );
 
+  const linkMembers = useCallback(
+    async (fromMemberId: string, toMemberId: string, type: RelationshipType) => {
+      if (fromMemberId === toMemberId) return;
+
+      if (!isOnline) {
+        const duplicate = store.relationships.some(
+          (rel) =>
+            rel.user_id === fromMemberId &&
+            rel.relative_id === toMemberId &&
+            rel.type === type
+        );
+        if (duplicate) return;
+        store.addRelationship({
+          id: `rel-${Date.now()}`,
+          user_id: fromMemberId,
+          relative_id: toMemberId,
+          type,
+          created_at: new Date().toISOString(),
+        });
+        return;
+      }
+
+      const newRel = await dbAddRelationship(supabase, fromMemberId, toMemberId, type);
+      if (!newRel) {
+        throw new Error("Could not create relationship.");
+      }
+      store.addRelationship(newRel);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isOnline, store.relationships]
+  );
+
+  const unlinkRelationship = useCallback(
+    async (relationshipId: string) => {
+      if (!relationshipId) return;
+
+      if (!isOnline) {
+        store.setRelationships(store.relationships.filter((rel) => rel.id !== relationshipId));
+        return;
+      }
+
+      const ok = await dbDeleteRelationship(supabase, relationshipId);
+      if (!ok) {
+        throw new Error("Could not remove relationship.");
+      }
+      store.setRelationships(store.relationships.filter((rel) => rel.id !== relationshipId));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isOnline, store.relationships]
+  );
+
+  const removeMember = useCallback(
+    async (memberId: string) => {
+      if (!memberId || memberId === store.viewer?.id) return;
+
+      if (!isOnline) {
+        store.setMembers(store.members.filter((member) => member.id !== memberId));
+        store.setRelationships(
+          store.relationships.filter(
+            (rel) => rel.user_id !== memberId && rel.relative_id !== memberId
+          )
+        );
+        return;
+      }
+
+      const ok = await dbDeleteFamilyMember(supabase, memberId);
+      if (!ok) {
+        throw new Error("Could not remove this member.");
+      }
+
+      store.setMembers(store.members.filter((member) => member.id !== memberId));
+      store.setRelationships(
+        store.relationships.filter(
+          (rel) => rel.user_id !== memberId && rel.relative_id !== memberId
+        )
+      );
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isOnline, store.viewer, store.members, store.relationships]
+  );
+
   const regenerateInviteCode = useCallback(async () => {
     if (!familyId && !family) return;
     if (!isOnline) {
@@ -448,6 +536,22 @@ export function useFamilyData(): FamilyData {
     setInviteCodes(codes);
   }, [isOnline, familyId, supabase]);
 
+  const updateFamilyName = useCallback(async (nextName: string) => {
+    const normalized = nextName.trim();
+    if (!normalized) return;
+
+    if (!isOnline) {
+      setFamily((prev) => (prev ? { ...prev, name: normalized } : prev));
+      return;
+    }
+
+    if (!familyId) return;
+
+    const updated = await dbUpdateFamilyName(supabase, familyId, normalized);
+    if (!updated) return;
+    setFamily(updated);
+  }, [isOnline, familyId, supabase]);
+
   const signOut = useCallback(async () => {
     if (isDevSuperAdminClient()) {
       disableDevSuperAdmin();
@@ -473,11 +577,15 @@ export function useFamilyData(): FamilyData {
     isOnline,
     updateProfile,
     addMember,
+    linkMembers,
+    unlinkRelationship,
+    removeMember,
     addCondition,
     regenerateInviteCode,
     createInviteCode,
     updateInviteCode,
     deleteInviteCode,
+    updateFamilyName,
     signOut,
     refresh: loadData,
   };

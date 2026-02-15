@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
 import type { Profile, SocialLinks, Gender } from "@/lib/types";
+import { inferCountryCodeFromCity } from "@/lib/cities";
 
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: "female", label: "Female" },
@@ -107,6 +108,7 @@ export function EditProfileModal({
       date_of_birth: dob || null,
       place_of_birth: placeOfBirth || null,
       about_me: aboutMe || null,
+      country_code: inferCountryCodeFromCity(locationCity),
       social_links: cleanSocial,
       avatar_url: avatarPreview,
       ...(avatarFile ? { avatarFile } : {}),
@@ -115,7 +117,7 @@ export function EditProfileModal({
   };
 
   const inputClass =
-    "w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white/90 placeholder:text-white/20 outline-none focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200";
+    "w-full bg-white/[0.04] border border-white/[0.12] rounded-xl px-4 py-2.5 text-sm text-white/92 placeholder:text-white/40 outline-none focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200";
 
   return (
     <AnimatePresence>

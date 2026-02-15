@@ -176,8 +176,31 @@ export async function addRelationship(
     .select("*")
     .single();
 
+  if (error?.code === "23505") {
+    const { data: existing } = await supabase
+      .from("relationships")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("relative_id", relativeId)
+      .eq("type", type)
+      .maybeSingle();
+    if (existing) return mapRelationship(existing);
+  }
+
   if (error || !data) return null;
   return mapRelationship(data);
+}
+
+export async function deleteRelationship(
+  supabase: SupabaseClient,
+  relationshipId: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("relationships")
+    .delete()
+    .eq("id", relationshipId);
+
+  return !error;
 }
 
 // ── Conditions ──────────────────────────────────
@@ -240,6 +263,25 @@ export async function getFamily(
     .from("families")
     .select("*")
     .eq("id", familyId)
+    .single();
+
+  if (error || !data) return null;
+  return data;
+}
+
+export async function updateFamilyName(
+  supabase: SupabaseClient,
+  familyId: string,
+  nextName: string
+): Promise<FamilyRecord | null> {
+  const normalized = nextName.trim();
+  if (!normalized) return null;
+
+  const { data, error } = await supabase
+    .from("families")
+    .update({ name: normalized })
+    .eq("id", familyId)
+    .select("*")
     .single();
 
   if (error || !data) return null;
@@ -456,6 +498,18 @@ export async function addFamilyMember(
     return null;
   }
   return mapProfile(data);
+}
+
+export async function deleteFamilyMember(
+  supabase: SupabaseClient,
+  memberId: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("profiles")
+    .delete()
+    .eq("id", memberId);
+
+  return !error;
 }
 
 // ── Mappers (DB row → TypeScript type) ──────────

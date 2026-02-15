@@ -206,6 +206,15 @@ CREATE POLICY "Admins can insert family members"
     OR auth_user_id = auth.uid()
   );
 
+CREATE POLICY "Admins can delete unclaimed family members"
+  ON profiles FOR DELETE
+  USING (
+    auth_user_id IS NULL
+    AND family_id IN (
+      SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+    )
+  );
+
 -- Relationships: Viewable by family members, manageable by admins
 CREATE POLICY "Family members can view relationships"
   ON relationships FOR SELECT

@@ -423,7 +423,7 @@ html.light .text-white {
 }
 
 html.light [class*="text-white/"] {
-  color: rgba(15, 23, 42, 0.84) !important;
+  color: rgba(15, 23, 42, 0.8) !important;
 }
 
 html.light [class*="border-white/"] {
@@ -431,11 +431,11 @@ html.light [class*="border-white/"] {
 }
 
 html.light [class*="bg-white/"] {
-  background-color: rgba(15, 23, 42, 0.06) !important;
+  background-color: rgba(15, 23, 42, 0.045) !important;
 }
 
 html.light [class*="bg-black/"] {
-  background-color: rgba(15, 23, 42, 0.08) !important;
+  background-color: rgba(15, 23, 42, 0.04) !important;
 }
 
 html.light .text-white\/95 {
@@ -455,35 +455,35 @@ html.light .text-white\/70 {
 }
 
 html.light .text-white\/60 {
-  color: rgba(15, 23, 42, 0.66) !important;
+  color: rgba(15, 23, 42, 0.7) !important;
 }
 
 html.light .text-white\/50 {
-  color: rgba(15, 23, 42, 0.56) !important;
+  color: rgba(15, 23, 42, 0.64) !important;
 }
 
 html.light .text-white\/40 {
-  color: rgba(15, 23, 42, 0.48) !important;
+  color: rgba(15, 23, 42, 0.58) !important;
 }
 
 html.light .text-white\/35 {
-  color: rgba(15, 23, 42, 0.42) !important;
+  color: rgba(15, 23, 42, 0.54) !important;
 }
 
 html.light .text-white\/30 {
-  color: rgba(15, 23, 42, 0.36) !important;
+  color: rgba(15, 23, 42, 0.5) !important;
 }
 
 html.light .text-white\/25 {
-  color: rgba(15, 23, 42, 0.3) !important;
+  color: rgba(15, 23, 42, 0.46) !important;
 }
 
 html.light .text-white\/20 {
-  color: rgba(15, 23, 42, 0.24) !important;
+  color: rgba(15, 23, 42, 0.42) !important;
 }
 
 html.light .text-white\/15 {
-  color: rgba(15, 23, 42, 0.2) !important;
+  color: rgba(15, 23, 42, 0.38) !important;
 }
 
 html.light .text-gold-300 {
@@ -498,4 +498,22 @@ html.light .bg-gold-400\/10,
 html.light .bg-gold-400\/12,
 html.light .bg-gold-400\/15 {
   background-color: rgb(var(--accent-rgb) / 0.12) !important;
+}
+
+/* Light mode form readability hardening */
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: rgba(51, 65, 85, 0.78) !important;
+  opacity: 1 !important;
+}
+
+html.light input,
+html.light textarea,
+html.light select {
+  color: rgba(15, 23, 42, 0.94);
+}
+
+html.light select option {
+  color: #0f172a;
+  background-color: #ffffff;
 }

@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
 import type { Profile, RelationshipType, Gender } from "@/lib/types";
+import { inferCountryCodeFromCity } from "@/lib/cities";
 
 interface AddMemberModalProps {
   existingMembers: Profile[];
@@ -128,7 +129,7 @@ export function AddMemberModal({
         pets: parsedPets,
         social_links: {},
         about_me: aboutMe || null,
-        country_code: null,
+        country_code: inferCountryCodeFromCity(locationCity),
         role: "MEMBER",
         is_alive: isAlive,
       },
@@ -158,10 +159,10 @@ export function AddMemberModal({
   };
 
   const inputClass =
-    "w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white/90 placeholder:text-white/20 outline-none focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200";
+    "w-full bg-white/[0.04] border border-white/[0.12] rounded-xl px-4 py-2.5 text-sm text-white/92 placeholder:text-white/40 outline-none focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200";
 
   const selectClass =
-    "w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white/60 outline-none focus:border-gold-400/30 transition-all duration-200 appearance-none cursor-pointer";
+    "w-full bg-white/[0.04] border border-white/[0.12] rounded-xl px-4 py-2.5 text-sm text-white/82 outline-none focus:border-gold-400/30 transition-all duration-200 appearance-none cursor-pointer";
 
   return (
     <AnimatePresence>

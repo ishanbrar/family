@@ -79,7 +79,7 @@ export function CitySearch({
       <div className="relative">
         <MapPin
           size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-white/35"
         />
         <input
           ref={inputRef}
@@ -98,7 +98,7 @@ export function CitySearch({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5
-            text-sm text-white/90 placeholder:text-white/20 outline-none
+            text-sm text-white/92 placeholder:text-white/45 outline-none
             focus:border-gold-400/30 focus:bg-white/[0.06] transition-all duration-200"
         />
         {query.length > 0 && results.length === 0 && (
@@ -128,13 +128,13 @@ export function CitySearch({
                   "w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors",
                   i === activeIndex
                     ? "bg-gold-400/10 text-white/90"
-                    : "text-white/60 hover:bg-white/[0.04]"
+                    : "text-white/75 hover:bg-white/[0.04]"
                 )}
               >
                 <MapPin size={12} className="text-gold-400/50 shrink-0" />
                 <div className="min-w-0">
                   <p className="text-xs font-medium truncate">{city.name}</p>
-                  <p className="text-[10px] text-white/30 truncate">
+                  <p className="text-[10px] text-white/50 truncate">
                     {city.region ? `${city.region}, ` : ""}
                     {city.country}
                   </p>

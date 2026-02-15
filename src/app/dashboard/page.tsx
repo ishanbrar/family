@@ -15,6 +15,7 @@ import {
   Filter,
   X,
   UserPlus,
+  Link2,
   ChevronDown,
   MailPlus,
   Download,
@@ -30,6 +31,7 @@ import { InteractiveGlobe } from "@/components/globe/InteractiveGlobe";
 import { FamilyTree } from "@/components/tree/FamilyTree";
 import { GenerationInsights } from "@/components/tree/GenerationInsights";
 import { AddMemberModal } from "@/components/ui/AddMemberModal";
+import { ManageTreeModal } from "@/components/ui/ManageTreeModal";
 import { InviteFamilyModal } from "@/components/ui/InviteFamilyModal";
 import { FamilyOnboardingWizard } from "@/components/onboarding/FamilyOnboardingWizard";
 import { useFamilyData } from "@/hooks/use-family-data";
@@ -53,6 +55,9 @@ export default function DashboardPage() {
     inviteCodes,
     updateProfile,
     addMember: addMemberAction,
+    linkMembers,
+    unlinkRelationship,
+    removeMember,
     regenerateInviteCode,
     createInviteCode,
     updateInviteCode,
@@ -62,6 +67,7 @@ export default function DashboardPage() {
   const { relatedByFilter, setRelatedByFilter } = useFamilyStore();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [manageTreeOpen, setManageTreeOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
   const [focusedCountryCode, setFocusedCountryCode] = useState<string | null>(null);
@@ -357,6 +363,16 @@ export default function DashboardPage() {
         onClose={() => setAddModalOpen(false)}
         onAdd={handleAddMember}
       />
+      <ManageTreeModal
+        isOpen={manageTreeOpen}
+        onClose={() => setManageTreeOpen(false)}
+        viewer={viewer}
+        members={members}
+        relationships={relationships}
+        onConnectMembers={linkMembers}
+        onRemoveRelationship={unlinkRelationship}
+        onRemoveMember={removeMember}
+      />
       <FamilyOnboardingWizard
         viewer={viewer}
         members={members}
@@ -612,6 +628,18 @@ export default function DashboardPage() {
                   <UserPlus size={12} />
                   Add Member
                 </motion.button>
+                {viewer.role === "ADMIN" && (
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setManageTreeOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                      bg-white/[0.04] border border-white/[0.12] text-xs font-medium text-white/75
+                      hover:text-white/92 hover:border-gold-400/28 hover:bg-gold-400/[0.08] transition-colors"
+                  >
+                    <Link2 size={12} />
+                    Manage Tree
+                  </motion.button>
+                )}
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={handleOpenExportModal}

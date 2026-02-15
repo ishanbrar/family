@@ -455,3 +455,33 @@ export function searchCities(query: string, limit = 14): City[] {
     .slice(0, limit)
     .map((entry) => entry.city);
 }
+
+function normalize(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+export function findCityByInput(value: string): City | null {
+  const q = normalize(value);
+  if (!q) return null;
+
+  for (const city of WORLD_CITIES) {
+    if (normalize(city.label) === q) return city;
+  }
+
+  for (const city of WORLD_CITIES) {
+    if (normalize(city.name) === q) return city;
+  }
+
+  const ranked = searchCities(value, 1);
+  return ranked[0] || null;
+}
+
+export function inferCountryCodeFromCity(value: string): string | null {
+  const matched = findCityByInput(value);
+  return matched?.countryCode || null;
+}

@@ -22,7 +22,7 @@ import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Family Tree", href: "/dashboard", icon: GitBranch },
+  { label: "Family Tree", href: "/tree", icon: GitBranch },
   { label: "Health DNA", href: "/health", icon: HeartPulse },
   { label: "Profile", href: "/profile", icon: User },
 ];
@@ -33,6 +33,7 @@ const BOTTOM_ITEMS = [
 
 const MOBILE_NAV_ITEMS = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Tree", href: "/tree", icon: GitBranch },
   { label: "Health", href: "/health", icon: HeartPulse },
   { label: "Profile", href: "/profile", icon: User },
   { label: "Settings", href: "/settings", icon: Settings },
@@ -147,7 +148,7 @@ export function Sidebar() {
           paddingRight: "max(env(safe-area-inset-right), 0.5rem)",
         }}
       >
-        <div className="grid grid-cols-5 gap-1 px-2 py-2">
+        <div className="grid grid-cols-6 gap-1 px-2 py-2">
           {MOBILE_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = isPathActive(item.href);

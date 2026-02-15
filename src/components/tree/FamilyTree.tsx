@@ -7,6 +7,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
@@ -21,7 +22,7 @@ export interface TreeMember {
 export interface TreeConnection {
   from: string;
   to: string;
-  type: "parent" | "spouse";
+  type: "parent" | "spouse" | "sibling" | "half_sibling";
 }
 
 interface FamilyTreeProps {
@@ -33,7 +34,12 @@ interface FamilyTreeProps {
   showPercentages?: boolean;
   showRelationLabels?: boolean;
   showLastNames?: boolean;
+  showBirthYear?: boolean;
+  showDeathYear?: boolean;
   onMemberClick?: (id: string) => void;
+  onMemberHover?: (id: string | null) => void;
+  onBackgroundClick?: () => void;
+  showHoverCard?: boolean;
   canvasWidth?: number;
   canvasHeight?: number;
   className?: string;
@@ -52,31 +58,48 @@ export function FamilyTree({
   showPercentages = true,
   showRelationLabels = true,
   showLastNames = false,
+  showBirthYear = false,
+  showDeathYear = false,
   onMemberClick,
+  onMemberHover,
+  onBackgroundClick,
+  showHoverCard = false,
   canvasWidth = 800,
   canvasHeight = 560,
   className,
 }: FamilyTreeProps) {
   const hasHighlight = dimNonHighlighted && highlightedMembers && highlightedMembers.size > 0;
+  const [hoveredMemberId, setHoveredMemberId] = useState<string | null>(null);
+
+  const hoveredMember = useMemo(
+    () => members.find((member) => member.profile.id === hoveredMemberId) || null,
+    [members, hoveredMemberId]
+  );
 
   return (
     <div className={cn("relative w-full overflow-x-auto", className)}>
-      <div className="relative" style={{ minWidth: canvasWidth, minHeight: canvasHeight }}>
+      <div
+        className="relative"
+        style={{ minWidth: canvasWidth, minHeight: canvasHeight }}
+        onClick={() => {
+          onBackgroundClick?.();
+        }}
+      >
         {/* ── SVG Connection Layer ─────────────────── */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ minHeight: canvasHeight }}>
           <defs>
             <linearGradient id="goldThread" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="var(--accent-300)" stopOpacity="0.56" />
-              <stop offset="100%" stopColor="var(--accent-200)" stopOpacity="0.34" />
+              <stop offset="0%" stopColor="var(--accent-300)" stopOpacity="0.72" />
+              <stop offset="100%" stopColor="var(--accent-200)" stopOpacity="0.46" />
             </linearGradient>
             <linearGradient id="dimThread" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stopColor="rgba(255,255,255,0.04)" />
               <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
             </linearGradient>
             <linearGradient id="spouseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="var(--accent-300)" stopOpacity="0.22" />
-              <stop offset="50%" stopColor="var(--accent-300)" stopOpacity="0.38" />
-              <stop offset="100%" stopColor="var(--accent-200)" stopOpacity="0.26" />
+              <stop offset="0%" stopColor="var(--accent-300)" stopOpacity="0.34" />
+              <stop offset="50%" stopColor="var(--accent-300)" stopOpacity="0.48" />
+              <stop offset="100%" stopColor="var(--accent-200)" stopOpacity="0.34" />
             </linearGradient>
             <linearGradient id="spouseGradDim" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="rgba(255,255,255,0.02)" />
@@ -135,6 +158,29 @@ export function FamilyTree({
               );
             }
 
+            if (conn.type === "sibling" || conn.type === "half_sibling") {
+              const left = from.x <= to.x ? from : to;
+              const right = from.x <= to.x ? to : from;
+              const startX = left.x + 40;
+              const endX = right.x - 40;
+              const y = (left.y + right.y) / 2 - 18;
+              const controlY = y - Math.max(14, Math.abs(left.x - right.x) * 0.06);
+
+              return (
+                <motion.path
+                  key={`sibling-${conn.from}-${conn.to}-${i}`}
+                  d={`M ${startX} ${y} Q ${(startX + endX) / 2} ${controlY}, ${endX} ${y}`}
+                  fill="none"
+                  stroke={isDimmed ? "url(#dimThread)" : "url(#goldThread)"}
+                  strokeWidth={isDimmed ? 0.6 : 1}
+                  strokeDasharray={conn.type === "half_sibling" ? "5 4" : undefined}
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity: 1 }}
+                  transition={{ duration: 0.8, delay: 0.35 + i * 0.07, ease: "easeOut" }}
+                />
+              );
+            }
+
             // ── Parent → child curved line ──
             const startY = from.y + 42;
             const endY = to.y - 42;
@@ -162,6 +208,11 @@ export function FamilyTree({
           const isDimmed = hasHighlight && !isHighlighted;
           const isViewerNode = viewerId === member.profile.id;
           const initials = getInitials(member.profile.first_name, member.profile.last_name);
+          const birthYear = member.profile.date_of_birth
+            ? new Date(member.profile.date_of_birth).getFullYear()
+            : null;
+          const deathValue = (member.profile as { date_of_death?: string | null }).date_of_death || null;
+          const deathYear = deathValue ? new Date(deathValue).getFullYear() : null;
 
           return (
             <motion.div
@@ -182,7 +233,20 @@ export function FamilyTree({
                 isHighlighted && "z-10"
               )}
               style={{ left: member.x, top: member.y }}
-              onClick={() => onMemberClick?.(member.profile.id)}
+              onMouseEnter={() => {
+                setHoveredMemberId(member.profile.id);
+                onMemberHover?.(member.profile.id);
+              }}
+              onMouseLeave={() => {
+                setHoveredMemberId((current) =>
+                  current === member.profile.id ? null : current
+                );
+                onMemberHover?.(null);
+              }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onMemberClick?.(member.profile.id);
+              }}
             >
               <div className="flex flex-col items-center">
                 <GeneticMatchRing
@@ -225,6 +289,16 @@ export function FamilyTree({
                       {member.match.relationship}
                     </p>
                   )}
+                  {showBirthYear && (
+                    <p className="text-[10px] text-white/35 mt-0.5">
+                      {birthYear ? `b. ${birthYear}` : "Birth year unknown"}
+                    </p>
+                  )}
+                  {showDeathYear && !member.profile.is_alive && (
+                    <p className="text-[10px] text-white/35 mt-0.5">
+                      {deathYear ? `d. ${deathYear}` : "d. --"}
+                    </p>
+                  )}
                   {!member.profile.is_alive && (
                     <p className="text-[9px] text-white/15 italic mt-0.5">In Memoriam</p>
                   )}
@@ -244,6 +318,31 @@ export function FamilyTree({
             </motion.div>
           );
         })}
+
+        {showHoverCard && hoveredMember && (
+          <motion.div
+            initial={{ opacity: 0, y: 6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute z-20 pointer-events-none max-w-[260px] rounded-xl app-popover border border-white/[0.12] px-3 py-2"
+            style={{
+              left: Math.min(hoveredMember.x + 56, canvasWidth - 230),
+              top: Math.max(12, hoveredMember.y - 38),
+            }}
+          >
+            <p className="text-sm font-medium text-white/92">
+              {hoveredMember.profile.first_name} {hoveredMember.profile.last_name}
+            </p>
+            <p className="text-[11px] text-gold-300/85 mt-0.5">{hoveredMember.match.relationship}</p>
+            <p className="text-[11px] text-white/55 mt-1">
+              {hoveredMember.profile.location_city || "Location not set"}
+              {hoveredMember.profile.profession ? ` · ${hoveredMember.profile.profession}` : ""}
+            </p>
+            <p className="text-[11px] text-white/46 mt-0.5">
+              Blood match: {Math.round(hoveredMember.match.percentage * 100) / 100}%
+            </p>
+          </motion.div>
+        )}
       </div>
     </div>
   );

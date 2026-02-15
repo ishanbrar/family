@@ -3,6 +3,8 @@
 // Flag emojis, alpha-3 → alpha-2 mapping, country names.
 // ══════════════════════════════════════════════════════════
 
+import { inferCountryCodeFromCity } from "./cities";
+
 const A3_TO_A2: Record<string, string> = {
   USA: "US", GBR: "GB", FRA: "FR", AUS: "AU", CAN: "CA", DEU: "DE",
   ITA: "IT", ESP: "ES", NLD: "NL", BEL: "BE", CHE: "CH", AUT: "AT",
@@ -72,7 +74,7 @@ export function groupByCountry(members: Profile[]): CountryGroup[] {
   const map = new Map<string, Profile[]>();
 
   for (const m of members) {
-    const code = m.country_code;
+    const code = m.country_code || inferCountryCodeFromCity(m.location_city || "");
     if (!code) continue;
     if (!map.has(code)) map.set(code, []);
     map.get(code)!.push(m);

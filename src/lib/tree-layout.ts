@@ -9,7 +9,7 @@ export interface TreeLayoutNode {
 export interface TreeLayoutConnection {
   from: string;
   to: string;
-  type: "parent" | "spouse";
+  type: "parent" | "spouse" | "sibling" | "half_sibling";
 }
 
 export interface TreeLayout {
@@ -104,10 +104,19 @@ export function createFamilyTreeLayout(
   const positions = new Map<string, { x: number; y: number }>();
   for (let row = 0; row < sortedGens.length; row++) {
     const g = sortedGens[row];
-    const levelMembers = byGen.get(g)!;
-    levelMembers.sort((a, b) =>
+    const rawLevelMembers = byGen.get(g)!;
+    rawLevelMembers.sort((a, b) =>
       `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
     );
+    let levelMembers = rawLevelMembers;
+    const viewerIndex = rawLevelMembers.findIndex((member) => member.id === viewerId);
+    if (viewerIndex >= 0) {
+      const viewerMember = rawLevelMembers[viewerIndex];
+      const others = rawLevelMembers.filter((member) => member.id !== viewerId);
+      const midpoint = Math.floor(rawLevelMembers.length / 2);
+      levelMembers = [...others];
+      levelMembers.splice(midpoint, 0, viewerMember);
+    }
     const count = levelMembers.length;
     const centerX = width / 2;
     const gap = count > 4 ? 140 : 170;
@@ -138,6 +147,15 @@ export function createFamilyTreeLayout(
       if (connectionSet.has(key)) continue;
       connectionSet.add(key);
       connections.push({ from: pair[0], to: pair[1], type: "spouse" });
+      continue;
+    }
+
+    if (rel.type === "sibling" || rel.type === "half_sibling") {
+      const pair = [rel.user_id, rel.relative_id].sort();
+      const key = `${rel.type}:${pair[0]}:${pair[1]}`;
+      if (connectionSet.has(key)) continue;
+      connectionSet.add(key);
+      connections.push({ from: pair[0], to: pair[1], type: rel.type });
       continue;
     }
 

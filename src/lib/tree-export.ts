@@ -164,6 +164,26 @@ export async function exportFamilyTreeAsImage({
       continue;
     }
 
+    if (connection.type === "sibling" || connection.type === "half_sibling") {
+      const leftX = Math.min(x1, x2) + nodeWidth * 0.5;
+      const rightX = Math.max(x1, x2) - nodeWidth * 0.5;
+      const y = (y1 + y2) / 2 - 20;
+      const controlY = y - 46;
+
+      ctx.save();
+      if (connection.type === "half_sibling") {
+        ctx.setLineDash([12, 8]);
+      }
+      ctx.strokeStyle = "#7a5f3d";
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(leftX, y);
+      ctx.quadraticCurveTo((leftX + rightX) / 2, controlY, rightX, y);
+      ctx.stroke();
+      ctx.restore();
+      continue;
+    }
+
     const startX = x1;
     const startY = y1 + nodeHeight * 0.46;
     const endX = x2;

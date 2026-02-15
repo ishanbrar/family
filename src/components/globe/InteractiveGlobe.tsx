@@ -15,6 +15,7 @@ import {
   geoNaturalEarth1,
   geoPath,
   geoGraticule10,
+  geoCentroid,
   geoContains,
   type GeoPermissibleObjects,
 } from "d3-geo";
@@ -22,6 +23,8 @@ import { feature } from "topojson-client";
 import { Globe2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Profile } from "@/lib/types";
+import { inferCountryCodeFromCity } from "@/lib/cities";
+import { countryName } from "@/lib/country-utils";
 
 interface InteractiveGlobeProps {
   members: Profile[];
@@ -38,6 +41,14 @@ interface CountryFeature {
   properties: { name: string };
 }
 
+interface ResolvedMemberLocation {
+  member: Profile;
+  lat: number;
+  lng: number;
+  countryCode: string | null;
+  countryId?: string;
+}
+
 const TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 const BASE_ROTATION: [number, number] = [-20, -15];
 const MAP_MIN_ZOOM = 1;
@@ -45,6 +56,31 @@ const MAP_OPEN_ZOOM = 1.3;
 const MAP_FOCUS_ZOOM = 2.8;
 const MAP_MAX_ZOOM = 8;
 const MAP_ZOOM_STEP = 1.92;
+
+const COUNTRY_NAME_ALIASES: Record<string, string[]> = {
+  USA: ["United States of America", "United States"],
+  GBR: ["United Kingdom"],
+  RUS: ["Russia", "Russian Federation"],
+  KOR: ["South Korea", "Republic of Korea"],
+  PRK: ["North Korea", "Democratic People's Republic of Korea"],
+  CZE: ["Czech Republic", "Czechia"],
+  VNM: ["Vietnam", "Viet Nam"],
+  LAO: ["Laos", "Lao People's Democratic Republic"],
+  IRN: ["Iran", "Iran (Islamic Republic of)"],
+  BOL: ["Bolivia", "Bolivia (Plurinational State of)"],
+  VEN: ["Venezuela", "Venezuela (Bolivarian Republic of)"],
+  COD: ["DR Congo", "Democratic Republic of the Congo"],
+  CIV: ["Ivory Coast", "Cote d'Ivoire"],
+};
+
+function normalizeCountryName(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 
 function centerPanForGeoPoint(baseSize: number, zoom: number, lng: number, lat: number) {
   const projection = geoNaturalEarth1()
@@ -89,11 +125,6 @@ export function InteractiveGlobe({
 
   const autoSpinRef = useRef<ReturnType<typeof setInterval>>(undefined);
 
-  const locatedMembers = useMemo(
-    () => members.filter((m) => m.location_lat != null && m.location_lng != null),
-    [members]
-  );
-
   useEffect(() => {
     let cancelled = false;
 
@@ -111,6 +142,89 @@ export function InteractiveGlobe({
       cancelled = true;
     };
   }, []);
+
+  const countryFeatureByCode = useMemo(() => {
+    const mapping = new Map<string, CountryFeature>();
+    if (countries.length === 0) return mapping;
+
+    const byNormalizedName = new Map<string, CountryFeature>();
+    countries.forEach((country) => {
+      byNormalizedName.set(normalizeCountryName(country.properties.name), country);
+    });
+
+    const tryResolveByCode = (code: string): CountryFeature | null => {
+      const names = [countryName(code), ...(COUNTRY_NAME_ALIASES[code] || [])]
+        .filter(Boolean)
+        .map((name) => normalizeCountryName(name));
+
+      for (const normalizedName of names) {
+        const exact = byNormalizedName.get(normalizedName);
+        if (exact) return exact;
+      }
+
+      for (const normalizedName of names) {
+        const partial = countries.find((country) => {
+          const countryNorm = normalizeCountryName(country.properties.name);
+          return countryNorm.includes(normalizedName) || normalizedName.includes(countryNorm);
+        });
+        if (partial) return partial;
+      }
+
+      return null;
+    };
+
+    const candidateCodes = new Set<string>();
+    for (const member of members) {
+      const code = (member.country_code || inferCountryCodeFromCity(member.location_city || "") || "")
+        .toUpperCase()
+        .trim();
+      if (code) candidateCodes.add(code);
+    }
+
+    for (const code of candidateCodes) {
+      const resolved = tryResolveByCode(code);
+      if (resolved) mapping.set(code, resolved);
+    }
+
+    return mapping;
+  }, [countries, members]);
+
+  const locatedMembers = useMemo(() => {
+    const resolved: ResolvedMemberLocation[] = [];
+
+    for (const member of members) {
+      const inferredCode = (member.country_code || inferCountryCodeFromCity(member.location_city || "") || "")
+        .toUpperCase()
+        .trim();
+      const countryCode = inferredCode || null;
+
+      if (member.location_lat != null && member.location_lng != null) {
+        resolved.push({
+          member,
+          lat: member.location_lat,
+          lng: member.location_lng,
+          countryCode,
+        });
+        continue;
+      }
+
+      if (!countryCode) continue;
+      const country = countryFeatureByCode.get(countryCode);
+      if (!country) continue;
+      const [lng, lat] = geoCentroid(country as unknown as GeoPermissibleObjects);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+      resolved.push({
+        member,
+        lat,
+        lng,
+        countryCode,
+        countryId: country.id,
+      });
+    }
+
+    return resolved;
+  }, [members, countryFeatureByCode]);
 
   useEffect(() => {
     if (!autoRotate || isFlatMap || isDragging) return;
@@ -133,15 +247,20 @@ export function InteractiveGlobe({
     }
 
     for (const member of locatedMembers) {
+      if (member.countryId) {
+        memberCountryByMemberId.set(member.member.id, member.countryId);
+        memberCountryIds.add(member.countryId);
+        continue;
+      }
       for (const country of countries) {
         try {
           if (
             geoContains(country as unknown as GeoPermissibleObjects, [
-              member.location_lng!,
-              member.location_lat!,
+              member.lng,
+              member.lat,
             ])
           ) {
-            memberCountryByMemberId.set(member.id, country.id);
+            memberCountryByMemberId.set(member.member.id, country.id);
             memberCountryIds.add(country.id);
             break;
           }
@@ -160,8 +279,8 @@ export function InteractiveGlobe({
     if (!code) return ids;
 
     for (const member of locatedMembers) {
-      if (member.country_code?.toUpperCase() !== code) continue;
-      const countryId = countryMembership.memberCountryByMemberId.get(member.id);
+      if (member.countryCode?.toUpperCase() !== code) continue;
+      const countryId = countryMembership.memberCountryByMemberId.get(member.member.id);
       if (countryId) ids.add(countryId);
     }
 
@@ -173,16 +292,16 @@ export function InteractiveGlobe({
     if (!code) return;
 
     const targetMembers = locatedMembers.filter(
-      (member) => member.country_code?.toUpperCase() === code
+      (member) => member.countryCode?.toUpperCase() === code
     );
 
     if (targetMembers.length === 0) return;
 
     const avgLng =
-      targetMembers.reduce((sum, member) => sum + (member.location_lng ?? 0), 0) /
+      targetMembers.reduce((sum, member) => sum + member.lng, 0) /
       targetMembers.length;
     const avgLat =
-      targetMembers.reduce((sum, member) => sum + (member.location_lat ?? 0), 0) /
+      targetMembers.reduce((sum, member) => sum + member.lat, 0) /
       targetMembers.length;
 
     const centeredPan = centerPanForGeoPoint(baseSize, MAP_FOCUS_ZOOM, avgLng, avgLat);
@@ -224,16 +343,16 @@ export function InteractiveGlobe({
   const globeMembers = useMemo(() => {
     return locatedMembers
       .map((m) => {
-        const coords = globeProjection([m.location_lng!, m.location_lat!]);
+        const coords = globeProjection([m.lng, m.lat]);
         if (!coords) return null;
 
         const r = globeProjection.rotate();
-        const lngDiff = ((m.location_lng! + r[0] + 180) % 360) - 180;
-        const latDiff = m.location_lat! + r[1];
+        const lngDiff = ((m.lng + r[0] + 180) % 360) - 180;
+        const latDiff = m.lat + r[1];
         const visible = Math.sqrt(lngDiff * lngDiff + latDiff * latDiff) < 90;
 
         return {
-          member: m,
+          member: m.member,
           x: coords[0],
           y: coords[1],
           visible,
@@ -245,10 +364,10 @@ export function InteractiveGlobe({
   const mapMembers = useMemo(() => {
     return locatedMembers
       .map((m) => {
-        const coords = mapProjection([m.location_lng!, m.location_lat!]);
+        const coords = mapProjection([m.lng, m.lat]);
         if (!coords) return null;
         return {
-          member: m,
+          member: m.member,
           x: coords[0],
           y: coords[1],
           visible:
