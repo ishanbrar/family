@@ -6,7 +6,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useMemo, useCallback, useState } from "react";
+import { useMemo, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -76,6 +76,7 @@ export default function DashboardPage() {
   const [exportScope, setExportScope] = useState<"entire" | "related">("entire");
   const [exportingTree, setExportingTree] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
   const navigateToProfile = useCallback(
     (id: string) => router.push(`/profile/${id}`),
@@ -220,12 +221,20 @@ export default function DashboardPage() {
     [navigateToProfile]
   );
 
-  const onboardingRequired =
-    !!viewer &&
-    typeof window !== "undefined" &&
-    window.localStorage.getItem(`legacy:onboarding-complete:${viewer.id}`) !== "1";
+  useEffect(() => {
+    if (!viewer || typeof window === "undefined") {
+      setOnboardingCompleted(false);
+      return;
+    }
+    const completed =
+      window.localStorage.getItem(`legacy:onboarding-complete:${viewer.id}`) === "1";
+    setOnboardingCompleted(completed);
+  }, [viewer]);
+
+  const onboardingRequired = !!viewer && !onboardingCompleted;
 
   const dismissOnboarding = useCallback(() => {
+    setOnboardingCompleted(true);
     setWizardOpen(false);
     if (viewer) {
       window.localStorage.setItem(`legacy:onboarding-complete:${viewer.id}`, "1");
@@ -233,6 +242,7 @@ export default function DashboardPage() {
   }, [viewer]);
 
   const completeOnboarding = useCallback(() => {
+    setOnboardingCompleted(true);
     setWizardOpen(false);
     if (viewer) {
       window.localStorage.setItem(`legacy:onboarding-complete:${viewer.id}`, "1");

@@ -11,10 +11,10 @@ import {
   Check,
   Copy,
   RefreshCw,
-  Plus,
 } from "lucide-react";
 import type { Profile, Relationship, RelationshipType, Gender } from "@/lib/types";
 import { cn } from "@/lib/cn";
+import { CitySearch } from "@/components/ui/CitySearch";
 
 interface InviteFamilyLite {
   id: string;
@@ -63,14 +63,14 @@ const GENDER_OPTIONS: { value: Gender; label: string }[] = [
 const RELATION_ACTIONS: {
   value: RelationshipType;
   label: string;
-  angle: number;
-  distance: number;
+  topPct: number;
+  leftPct: number;
 }[] = [
-  { value: "parent", label: "Parent", angle: -90, distance: 118 },
-  { value: "spouse", label: "Spouse", angle: -18, distance: 126 },
-  { value: "child", label: "Child", angle: 88, distance: 118 },
-  { value: "sibling", label: "Sibling", angle: 188, distance: 126 },
-  { value: "half_sibling", label: "Half-Sibling", angle: 146, distance: 140 },
+  { value: "parent", label: "Parent", topPct: 16, leftPct: 50 },
+  { value: "sibling", label: "Sibling", topPct: 49, leftPct: 26 },
+  { value: "half_sibling", label: "Half-Sibling", topPct: 67, leftPct: 22 },
+  { value: "spouse", label: "Spouse", topPct: 49, leftPct: 74 },
+  { value: "child", label: "Child", topPct: 84, leftPct: 50 },
 ];
 
 function relationLabel(type: RelationshipType): string {
@@ -199,6 +199,20 @@ export function FamilyOnboardingWizard({
     }
     return map;
   }, [directRelativeIds, relationships, viewer.id]);
+
+  const directRelativesByRelation = useMemo(() => {
+    const grouped = new Map<RelationshipType, Profile[]>();
+    for (const relation of DIRECT_RELATION_TYPES) {
+      grouped.set(relation, []);
+    }
+    for (const member of directRelatives) {
+      const relation = directRelationById.get(member.id) || "sibling";
+      const bucket = grouped.get(relation) || [];
+      bucket.push(member);
+      grouped.set(relation, bucket);
+    }
+    return grouped;
+  }, [directRelatives, directRelationById]);
 
   const duplicateInMembers = useMemo(() => {
     const target = normalizeName(stepTwoDraft.firstName, stepTwoDraft.lastName);
@@ -366,7 +380,7 @@ export function FamilyOnboardingWizard({
             transition={{ type: "spring", stiffness: 260, damping: 28 }}
             className="fixed z-[71] inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
               sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(960px,94vw)] sm:max-h-[90vh] sm:-translate-x-1/2 sm:-translate-y-1/2
-              rounded-3xl overflow-hidden app-surface"
+              rounded-3xl overflow-hidden app-surface flex flex-col"
           >
             <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-white/[0.06]">
               <div>
@@ -424,7 +438,7 @@ export function FamilyOnboardingWizard({
               </div>
             </div>
 
-            <div className="p-4 sm:p-6 overflow-y-auto max-h-none sm:max-h-[65vh]">
+            <div className="p-4 sm:p-6 flex-1 min-h-0 overflow-y-auto">
               {step === 1 && (
                 <div className="space-y-4">
                   <p className="text-sm text-white/55">
@@ -459,17 +473,15 @@ export function FamilyOnboardingWizard({
                       value={selfProfile.dateOfBirth}
                       onChange={(e) => setSelfProfile((s) => ({ ...s, dateOfBirth: e.target.value }))}
                     />
-                    <input
-                      className={inputClass}
-                      placeholder="Current city"
+                    <CitySearch
                       value={selfProfile.locationCity}
-                      onChange={(e) => setSelfProfile((s) => ({ ...s, locationCity: e.target.value }))}
+                      onChange={(next) => setSelfProfile((s) => ({ ...s, locationCity: next }))}
+                      placeholder="Current city"
                     />
-                    <input
-                      className={inputClass}
-                      placeholder="Place of birth"
+                    <CitySearch
                       value={selfProfile.placeOfBirth}
-                      onChange={(e) => setSelfProfile((s) => ({ ...s, placeOfBirth: e.target.value }))}
+                      onChange={(next) => setSelfProfile((s) => ({ ...s, placeOfBirth: next }))}
+                      placeholder="Place of birth"
                     />
                     <input
                       className={inputClass}
@@ -507,49 +519,76 @@ export function FamilyOnboardingWizard({
                   <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1.5">
                       <p className="text-xs text-white/40">
-                        Click a connection around your node to add someone. It should feel like building your family one link at a time.
+                        Select a relation from the tree map. Parents are above you, siblings are beside you, and children are below.
                       </p>
                       <span className="inline-flex w-fit items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gold-400/[0.08] text-[11px] text-gold-300/85">
-                        <Plus size={11} />
                         Links forged: {linksForged}
                       </span>
                     </div>
 
-                    <div className="relative mt-4 h-[320px] rounded-2xl border border-white/[0.06] bg-black/25 overflow-hidden">
+                    <div className="relative mt-4 h-[360px] rounded-2xl border border-white/[0.06] bg-black/25 overflow-hidden">
                       <div
                         className="absolute inset-0 opacity-60"
                         style={{ background: "radial-gradient(circle at center, rgba(212,165,116,0.14) 0%, transparent 72%)" }}
                       />
 
+                      <svg className="absolute inset-0 h-full w-full pointer-events-none">
+                        {RELATION_ACTIONS.map((action) => (
+                          <line
+                            key={`line-${action.value}`}
+                            x1="50%"
+                            y1="50%"
+                            x2={`${action.leftPct}%`}
+                            y2={`${action.topPct}%`}
+                            stroke="rgba(212,165,116,0.28)"
+                            strokeWidth="1"
+                          />
+                        ))}
+                      </svg>
+
                       {RELATION_ACTIONS.map((action) => {
-                        const radians = (action.angle * Math.PI) / 180;
-                        const x = Math.cos(radians) * action.distance;
-                        const y = Math.sin(radians) * action.distance;
                         const isSelected = stepTwoDraft.relation === action.value;
+                        const slotRelatives = directRelativesByRelation.get(action.value) || [];
                         return (
-                          <div key={action.value}>
-                            <div
-                              className="absolute left-1/2 top-1/2 h-px origin-left bg-gold-400/20"
-                              style={{
-                                width: `${Math.max(26, action.distance - 34)}px`,
-                                transform: `translateY(-50%) rotate(${action.angle}deg)`,
-                              }}
-                            />
+                          <div
+                            key={action.value}
+                            className="absolute -translate-x-1/2 -translate-y-1/2 w-[170px] text-center"
+                            style={{
+                              left: `${action.leftPct}%`,
+                              top: `${action.topPct}%`,
+                            }}
+                          >
                             <button
                               onClick={() => handleSelectRelationAction(action.value)}
                               className={cn(
-                                "absolute -translate-x-1/2 -translate-y-1/2 rounded-xl border px-3 py-1.5 text-xs transition-colors",
+                                "rounded-xl border px-3 py-1.5 text-xs transition-colors",
                                 isSelected
                                   ? "border-gold-400/35 bg-gold-400/15 text-gold-300"
                                   : "border-white/[0.1] bg-black/35 text-white/70 hover:border-gold-400/25 hover:text-white/90"
                               )}
-                              style={{
-                                left: `calc(50% + ${x}px)`,
-                                top: `calc(50% + ${y}px)`,
-                              }}
                             >
                               Add {action.label}
                             </button>
+                            {slotRelatives.length > 0 && (
+                              <div className="mt-1.5 space-y-1">
+                                {slotRelatives.slice(0, 2).map((member) => (
+                                  <div
+                                    key={member.id}
+                                    className="mx-auto w-fit rounded-md border border-severity-mild/20 bg-black/55 px-2 py-1"
+                                  >
+                                    <p className="text-[10px] text-white/85 leading-none">
+                                      {member.first_name}
+                                    </p>
+                                    <p className="text-[9px] text-severity-mild/80 leading-none mt-1">
+                                      {relationLabel(directRelationById.get(member.id) || "sibling")}
+                                    </p>
+                                  </div>
+                                ))}
+                                {slotRelatives.length > 2 && (
+                                  <p className="text-[10px] text-white/40">+{slotRelatives.length - 2} more</p>
+                                )}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -562,41 +601,6 @@ export function FamilyOnboardingWizard({
                           </p>
                         </div>
                       </div>
-
-                      {directRelatives.slice(0, 8).map((member, index) => {
-                        const count = Math.max(1, Math.min(directRelatives.length, 8));
-                        const angle = ((index / count) * 360) - 90;
-                        const radians = (angle * Math.PI) / 180;
-                        const radius = 98;
-                        const x = Math.cos(radians) * radius;
-                        const y = Math.sin(radians) * radius;
-                        const relation = relationLabel(directRelationById.get(member.id) || "sibling");
-                        return (
-                          <div key={member.id}>
-                            <div
-                              className="absolute left-1/2 top-1/2 h-px origin-left bg-severity-mild/25"
-                              style={{
-                                width: `${radius - 22}px`,
-                                transform: `translateY(-50%) rotate(${angle}deg)`,
-                              }}
-                            />
-                            <div
-                              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-lg border border-severity-mild/20 bg-black/55 px-2.5 py-1.5 text-center"
-                              style={{
-                                left: `calc(50% + ${x}px)`,
-                                top: `calc(50% + ${y}px)`,
-                              }}
-                            >
-                              <p className="text-[10px] text-white/85 leading-none">
-                                {member.first_name}
-                              </p>
-                              <p className="text-[9px] text-severity-mild/80 leading-none mt-1">
-                                {relation}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
                     </div>
                   </div>
 
@@ -641,11 +645,10 @@ export function FamilyOnboardingWizard({
                               <option key={opt.value} value={opt.value}>{opt.label}</option>
                             ))}
                           </select>
-                          <input
-                            className={inputClass}
-                            placeholder="City (optional)"
+                          <CitySearch
                             value={stepTwoDraft.city}
-                            onChange={(e) => setStepTwoDraft((s) => ({ ...s, city: e.target.value }))}
+                            onChange={(next) => setStepTwoDraft((s) => ({ ...s, city: next }))}
+                            placeholder="City (optional)"
                           />
                         </div>
 
@@ -680,6 +683,17 @@ export function FamilyOnboardingWizard({
                         ))}
                       </div>
                     )}
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => setStep(3)}
+                      disabled={mandatory ? !coreGoalReached : false}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 disabled:opacity-50 transition-colors"
+                    >
+                      {mandatory ? `Continue (${Math.min(coreRelativeCount, 3)}/3)` : "Continue to Invites"}
+                      <ArrowRight size={14} />
+                    </button>
                   </div>
                 </div>
               )}
