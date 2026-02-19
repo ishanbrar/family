@@ -12,6 +12,8 @@ import { Minus, Plus, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
+import { countryFlag } from "@/lib/country-utils";
+import { inferCountryCodeFromCity } from "@/lib/cities";
 
 export interface TreeMember {
   profile: Profile;
@@ -44,6 +46,7 @@ interface FamilyTreeProps {
   showLastNames?: boolean;
   showBirthYear?: boolean;
   showDeathYear?: boolean;
+  showBirthCountryFlag?: boolean;
   onMemberClick?: (id: string) => void;
   onMemberHover?: (id: string | null) => void;
   onBackgroundClick?: () => void;
@@ -82,6 +85,7 @@ export function FamilyTree({
   showLastNames = false,
   showBirthYear = false,
   showDeathYear = false,
+  showBirthCountryFlag = false,
   onMemberClick,
   onMemberHover,
   onBackgroundClick,
@@ -97,6 +101,7 @@ export function FamilyTree({
   const pinchStateRef = useRef<{ initialDistance: number; initialZoom: number } | null>(null);
   const zoomRef = useRef(zoom);
   const gestureBaseZoomRef = useRef<number | null>(null);
+  const hasAutoCenteredRef = useRef(false);
 
   const hoveredMember = useMemo(
     () => members.find((member) => member.profile.id === hoveredMemberId) || null,
@@ -195,6 +200,30 @@ export function FamilyTree({
       el.removeEventListener("gestureend", onGestureEnd);
     };
   }, []);
+
+  useEffect(() => {
+    if (hasAutoCenteredRef.current) return;
+    if (members.length === 0) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    // Center horizontally once after first non-empty render.
+    const centerTree = () => {
+      const nextLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
+      el.scrollLeft = nextLeft;
+      hasAutoCenteredRef.current = true;
+    };
+
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(centerTree);
+    });
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [members.length]);
 
   const touchDistance = (touches: { length: number; [index: number]: { clientX: number; clientY: number } }) => {
     if (touches.length < 2) return 0;
@@ -460,6 +489,11 @@ export function FamilyTree({
             : null;
           const deathValue = (member.profile as { date_of_death?: string | null }).date_of_death || null;
           const deathYear = deathValue ? new Date(deathValue).getFullYear() : null;
+          const birthCountryCode =
+            inferCountryCodeFromCity(member.profile.place_of_birth || "") ||
+            member.profile.country_code ||
+            inferCountryCodeFromCity(member.profile.location_city || "");
+          const birthFlag = birthCountryCode ? countryFlag(birthCountryCode) : null;
 
           return (
             <motion.div
@@ -539,6 +573,11 @@ export function FamilyTree({
                   {showRelationLabels && (
                     <p className="text-[10px] text-white/30 mt-0.5">
                       {member.match.relationship}
+                    </p>
+                  )}
+                  {showBirthCountryFlag && birthFlag && (
+                    <p className="text-[11px] text-white/55 mt-0.5">
+                      {birthFlag}
                     </p>
                   )}
                   {showBirthYear && (

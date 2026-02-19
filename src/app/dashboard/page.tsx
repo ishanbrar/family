@@ -77,11 +77,12 @@ export default function DashboardPage() {
   const [countryQuery, setCountryQuery] = useState("");
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
-  const [showPercentages, setShowPercentages] = useState(true);
+  const [showPercentages, setShowPercentages] = useState(false);
   const [showRelationLabels, setShowRelationLabels] = useState(true);
-  const [showLastNames, setShowLastNames] = useState(false);
-  const [showBirthYear, setShowBirthYear] = useState(false);
+  const [showLastNames, setShowLastNames] = useState(true);
+  const [showBirthYear, setShowBirthYear] = useState(true);
   const [showDeathYear, setShowDeathYear] = useState(false);
+  const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportScope, setExportScope] = useState<"entire" | "related">("entire");
   const [exportingTree, setExportingTree] = useState(false);
@@ -694,6 +695,8 @@ export default function DashboardPage() {
                   onShowBirthYearChange={setShowBirthYear}
                   showDeathYear={showDeathYear}
                   onShowDeathYearChange={setShowDeathYear}
+                  showBirthCountryFlag={showBirthCountryFlag}
+                  onShowBirthCountryFlagChange={setShowBirthCountryFlag}
                 />
               </div>
             </div>
@@ -724,6 +727,7 @@ export default function DashboardPage() {
               showLastNames={showLastNames}
               showBirthYear={showBirthYear}
               showDeathYear={showDeathYear}
+              showBirthCountryFlag={showBirthCountryFlag}
               onMemberClick={(id) => navigateToProfile(id)}
               canvasWidth={treeLayout.width}
               canvasHeight={treeLayout.height}

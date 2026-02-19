@@ -38,11 +38,12 @@ export default function TreeExplorerPage() {
   const { viewer, family, members, relationships, userConditions, conditions, loading, updateFamilyName } = useFamilyData();
   const { relatedByFilter, setRelatedByFilter } = useFamilyStore();
 
-  const [showPercentages, setShowPercentages] = useState(true);
+  const [showPercentages, setShowPercentages] = useState(false);
   const [showRelationLabels, setShowRelationLabels] = useState(true);
-  const [showLastNames, setShowLastNames] = useState(false);
-  const [showBirthYear, setShowBirthYear] = useState(false);
+  const [showLastNames, setShowLastNames] = useState(true);
+  const [showBirthYear, setShowBirthYear] = useState(true);
   const [showDeathYear, setShowDeathYear] = useState(false);
+  const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [draftFamilyName, setDraftFamilyName] = useState("");
@@ -204,6 +205,8 @@ export default function TreeExplorerPage() {
               onShowBirthYearChange={setShowBirthYear}
               showDeathYear={showDeathYear}
               onShowDeathYearChange={setShowDeathYear}
+              showBirthCountryFlag={showBirthCountryFlag}
+              onShowBirthCountryFlagChange={setShowBirthCountryFlag}
             />
           </div>
         </motion.div>
@@ -239,6 +242,7 @@ export default function TreeExplorerPage() {
               showLastNames={showLastNames}
               showBirthYear={showBirthYear}
               showDeathYear={showDeathYear}
+              showBirthCountryFlag={showBirthCountryFlag}
               showHoverCard
               onMemberClick={handleMemberClick}
               onBackgroundClick={() => setSelectedMemberId(null)}

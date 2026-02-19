@@ -107,7 +107,7 @@ export function createFamilyTreeLayout(
   }
 
   const sortedGens = [...byGen.keys()].sort((a, b) => a - b);
-  const levelGap = 180;
+  const levelGap = 220;
   const nodeYStart = 90;
 
   const parentIdsByChild = new Map<string, Set<string>>();

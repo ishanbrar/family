@@ -18,6 +18,8 @@ interface TreeControlsProps {
   onShowBirthYearChange?: (next: boolean) => void;
   showDeathYear?: boolean;
   onShowDeathYearChange?: (next: boolean) => void;
+  showBirthCountryFlag?: boolean;
+  onShowBirthCountryFlagChange?: (next: boolean) => void;
 }
 
 export function TreeControls({
@@ -34,6 +36,8 @@ export function TreeControls({
   onShowBirthYearChange,
   showDeathYear = false,
   onShowDeathYearChange,
+  showBirthCountryFlag = false,
+  onShowBirthCountryFlagChange,
 }: TreeControlsProps) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const optionsRef = useRef<HTMLDivElement | null>(null);
@@ -67,7 +71,8 @@ export function TreeControls({
     Number(showRelationLabels) +
     Number(showLastNames) +
     Number(!!onShowBirthYearChange && showBirthYear) +
-    Number(!!onShowDeathYearChange && showDeathYear);
+    Number(!!onShowDeathYearChange && showDeathYear) +
+    Number(!!onShowBirthCountryFlagChange && showBirthCountryFlag);
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -164,6 +169,17 @@ export function TreeControls({
                   className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400"
                 />
                 Show death year
+              </label>
+            )}
+            {onShowBirthCountryFlagChange && (
+              <label className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs app-text-secondary hover:bg-white/[0.04] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showBirthCountryFlag}
+                  onChange={(e) => onShowBirthCountryFlagChange(e.target.checked)}
+                  className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400"
+                />
+                Show birth country flag
               </label>
             )}
           </div>
