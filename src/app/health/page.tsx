@@ -64,7 +64,7 @@ export default function HealthPage() {
   );
 
   const treeLayout = useMemo(() => {
-    if (!viewer) return { nodes: [], connections: [], width: 800, height: 560 };
+    if (!viewer) return { nodes: [], connections: [], sibships: [], width: 800, height: 560 };
     return createFamilyTreeLayout(members, relationships, viewer.id);
   }, [members, relationships, viewer]);
 
@@ -75,6 +75,7 @@ export default function HealthPage() {
       match: calculateGeneticMatch(viewer.id, n.profile.id, relationships, n.profile.gender),
       x: n.x,
       y: n.y,
+      generation: n.generation,
     }));
   }, [treeLayout.nodes, viewer, relationships]);
 
@@ -273,7 +274,7 @@ export default function HealthPage() {
                   </span>
                 </div>
               </div>
-              <FamilyTree members={treeMembers} connections={treeLayout.connections}
+              <FamilyTree members={treeMembers} connections={treeLayout.connections} sibships={treeLayout.sibships}
                 highlightedMembers={highlightedCondition ? highlightedMemberIds : new Set<string>()}
                 dimNonHighlighted={!!highlightedCondition}
                 canvasWidth={treeLayout.width}

@@ -19,6 +19,7 @@ interface GeneticMatchRingProps {
   label?: string;
   className?: string;
   showPercentage?: boolean;
+  edgeColor?: string;
 }
 
 export function GeneticMatchRing({
@@ -30,6 +31,7 @@ export function GeneticMatchRing({
   label,
   className,
   showPercentage = true,
+  edgeColor,
 }: GeneticMatchRingProps) {
   const radius = (size - strokeWidth * 2) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -55,8 +57,9 @@ export function GeneticMatchRing({
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="rgba(255, 255, 255, 0.06)"
+            stroke={edgeColor || "rgba(255, 255, 255, 0.06)"}
             strokeWidth={strokeWidth}
+            strokeOpacity={edgeColor ? 0.85 : 1}
           />
           {/* Animated progress ring */}
           <motion.circle
@@ -94,6 +97,7 @@ export function GeneticMatchRing({
               style={{
                 background: "linear-gradient(135deg, rgb(var(--accent-rgb) / 0.24) 0%, rgb(var(--accent-rgb) / 0.16) 100%)",
                 fontSize: size * 0.25,
+                border: edgeColor ? `1.5px solid ${edgeColor}` : undefined,
               }}
             >
               {initials}

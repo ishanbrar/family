@@ -614,8 +614,10 @@ export function FamilyOnboardingWizard({
                               y1="50%"
                               x2={`${action.leftPct}%`}
                               y2={`${action.topPct}%`}
-                              stroke="rgba(212,165,116,0.28)"
+                              stroke={action.value === "spouse" ? "rgba(212,165,116,0.46)" : "rgba(212,165,116,0.28)"}
                               strokeWidth="1"
+                              strokeDasharray={action.value === "spouse" ? "5 4" : undefined}
+                              strokeLinecap="round"
                             />
                           ))}
                         </svg>

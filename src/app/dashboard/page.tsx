@@ -94,7 +94,7 @@ export default function DashboardPage() {
 
   // ── Build tree members ──────────────────────────
   const treeLayout = useMemo(() => {
-    if (!viewer) return { nodes: [], connections: [], width: 800, height: 560 };
+    if (!viewer) return { nodes: [], connections: [], sibships: [], width: 800, height: 560 };
     return createFamilyTreeLayout(members, relationships, viewer.id);
   }, [viewer, members, relationships]);
 
@@ -105,6 +105,7 @@ export default function DashboardPage() {
       match: calculateGeneticMatch(viewer.id, n.profile.id, relationships, n.profile.gender),
       x: n.x,
       y: n.y,
+      generation: n.generation,
     }));
   }, [viewer, treeLayout.nodes, relationships]);
 
@@ -387,6 +388,7 @@ export default function DashboardPage() {
         viewer={viewer}
         members={members}
         relationships={relationships}
+        familyName={family?.name}
         onConnectMembers={linkMembers}
         onRemoveRelationship={unlinkRelationship}
         onRemoveMember={removeMember}
@@ -712,6 +714,7 @@ export default function DashboardPage() {
 
             <FamilyTree
               members={treeMembers}
+              sibships={treeLayout.sibships}
               connections={treeLayout.connections}
               highlightedMembers={highlightedIds}
               dimNonHighlighted={!!relatedByFilter}
@@ -750,8 +753,8 @@ export default function DashboardPage() {
             <GlassCard className="p-6">
               <h2 className="font-serif text-lg font-semibold text-white/90 mb-1">Family Worldwide</h2>
               <p className="text-xs text-white/30 mb-4">{locations} cities across the globe</p>
-              <div className="flex flex-col gap-4">
-                <div className="flex-1 flex justify-center">
+              <div className="flex flex-col lg:flex-row gap-4 items-start">
+                <div className="flex-shrink-0 flex justify-center lg:justify-start">
                   <InteractiveGlobe
                     members={members}
                     focusCountryCode={focusedCountryCode}
@@ -760,7 +763,7 @@ export default function DashboardPage() {
                   />
                 </div>
                 {countryGroups.length > 0 && (
-                  <div className="w-full flex flex-col max-h-[220px] lg:max-h-[300px]"
+                  <div className="w-full lg:flex-1 flex flex-col min-w-0 max-h-[220px] lg:max-h-[300px]"
                     style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.05) transparent" }}>
                     <div className="px-1 pb-2">
                       <div className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">

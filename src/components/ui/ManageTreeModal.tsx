@@ -13,6 +13,7 @@ interface ManageTreeModalProps {
   viewer: Profile;
   members: Profile[];
   relationships: Relationship[];
+  familyName?: string;
   onConnectMembers: (fromMemberId: string, toMemberId: string, type: RelationshipType) => Promise<void>;
   onRemoveRelationship: (relationshipId: string) => Promise<void>;
   onRemoveMember: (memberId: string) => Promise<void>;
@@ -56,6 +57,7 @@ export function ManageTreeModal({
   viewer,
   members,
   relationships,
+  familyName = "Family",
   onConnectMembers,
   onRemoveRelationship,
   onRemoveMember,
@@ -161,7 +163,7 @@ export function ManageTreeModal({
 
   const handleRemoveMember = async (member: Profile) => {
     const confirmed = window.confirm(
-      `Remove ${memberName(member)} from your family tree? This will also remove their relationships.`
+      `Are you sure you want to remove ${memberName(member)} from the ${familyName} Family Tree?`
     );
     if (!confirmed) return;
 
@@ -174,8 +176,8 @@ export function ManageTreeModal({
       setSuccess(`${memberName(member)} was removed from the tree.`);
       if (sourceId === member.id) setSourceId(viewer.id);
       if (targetId === member.id) setTargetId("");
-    } catch {
-      setError("Could not remove this member. Claimed account nodes are protected.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove this member.");
     } finally {
       setBusyAction(null);
     }
@@ -210,7 +212,7 @@ export function ManageTreeModal({
               <div>
                 <h2 id="manage-tree-title" className="font-serif text-lg text-white/92">Manage Tree Structure</h2>
                 <p className="text-xs text-white/55 mt-0.5">
-                  Connect existing members, remove wrong links, or remove unclaimed member nodes.
+                  Connect existing members, remove wrong links, or remove member nodes.
                 </p>
               </div>
               <button

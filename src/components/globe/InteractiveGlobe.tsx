@@ -23,7 +23,7 @@ import { feature } from "topojson-client";
 import { Globe2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Profile } from "@/lib/types";
-import { inferCountryCodeFromCity } from "@/lib/cities";
+import { inferCountryCodeFromCity, getCityCoordinates } from "@/lib/cities";
 import { countryName } from "@/lib/country-utils";
 
 interface InteractiveGlobeProps {
@@ -258,6 +258,13 @@ export function InteractiveGlobe({
           lng: member.location_lng,
           countryCode,
         });
+        continue;
+      }
+
+      const cityCoords = member.location_city ? getCityCoordinates(member.location_city) : null;
+      if (cityCoords) {
+        const [lat, lng] = cityCoords;
+        resolved.push({ member, lat, lng, countryCode });
         continue;
       }
 
@@ -518,7 +525,7 @@ export function InteractiveGlobe({
           width={baseSize}
           height={baseSize}
           viewBox={`0 0 ${baseSize} ${baseSize}`}
-          className="overflow-hidden"
+          className="overflow-hidden pointer-events-none"
         >
           <defs>
             <radialGradient id="globeShade" cx="35%" cy="35%">
@@ -658,9 +665,9 @@ export function InteractiveGlobe({
           const isHovered = hoveredMember?.id === member.id;
 
           return (
-            <div key={member.id} className="absolute pointer-events-auto" style={{ left: x, top: y, zIndex: 10 }}>
+            <div key={member.id} className="absolute pointer-events-auto cursor-pointer" style={{ left: x, top: y, zIndex: 10 }}>
               <div
-                className="absolute w-7 h-7 -translate-x-1/2 -translate-y-1/2 rounded-full cursor-pointer"
+                className="absolute w-12 h-12 -translate-x-1/2 -translate-y-1/2 rounded-full cursor-pointer"
                 onClick={(e) => {
                   e.stopPropagation();
                   onMemberClick?.(member);
@@ -671,10 +678,10 @@ export function InteractiveGlobe({
               <motion.div
                 animate={{ scale: [1, 2.5], opacity: [0.5, 0] }}
                 transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
-                className="absolute w-3 h-3 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold-400/50"
+                className="absolute w-5 h-5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold-400/50"
               />
               <div
-                className="absolute w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-400 transition-transform duration-150"
+                className="absolute w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-400 transition-transform duration-150"
                 style={{
                   boxShadow: isHovered ? "0 0 16px rgba(212,165,116,0.78)" : "0 0 8px rgba(212,165,116,0.55)",
                   transform: `translate(-50%,-50%) scale(${isHovered ? 1.5 : 1})`,

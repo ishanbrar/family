@@ -49,7 +49,7 @@ export default function TreeExplorerPage() {
   const [savingTitle, setSavingTitle] = useState(false);
 
   const treeLayout = useMemo(() => {
-    if (!viewer) return { nodes: [], connections: [], width: 900, height: 620 };
+    if (!viewer) return { nodes: [], connections: [], sibships: [], width: 900, height: 620 };
     return createFamilyTreeLayout(members, relationships, viewer.id);
   }, [viewer, members, relationships]);
 
@@ -60,6 +60,7 @@ export default function TreeExplorerPage() {
       match: calculateGeneticMatch(viewer.id, node.profile.id, relationships, node.profile.gender),
       x: node.x,
       y: node.y,
+      generation: node.generation,
     }));
   }, [viewer, treeLayout.nodes, relationships]);
 
@@ -228,6 +229,7 @@ export default function TreeExplorerPage() {
 
             <FamilyTree
               members={treeMembers}
+              sibships={treeLayout.sibships}
               connections={treeLayout.connections}
               highlightedMembers={highlightedIds}
               dimNonHighlighted={!!relatedByFilter}

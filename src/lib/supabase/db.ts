@@ -198,12 +198,14 @@ export async function deleteRelationship(
   supabase: SupabaseClient,
   relationshipId: string
 ): Promise<boolean> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("relationships")
     .delete()
-    .eq("id", relationshipId);
+    .eq("id", relationshipId)
+    .select("id");
 
-  return !error;
+  // RLS can block deletes silently (204 with 0 rows); verify we actually deleted
+  return !error && Array.isArray(data) && data.length > 0;
 }
 
 // ── Conditions ──────────────────────────────────
@@ -507,12 +509,14 @@ export async function deleteFamilyMember(
   supabase: SupabaseClient,
   memberId: string
 ): Promise<boolean> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .delete()
-    .eq("id", memberId);
+    .eq("id", memberId)
+    .select("id");
 
-  return !error;
+  // RLS can block deletes silently (204 with 0 rows); verify we actually deleted
+  return !error && Array.isArray(data) && data.length > 0;
 }
 
 // ── Mappers (DB row → TypeScript type) ──────────

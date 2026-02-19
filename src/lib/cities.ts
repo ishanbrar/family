@@ -485,3 +485,53 @@ export function inferCountryCodeFromCity(value: string): string | null {
   const matched = findCityByInput(value);
   return matched?.countryCode || null;
 }
+
+/** [lat, lng] for major cities. Keys are normalize(label). GeoJSON/D3 use [lng, lat] – invert when projecting. */
+const CITY_COORDINATES: Record<string, [number, number]> = {
+  "dallas tx usa": [32.7767, -96.797],
+  "dallas tx": [32.7767, -96.797],
+  "dallas": [32.7767, -96.797],
+  "new york ny usa": [40.7128, -74.006],
+  "los angeles ca usa": [34.0522, -118.2437],
+  "chicago il usa": [41.8781, -87.6298],
+  "houston tx usa": [29.7604, -95.3698],
+  "phoenix az usa": [33.4484, -112.074],
+  "philadelphia pa usa": [39.9526, -75.1652],
+  "san antonio tx usa": [29.4241, -98.4936],
+  "san diego ca usa": [32.7157, -117.1611],
+  "san francisco ca usa": [37.7749, -122.4194],
+  "austin tx usa": [30.2672, -97.7431],
+  "seattle wa usa": [47.6062, -122.3321],
+  "denver co usa": [39.7392, -104.9903],
+  "washington dc usa": [38.9072, -77.0369],
+  "boston ma usa": [42.3601, -71.0589],
+  "miami fl usa": [25.7617, -80.1918],
+  "atlanta ga usa": [33.749, -84.388],
+  "london": [51.5074, -0.1278],
+  "paris": [48.8566, 2.3522],
+  "berlin": [52.52, 13.405],
+  "madrid": [40.4168, -3.7038],
+  "rome": [41.9028, 12.4964],
+  "amsterdam": [52.3676, 4.9041],
+  "dublin": [53.3498, -6.2603],
+  "sydney nsw australia": [-33.8688, 151.2093],
+  "melbourne vic australia": [-37.8136, 144.9631],
+  "toronto on canada": [43.6532, -79.3832],
+  "vancouver bc canada": [49.2827, -123.1207],
+  "montreal qc canada": [45.5017, -73.5673],
+  "tokyo": [35.6762, 139.6503],
+  "mumbai maharashtra india": [19.076, 72.8777],
+  "delhi ncr india": [28.7041, 77.1025],
+  "bangalore karnataka india": [12.9716, 77.5946],
+};
+
+export function getCityCoordinates(locationCity: string): [number, number] | null {
+  const q = normalize(locationCity);
+  if (!q) return null;
+  const exact = CITY_COORDINATES[q];
+  if (exact) return exact;
+  const city = findCityByInput(locationCity);
+  if (!city) return null;
+  const labelNorm = normalize(city.label);
+  return CITY_COORDINATES[labelNorm] || null;
+}

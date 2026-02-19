@@ -140,7 +140,49 @@ export async function exportFamilyTreeAsImage({
   const mapX = (x: number) => treeOffsetX + x * scale;
   const mapY = (y: number) => treeOffsetY + y * scale;
 
-  // Connections
+  // Pedigree orthogonal connectors: union drop + sibling bar + child drops
+  ctx.strokeStyle = "#5f4932";
+  ctx.lineWidth = 2.5;
+  for (const sib of tree.sibships) {
+    const parentNodes = sib.parents.map((id) => nodesById.get(id)).filter(Boolean) as typeof tree.nodes;
+    const childNodes = sib.children.map((id) => nodesById.get(id)).filter(Boolean) as typeof tree.nodes;
+    if (parentNodes.length === 0 || childNodes.length === 0) continue;
+
+    const topY = Math.max(...parentNodes.map((p) => p.y));
+    const bottomY = Math.min(...childNodes.map((c) => c.y));
+    const midX =
+      (Math.min(...parentNodes.map((p) => p.x)) +
+        Math.max(...parentNodes.map((p) => p.x)) +
+        Math.min(...childNodes.map((c) => c.x)) +
+        Math.max(...childNodes.map((c) => c.x))) /
+      4;
+    const mx = mapX(midX);
+
+    const inset = 40;
+    const barY = (topY + bottomY) / 2;
+    ctx.beginPath();
+    if (parentNodes.length >= 2) {
+      const parentLeft = Math.min(...parentNodes.map((p) => p.x)) + inset;
+      const parentRight = Math.max(...parentNodes.map((p) => p.x)) - inset;
+      ctx.moveTo(mapX(parentLeft), mapY(topY));
+      ctx.lineTo(mapX(parentRight), mapY(topY));
+    }
+    for (const p of parentNodes) {
+      ctx.moveTo(mapX(p.x), mapY(p.y + inset));
+      ctx.lineTo(mapX(p.x), mapY(topY));
+    }
+    ctx.moveTo(mx, mapY(topY));
+    ctx.lineTo(mx, mapY(barY));
+    ctx.moveTo(mapX(Math.min(...childNodes.map((c) => c.x))), mapY(barY));
+    ctx.lineTo(mapX(Math.max(...childNodes.map((c) => c.x))), mapY(barY));
+    for (const c of childNodes) {
+      ctx.moveTo(mapX(c.x), mapY(barY));
+      ctx.lineTo(mapX(c.x), mapY(c.y - inset));
+    }
+    ctx.stroke();
+  }
+
+  // Spouse and sibling connections
   for (const connection of tree.connections) {
     const fromNode = nodesById.get(connection.from);
     const toNode = nodesById.get(connection.to);
@@ -151,51 +193,22 @@ export async function exportFamilyTreeAsImage({
     const x2 = mapX(toNode.x);
     const y2 = mapY(toNode.y);
 
+    if (connection.type === "parent") continue; // Handled by sibships
+
     if (connection.type === "spouse") {
       ctx.save();
-      ctx.setLineDash([18, 10]);
       ctx.strokeStyle = "#7a5f3d";
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(Math.min(x1, x2) + nodeWidth * 0.55, y1);
-      ctx.lineTo(Math.max(x1, x2) - nodeWidth * 0.55, y2);
+      const y = (y1 + y2) / 2;
+      ctx.moveTo(Math.min(x1, x2) + nodeWidth * 0.55, y);
+      ctx.lineTo(Math.max(x1, x2) - nodeWidth * 0.55, y);
       ctx.stroke();
       ctx.restore();
       continue;
     }
 
-    if (connection.type === "sibling" || connection.type === "half_sibling") {
-      const leftX = Math.min(x1, x2) + nodeWidth * 0.5;
-      const rightX = Math.max(x1, x2) - nodeWidth * 0.5;
-      const y = (y1 + y2) / 2 - 20;
-      const controlY = y - 46;
-
-      ctx.save();
-      if (connection.type === "half_sibling") {
-        ctx.setLineDash([12, 8]);
-      }
-      ctx.strokeStyle = "#7a5f3d";
-      ctx.lineWidth = 2.6;
-      ctx.beginPath();
-      ctx.moveTo(leftX, y);
-      ctx.quadraticCurveTo((leftX + rightX) / 2, controlY, rightX, y);
-      ctx.stroke();
-      ctx.restore();
-      continue;
-    }
-
-    const startX = x1;
-    const startY = y1 + nodeHeight * 0.46;
-    const endX = x2;
-    const endY = y2 - nodeHeight * 0.46;
-    const midY = (startY + endY) / 2;
-
-    ctx.strokeStyle = "#5f4932";
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.bezierCurveTo(startX, midY, endX, midY, endX, endY);
-    ctx.stroke();
+    if (connection.type === "sibling" || connection.type === "half_sibling") continue;
   }
 
   // Nodes

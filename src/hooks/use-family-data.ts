@@ -72,6 +72,79 @@ interface FamilyData {
   refresh: () => Promise<void>;
 }
 
+function hasExactRelationship(
+  relationships: Relationship[],
+  userId: string,
+  relativeId: string,
+  type: RelationshipType
+): boolean {
+  return relationships.some(
+    (rel) =>
+      rel.user_id === userId &&
+      rel.relative_id === relativeId &&
+      rel.type === type
+  );
+}
+
+function hasParentChildRelationship(
+  relationships: Relationship[],
+  parentId: string,
+  childId: string
+): boolean {
+  return relationships.some(
+    (rel) =>
+      (rel.type === "parent" &&
+        rel.user_id === parentId &&
+        rel.relative_id === childId) ||
+      (rel.type === "child" &&
+        rel.user_id === childId &&
+        rel.relative_id === parentId)
+  );
+}
+
+function getParentIdsForMember(
+  relationships: Relationship[],
+  memberId: string
+): Set<string> {
+  const parentIds = new Set<string>();
+  for (const rel of relationships) {
+    if (rel.type === "parent" && rel.relative_id === memberId) {
+      parentIds.add(rel.user_id);
+    } else if (rel.type === "child" && rel.user_id === memberId) {
+      parentIds.add(rel.relative_id);
+    }
+  }
+  return parentIds;
+}
+
+function inferSiblingParentRelationships(
+  relationships: Relationship[],
+  memberAId: string,
+  memberBId: string,
+  type: RelationshipType
+): Array<{ userId: string; relativeId: string; type: "parent" }> {
+  if (type !== "sibling") return [];
+
+  const parentsOfA = getParentIdsForMember(relationships, memberAId);
+  const parentsOfB = getParentIdsForMember(relationships, memberBId);
+  const inferred: Array<{ userId: string; relativeId: string; type: "parent" }> = [];
+
+  const addInferred = (parentId: string, childId: string) => {
+    if (hasParentChildRelationship(relationships, parentId, childId)) return;
+    if (inferred.some((rel) => rel.userId === parentId && rel.relativeId === childId)) return;
+    inferred.push({ userId: parentId, relativeId: childId, type: "parent" });
+  };
+
+  // Union inference: full siblings share both parents. Fill in missing parent links.
+  const allParents = new Set([...parentsOfA, ...parentsOfB]);
+  for (const parentId of allParents) {
+    addInferred(parentId, memberAId);
+    addInferred(parentId, memberBId);
+  }
+
+  return inferred;
+}
+
 export function useFamilyData(): FamilyData {
   const store = useFamilyStore();
   const [loading, setLoading] = useState(true);
@@ -83,6 +156,32 @@ export function useFamilyData(): FamilyData {
   const [familyId, setFamilyId] = useState<string | null>(null);
 
   const supabase = createClient();
+  const addRelationshipToStoreIfMissing = (relationship: Relationship) => {
+    const latest = useFamilyStore.getState().relationships;
+    if (
+      !hasExactRelationship(
+        latest,
+        relationship.user_id,
+        relationship.relative_id,
+        relationship.type
+      )
+    ) {
+      store.addRelationship(relationship);
+    }
+  };
+
+  const persistMockState = () => {
+    if (typeof window === "undefined") return;
+    try {
+      const state = useFamilyStore.getState();
+      localStorage.setItem(
+        "legacy_mock_family_state",
+        JSON.stringify({ members: state.members, relationships: state.relationships })
+      );
+    } catch {
+      // ignore
+    }
+  };
 
   const makeLocalInviteCode = (familyName?: string) => {
     const tokens = (familyName || "Family")
@@ -110,6 +209,30 @@ export function useFamilyData(): FamilyData {
 
     if (!isSupabaseConfigured() || isDevSuperAdminClient()) {
       // ── Offline / Dev super-admin mode ──
+      const MOCK_STORAGE_KEY = "legacy_mock_family_state";
+      try {
+        const stored = typeof window !== "undefined" ? localStorage.getItem(MOCK_STORAGE_KEY) : null;
+        if (stored) {
+          const parsed = JSON.parse(stored) as { members?: Profile[]; relationships?: Relationship[] };
+          if (Array.isArray(parsed.members) && Array.isArray(parsed.relationships)) {
+            const viewerProfile = parsed.members.find((m) => m.id === MOCK_PROFILES[0].id) ?? parsed.members[0];
+            if (viewerProfile) {
+              store.setViewer(viewerProfile);
+              store.setMembers(parsed.members);
+              store.setRelationships(parsed.relationships);
+              setConditions(MOCK_CONDITIONS);
+              setUserConds(MOCK_USER_CONDITIONS);
+              setFamily({ id: "mock-family", name: "Montague Family", invite_code: "MONTAGUE1234" });
+              setInviteCodes([{ id: "mock-invite-1", family_id: "mock-family", code: "MONTAGUE1234", label: "Primary", is_active: true, created_at: new Date().toISOString() }]);
+              setIsOnline(false);
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch {
+        // ignore parse errors, fall back to defaults
+      }
       store.setViewer(MOCK_PROFILES[0]);
       store.setMembers(MOCK_PROFILES);
       store.setRelationships(MOCK_RELATIONSHIPS);
@@ -189,6 +312,21 @@ export function useFamilyData(): FamilyData {
         setConditions(conds);
         setFamily(fam);
         setInviteCodes(codes);
+
+        // Persist inferred parent relationships for full siblings (union inference)
+        let currentRels = [...rels];
+        for (const rel of rels) {
+          if (rel.type !== "sibling") continue;
+          const inferred = inferSiblingParentRelationships(currentRels, rel.user_id, rel.relative_id, rel.type);
+          for (const nextRel of inferred) {
+            if (hasParentChildRelationship(currentRels, nextRel.userId, nextRel.relativeId)) continue;
+            const created = await dbAddRelationship(supabase, nextRel.userId, nextRel.relativeId, nextRel.type);
+            if (created) {
+              addRelationshipToStoreIfMissing(created);
+              currentRels = useFamilyStore.getState().relationships;
+            }
+          }
+        }
 
         // Load user conditions for all family members
         const memberIds = profiles.map((p) => p.id);
@@ -301,10 +439,29 @@ export function useFamilyData(): FamilyData {
           updated_at: now,
         };
         store.addMember(newProfile);
-        store.addRelationship({
+        const directRelationship: Relationship = {
           id: `rel-${Date.now()}`, user_id: newId, relative_id: rel.relativeId,
           type: rel.type, created_at: now,
+        };
+        addRelationshipToStoreIfMissing(directRelationship);
+
+        const withDirect = useFamilyStore.getState().relationships;
+        const inferred = inferSiblingParentRelationships(
+          withDirect,
+          newId,
+          rel.relativeId,
+          rel.type
+        );
+        inferred.forEach((nextRel, index) => {
+          addRelationshipToStoreIfMissing({
+            id: `rel-${Date.now()}-${index}`,
+            user_id: nextRel.userId,
+            relative_id: nextRel.relativeId,
+            type: nextRel.type,
+            created_at: now,
+          });
         });
+        persistMockState();
         return;
       }
 
@@ -334,7 +491,28 @@ export function useFamilyData(): FamilyData {
           rel.relativeId,
           rel.type
         );
-        if (newRel) store.addRelationship(newRel);
+        if (newRel) {
+          addRelationshipToStoreIfMissing(newRel);
+        }
+
+        const withDirect = useFamilyStore.getState().relationships;
+        const inferred = inferSiblingParentRelationships(
+          withDirect,
+          finalProfile.id,
+          rel.relativeId,
+          rel.type
+        );
+        for (const nextRel of inferred) {
+          const created = await dbAddRelationship(
+            supabase,
+            nextRel.userId,
+            nextRel.relativeId,
+            nextRel.type
+          );
+          if (created) {
+            addRelationshipToStoreIfMissing(created);
+          }
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -374,13 +552,32 @@ export function useFamilyData(): FamilyData {
             rel.type === type
         );
         if (duplicate) return;
-        store.addRelationship({
+        const directRelationship: Relationship = {
           id: `rel-${Date.now()}`,
           user_id: fromMemberId,
           relative_id: toMemberId,
           type,
           created_at: new Date().toISOString(),
+        };
+        addRelationshipToStoreIfMissing(directRelationship);
+
+        const withDirect = useFamilyStore.getState().relationships;
+        const inferred = inferSiblingParentRelationships(
+          withDirect,
+          fromMemberId,
+          toMemberId,
+          type
+        );
+        inferred.forEach((nextRel, index) => {
+          addRelationshipToStoreIfMissing({
+            id: `rel-${Date.now()}-${index}`,
+            user_id: nextRel.userId,
+            relative_id: nextRel.relativeId,
+            type: nextRel.type,
+            created_at: new Date().toISOString(),
+          });
         });
+        persistMockState();
         return;
       }
 
@@ -388,7 +585,26 @@ export function useFamilyData(): FamilyData {
       if (!newRel) {
         throw new Error("Could not create relationship.");
       }
-      store.addRelationship(newRel);
+      addRelationshipToStoreIfMissing(newRel);
+
+      const withDirect = useFamilyStore.getState().relationships;
+      const inferred = inferSiblingParentRelationships(
+        withDirect,
+        fromMemberId,
+        toMemberId,
+        type
+      );
+      for (const nextRel of inferred) {
+        const created = await dbAddRelationship(
+          supabase,
+          nextRel.userId,
+          nextRel.relativeId,
+          nextRel.type
+        );
+        if (created) {
+          addRelationshipToStoreIfMissing(created);
+        }
+      }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [isOnline, store.relationships]
@@ -400,14 +616,16 @@ export function useFamilyData(): FamilyData {
 
       if (!isOnline) {
         store.setRelationships(store.relationships.filter((rel) => rel.id !== relationshipId));
+        persistMockState();
         return;
       }
 
       const ok = await dbDeleteRelationship(supabase, relationshipId);
       if (!ok) {
-        throw new Error("Could not remove relationship.");
+        throw new Error("Could not remove that relationship. You may need admin rights.");
       }
       store.setRelationships(store.relationships.filter((rel) => rel.id !== relationshipId));
+      await loadData();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [isOnline, store.relationships]
@@ -424,12 +642,13 @@ export function useFamilyData(): FamilyData {
             (rel) => rel.user_id !== memberId && rel.relative_id !== memberId
           )
         );
+        persistMockState();
         return;
       }
 
       const ok = await dbDeleteFamilyMember(supabase, memberId);
       if (!ok) {
-        throw new Error("Could not remove this member.");
+        throw new Error("Could not remove this member. You may need to be a family admin.");
       }
 
       store.setMembers(store.members.filter((member) => member.id !== memberId));
@@ -438,6 +657,7 @@ export function useFamilyData(): FamilyData {
           (rel) => rel.user_id !== memberId && rel.relative_id !== memberId
         )
       );
+      await loadData();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [isOnline, store.viewer, store.members, store.relationships]

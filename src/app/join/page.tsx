@@ -135,7 +135,7 @@ function JoinFamilyPageContent() {
 
   const treeLayout = useMemo(() => {
     if (previewProfiles.length === 0) {
-      return { nodes: [], connections: [], width: 900, height: 560 };
+      return { nodes: [], connections: [], sibships: [], width: 900, height: 560 };
     }
     const preferredRootId =
       (selectedClaimId && previewProfiles.some((profile) => profile.id === selectedClaimId)
@@ -151,6 +151,7 @@ function JoinFamilyPageContent() {
         match: STATIC_MATCH,
         x: node.x,
         y: node.y,
+      generation: node.generation,
       })),
     [treeLayout.nodes]
   );
@@ -229,6 +230,7 @@ function JoinFamilyPageContent() {
           {treeMembers.length > 0 ? (
             <FamilyTree
               members={treeMembers}
+              sibships={treeLayout.sibships}
               connections={treeLayout.connections}
               showPercentages={false}
               showRelationLabels={false}

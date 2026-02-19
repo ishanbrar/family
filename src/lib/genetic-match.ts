@@ -97,9 +97,13 @@ function resolveSpecificDirectAuntUncleLabel(
   targetId: string,
   relationships: Relationship[]
 ): string | null {
-  const direct = relationships.find(
+  const directFromTarget = relationships.find(
     (rel) => rel.user_id === targetId && rel.relative_id === viewerId
   );
+  const directFromViewer = relationships.find(
+    (rel) => rel.user_id === viewerId && rel.relative_id === targetId
+  );
+  const direct = directFromTarget || directFromViewer;
   if (!direct) return null;
 
   if (
@@ -110,6 +114,8 @@ function resolveSpecificDirectAuntUncleLabel(
   ) {
     return RELATIONSHIP_LABELS[direct.type];
   }
+  if (direct.type === "niece_nephew" && direct.user_id === targetId) return "Aunt/Uncle";
+  if (direct.type === "aunt_uncle" && direct.relative_id === targetId) return "Aunt/Uncle";
 
   return null;
 }
@@ -244,7 +250,11 @@ function inferRelationship(types: RelationshipType[]): string {
     "spouse": "Spouse",
   };
 
-  return patterns[chain] || `Extended Family (${types.length}°)`;
+  if (patterns[chain]) return patterns[chain];
+  if (types.includes("aunt_uncle") || types.includes("maternal_aunt") || types.includes("paternal_aunt") || types.includes("maternal_uncle") || types.includes("paternal_uncle")) return "Aunt/Uncle";
+  if (types.includes("niece_nephew")) return "Niece/Nephew";
+  if (types.includes("cousin")) return "First Cousin";
+  return `Extended Family (${types.length}°)`;
 }
 
 // ── Blood-relative finder (for "Related By" filter) ─────
