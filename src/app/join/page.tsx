@@ -48,6 +48,7 @@ const STATIC_MATCH: GeneticMatchResult = {
   relationship: "Family Member",
   path: [],
 };
+const POST_JOIN_LINK_ONLY_KEY = "legacy:post-join-link-only";
 
 function JoinFamilyPageContent() {
   const router = useRouter();
@@ -174,6 +175,12 @@ function JoinFamilyPageContent() {
       setSubmitting(false);
       return;
     }
+    if (typeof window !== "undefined" && viewer?.id) {
+      window.localStorage.setItem(
+        POST_JOIN_LINK_ONLY_KEY,
+        JSON.stringify({ userId: viewer.id, required: true })
+      );
+    }
     router.push("/dashboard");
     router.refresh();
   };
@@ -187,6 +194,9 @@ function JoinFamilyPageContent() {
       setError("Could not claim this node. It may already be claimed.");
       setSubmitting(false);
       return;
+    }
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(POST_JOIN_LINK_ONLY_KEY);
     }
     router.push("/dashboard");
     router.refresh();
@@ -227,6 +237,11 @@ function JoinFamilyPageContent() {
           <p className="text-xs text-white/45 mb-4">
             Confirm whether you already exist in this tree. If yes, claim that node. If not, create a new one.
           </p>
+          {preview?.preview_limited && (
+            <div className="mb-4 rounded-xl border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-xs text-white/60">
+              Privacy mode is enabled before join. You can see claimable nodes, while the full family graph is revealed after you join.
+            </div>
+          )}
           {treeMembers.length > 0 ? (
             <FamilyTree
               members={treeMembers}
@@ -235,6 +250,8 @@ function JoinFamilyPageContent() {
               showPercentages={false}
               showRelationLabels={false}
               showLastNames
+              showBirthYear={false}
+              showBirthCountryFlag={false}
               onMemberClick={(id) => {
                 const match = claimableMembers.find((m) => m.id === id);
                 if (match) setSelectedClaimId(id);

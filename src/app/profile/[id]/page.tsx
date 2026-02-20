@@ -6,7 +6,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
-import { useState, use } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
@@ -32,6 +32,7 @@ import { useFamilyData } from "@/hooks/use-family-data";
 import { calculateGeneticMatch } from "@/lib/genetic-match";
 import { formatGenderLabel } from "@/lib/display-format";
 import type { Profile } from "@/lib/types";
+import { createClient } from "@/lib/supabase/client";
 
 export default function MemberProfilePage({
   params,
@@ -42,6 +43,7 @@ export default function MemberProfilePage({
   const router = useRouter();
   const {
     viewer,
+    family,
     members,
     relationships,
     conditions,
@@ -51,6 +53,21 @@ export default function MemberProfilePage({
   } = useFamilyData();
 
   const [editOpen, setEditOpen] = useState(false);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadAuthEmail = async () => {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getUser();
+      if (cancelled) return;
+      setAccountEmail(data.user?.email || null);
+    };
+    loadAuthEmail();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const member = members.find((m) => m.id === id);
 
@@ -87,7 +104,7 @@ export default function MemberProfilePage({
 
   const geneticMatch = isViewer
     ? { percentage: 100, relationship: "Self", path: [viewer.id] }
-    : calculateGeneticMatch(viewer.id, member.id, relationships, member.gender);
+    : calculateGeneticMatch(viewer.id, member.id, relationships, member.gender, family?.relation_language, members);
 
   const memberConditions = userConditions.filter((uc) => uc.user_id === member.id);
 
@@ -114,7 +131,7 @@ export default function MemberProfilePage({
 
   const connections = members.filter((p) => p.id !== member.id).map((p) => ({
     profile: p,
-    match: calculateGeneticMatch(member.id, p.id, relationships, p.gender),
+    match: calculateGeneticMatch(member.id, p.id, relationships, p.gender, family?.relation_language, members),
   }));
 
   const handleSave = async (updates: Partial<Profile> & { avatarFile?: File }) => {
@@ -210,6 +227,7 @@ export default function MemberProfilePage({
               <div className="mt-5 w-full space-y-3">
                 {[
                   { icon: User, label: "Display Name", value: member.display_name },
+                  ...(isViewer ? [{ icon: User, label: "Account Email", value: accountEmail }] : []),
                   {
                     icon: User,
                     label: "Gender",

@@ -17,6 +17,7 @@ export interface FamilyRecord {
   id: string;
   name: string;
   invite_code: string;
+  relation_language?: string;
 }
 
 export interface InviteCodeRecord {
@@ -49,6 +50,7 @@ export interface JoinPreviewRelationship {
 export interface JoinFamilyPreview {
   family_id: string;
   family_name: string;
+  preview_limited?: boolean;
   members: JoinPreviewMember[];
   relationships: JoinPreviewRelationship[];
 }
@@ -116,7 +118,9 @@ export async function updateProfile(
   if (updates.display_name !== undefined) dbUpdates.display_name = updates.display_name;
   if (updates.gender !== undefined) dbUpdates.gender = updates.gender;
   if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url;
-  if (updates.date_of_birth !== undefined) dbUpdates.date_of_birth = updates.date_of_birth;
+  if (updates.date_of_birth !== undefined)
+    dbUpdates.date_of_birth =
+      updates.date_of_birth != null ? String(updates.date_of_birth).slice(0, 10) : updates.date_of_birth;
   if (updates.place_of_birth !== undefined) dbUpdates.place_of_birth = updates.place_of_birth;
   if (updates.profession !== undefined) dbUpdates.profession = updates.profession;
   if (updates.location_city !== undefined) dbUpdates.location_city = updates.location_city;
@@ -293,6 +297,28 @@ export async function updateFamilyName(
   return data;
 }
 
+export type RelationLanguageCode = "en" | "punjabi";
+
+export async function updateFamilyRelationLanguage(
+  supabase: SupabaseClient,
+  familyId: string,
+  relationLanguage: RelationLanguageCode
+): Promise<FamilyRecord | null> {
+  const { data, error } = await supabase
+    .from("families")
+    .update({ relation_language: relationLanguage })
+    .eq("id", familyId)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("updateFamilyRelationLanguage failed:", error.message, error.code);
+    return null;
+  }
+  if (!data) return null;
+  return data;
+}
+
 export async function regenerateFamilyInviteCode(
   supabase: SupabaseClient,
   familyId: string
@@ -429,6 +455,7 @@ export async function getJoinFamilyPreview(
   const payload = data as {
     family_id?: string;
     family_name?: string;
+    preview_limited?: boolean;
     members?: JoinPreviewMember[];
     relationships?: JoinPreviewRelationship[];
   };
@@ -437,6 +464,7 @@ export async function getJoinFamilyPreview(
   return {
     family_id: payload.family_id,
     family_name: payload.family_name,
+    preview_limited: payload.preview_limited ?? false,
     members: Array.isArray(payload.members) ? payload.members : [],
     relationships: Array.isArray(payload.relationships) ? payload.relationships : [],
   };
@@ -481,7 +509,7 @@ export async function addFamilyMember(
       display_name: profile.display_name,
       gender: profile.gender,
       avatar_url: profile.avatar_url,
-      date_of_birth: profile.date_of_birth,
+      date_of_birth: profile.date_of_birth != null ? String(profile.date_of_birth).slice(0, 10) : profile.date_of_birth,
       place_of_birth: profile.place_of_birth,
       profession: profile.profession,
       location_city: profile.location_city,
@@ -530,7 +558,7 @@ function mapProfile(row: any): Profile {
     display_name: row.display_name || null,
     gender: row.gender || null,
     avatar_url: row.avatar_url,
-    date_of_birth: row.date_of_birth,
+    date_of_birth: row.date_of_birth ? String(row.date_of_birth).slice(0, 10) : null,
     place_of_birth: row.place_of_birth,
     profession: row.profession,
     location_city: row.location_city,

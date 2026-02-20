@@ -231,10 +231,7 @@ export default function DemoPage() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <GlassCard className="xl:col-span-2 p-6">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-3">
-              <div>
-                <h2 className="font-serif text-xl font-semibold text-white/90">Family Tree</h2>
-                <p className="text-xs text-white/30 mt-0.5">Genetic relationships from your perspective</p>
-              </div>
+              <h2 className="font-serif text-xl font-semibold text-white/90">Family Tree</h2>
               <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:justify-end">
                 <div className="flex items-center gap-2 w-full sm:w-auto">
                   <Filter size={12} className="text-white/25" />
@@ -324,8 +321,6 @@ export default function DemoPage() {
 
           <div className="space-y-6">
             <GlassCard className="p-6">
-              <h2 className="font-serif text-lg font-semibold text-white/90 mb-1">Family Worldwide</h2>
-              <p className="text-xs text-white/30 mb-4">{locations} cities across the globe</p>
               <div className="flex flex-col gap-4">
                 <div className="flex-1 flex justify-center">
                   <InteractiveGlobe

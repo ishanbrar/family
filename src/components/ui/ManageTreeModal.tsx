@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
-import { GitBranch, Link2, Trash2, UserMinus, X } from "lucide-react";
+import { GitBranch, Link2, Pencil, Trash2, UserMinus, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Profile, Relationship, RelationshipType } from "@/lib/types";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
@@ -17,6 +17,7 @@ interface ManageTreeModalProps {
   onConnectMembers: (fromMemberId: string, toMemberId: string, type: RelationshipType) => Promise<void>;
   onRemoveRelationship: (relationshipId: string) => Promise<void>;
   onRemoveMember: (memberId: string) => Promise<void>;
+  restrictToViewer?: boolean;
 }
 
 const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string }[] = [
@@ -31,6 +32,12 @@ const SYMMETRIC_RELATIONS = new Set<RelationshipType>(["sibling", "half_sibling"
 
 function relationLabel(type: RelationshipType): string {
   return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function invertRelation(type: RelationshipType): RelationshipType {
+  if (type === "parent") return "child";
+  if (type === "child") return "parent";
+  return type;
 }
 
 function canonicalRelationship(fromId: string, toId: string, type: RelationshipType): string {
@@ -61,6 +68,7 @@ export function ManageTreeModal({
   onConnectMembers,
   onRemoveRelationship,
   onRemoveMember,
+  restrictToViewer = false,
 }: ManageTreeModalProps) {
   const { dialogRef } = useAccessibleDialog({
     isOpen,
@@ -73,6 +81,7 @@ export function ManageTreeModal({
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [editingRelationshipId, setEditingRelationshipId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -83,6 +92,7 @@ export function ManageTreeModal({
     setBusyAction(null);
     setError(null);
     setSuccess(null);
+    setEditingRelationshipId(null);
   }, [isOpen, viewer.id]);
 
   const memberById = useMemo(() => new Map(members.map((member) => [member.id, member])), [members]);
@@ -100,9 +110,16 @@ export function ManageTreeModal({
     if (!sourceId || !targetId) return false;
     const requested = canonicalRelationship(sourceId, targetId, relationType);
     return relationships.some(
-      (rel) => canonicalRelationship(rel.user_id, rel.relative_id, rel.type) === requested
+      (rel) =>
+        rel.id !== editingRelationshipId &&
+        canonicalRelationship(rel.user_id, rel.relative_id, rel.type) === requested
     );
-  }, [relationships, sourceId, targetId, relationType]);
+  }, [relationships, sourceId, targetId, relationType, editingRelationshipId]);
+
+  const viewerRelationships = useMemo(() => {
+    if (!restrictToViewer) return [];
+    return relationships.filter((rel) => rel.user_id === viewer.id || rel.relative_id === viewer.id);
+  }, [relationships, restrictToViewer, viewer.id]);
 
   const removableMembers = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -131,19 +148,41 @@ export function ManageTreeModal({
     setBusyAction("connect");
 
     try {
+      if (editingRelationshipId) {
+        await onRemoveRelationship(editingRelationshipId);
+      }
       await onConnectMembers(sourceId, targetId, relationType);
       const source = memberById.get(sourceId);
       const target = memberById.get(targetId);
       setSuccess(
         source && target
-          ? `Connected ${memberName(source)} as ${relationLabel(relationType)} ${memberName(target)}.`
+          ? `${editingRelationshipId ? "Updated" : "Connected"} ${memberName(source)} as ${relationLabel(relationType)} ${memberName(target)}.`
+          : editingRelationshipId
+          ? "Relationship updated."
           : "Connection added."
       );
+      setEditingRelationshipId(null);
     } catch {
-      setError("Could not create this relationship. Check permissions and try again.");
+      setError(
+        editingRelationshipId
+          ? "Could not update this relationship. Check permissions and try again."
+          : "Could not create this relationship. Check permissions and try again."
+      );
     } finally {
       setBusyAction(null);
     }
+  };
+
+  const beginEditRelationship = (rel: Relationship) => {
+    const source = viewer.id;
+    const target = rel.user_id === viewer.id ? rel.relative_id : rel.user_id;
+    const nextType = rel.user_id === viewer.id ? rel.type : invertRelation(rel.type);
+    setSourceId(source);
+    setTargetId(target);
+    setRelationType(nextType);
+    setEditingRelationshipId(rel.id);
+    setError(null);
+    setSuccess(null);
   };
 
   const handleRemoveRelationship = async (relationshipId: string) => {
@@ -210,9 +249,13 @@ export function ManageTreeModal({
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08]">
               <div>
-                <h2 id="manage-tree-title" className="font-serif text-lg text-white/92">Manage Tree Structure</h2>
+                <h2 id="manage-tree-title" className="font-serif text-lg text-white/92">
+                  {restrictToViewer ? "Manage My Relationships" : "Manage Tree Structure"}
+                </h2>
                 <p className="text-xs text-white/55 mt-0.5">
-                  Connect existing members, remove wrong links, or remove member nodes.
+                  {restrictToViewer
+                    ? "Add, remove, or modify how your node connects to existing family members."
+                    : "Connect existing members, remove wrong links, or remove member nodes."}
                 </p>
               </div>
               <button
@@ -228,22 +271,25 @@ export function ManageTreeModal({
               <div className="rounded-2xl border border-white/[0.1] bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Link2 size={14} className="text-gold-300" />
-                  <h3 className="text-sm font-medium text-white/88">Connect Existing Members</h3>
+                  <h3 className="text-sm font-medium text-white/88">
+                    {restrictToViewer ? "Add or Update My Relationship" : "Connect Existing Members"}
+                  </h3>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <select
-                    value={sourceId}
-                    onChange={(e) => setSourceId(e.target.value)}
-                    className="h-10 rounded-xl app-input px-3 text-sm outline-none"
-                  >
-                    {members.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {memberName(member)}
-                      </option>
-                    ))}
-                  </select>
-
+                <div className={cn("grid grid-cols-1 gap-3", restrictToViewer ? "sm:grid-cols-2" : "sm:grid-cols-3")}>
+                  {!restrictToViewer && (
+                    <select
+                      value={sourceId}
+                      onChange={(e) => setSourceId(e.target.value)}
+                      className="h-10 rounded-xl app-input px-3 text-sm outline-none"
+                    >
+                      {members.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {memberName(member)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <select
                     value={relationType}
                     onChange={(e) => setRelationType(e.target.value as RelationshipType)}
@@ -262,7 +308,9 @@ export function ManageTreeModal({
                     className="h-10 rounded-xl app-input px-3 text-sm outline-none"
                   >
                     <option value="">Choose member...</option>
-                    {members.map((member) => (
+                    {members
+                      .filter((member) => !restrictToViewer || member.id !== viewer.id)
+                      .map((member) => (
                       <option key={member.id} value={member.id}>
                         {memberName(member)}
                       </option>
@@ -318,11 +366,58 @@ export function ManageTreeModal({
                   )}
                 >
                   <GitBranch size={13} />
-                  {busyAction === "connect" ? "Connecting..." : "Add Relationship"}
+                  {busyAction === "connect"
+                    ? editingRelationshipId
+                      ? "Updating..."
+                      : "Connecting..."
+                    : editingRelationshipId
+                    ? "Update Relationship"
+                    : "Add Relationship"}
                 </button>
               </div>
 
-              <div className="rounded-2xl border border-white/[0.1] bg-white/[0.02] p-4">
+              {restrictToViewer && (
+                <div className="rounded-2xl border border-white/[0.1] bg-white/[0.02] p-4">
+                  <h3 className="text-sm font-medium text-white/88 mb-3">My Existing Relationships</h3>
+                  <div className="space-y-2">
+                    {viewerRelationships.length === 0 ? (
+                      <p className="text-xs text-white/55">No relationships yet.</p>
+                    ) : (
+                      viewerRelationships.map((rel) => {
+                        const otherId = rel.user_id === viewer.id ? rel.relative_id : rel.user_id;
+                        const other = memberById.get(otherId);
+                        const relType = rel.user_id === viewer.id ? rel.type : invertRelation(rel.type);
+                        return (
+                          <div key={rel.id} className="flex items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.01] px-2.5 py-2">
+                            <span className="text-xs text-white/78 min-w-0 truncate">
+                              {relationLabel(relType)} {other ? memberName(other) : "Unknown"}
+                            </span>
+                            <button
+                              onClick={() => beginEditRelationship(rel)}
+                              className="ml-auto h-7 px-2 rounded-md border border-white/[0.1] text-xs text-white/70 hover:text-gold-300 hover:border-gold-400/30 transition-colors"
+                            >
+                              <span className="inline-flex items-center gap-1">
+                                <Pencil size={11} />
+                                Edit
+                              </span>
+                            </button>
+                            <button
+                              onClick={() => handleRemoveRelationship(rel.id)}
+                              disabled={busyAction === `rel:${rel.id}`}
+                              className="h-7 px-2 rounded-md border border-white/[0.1] text-xs text-white/70 hover:text-red-300 hover:border-red-400/30 transition-colors disabled:opacity-50"
+                            >
+                              {busyAction === `rel:${rel.id}` ? "..." : "Remove"}
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!restrictToViewer && (
+                <div className="rounded-2xl border border-white/[0.1] bg-white/[0.02] p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <UserMinus size={14} className="text-red-300/90" />
                   <h3 className="text-sm font-medium text-white/88">Remove Family Members</h3>
@@ -364,6 +459,7 @@ export function ManageTreeModal({
                   )}
                 </div>
               </div>
+              )}
 
               {error && (
                 <div className="rounded-xl border border-red-400/25 bg-red-400/[0.08] px-3 py-2 text-xs text-red-200">

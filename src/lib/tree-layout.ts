@@ -75,9 +75,74 @@ export function createFamilyTreeLayout(
     });
   }
 
+  const memberIds = members.map((m) => m.id);
+  const undirectedAdj = new Map<string, Set<string>>();
+  for (const id of memberIds) undirectedAdj.set(id, new Set());
+  for (const rel of relationships) {
+    if (!memberById.has(rel.user_id) || !memberById.has(rel.relative_id)) continue;
+    undirectedAdj.get(rel.user_id)!.add(rel.relative_id);
+    undirectedAdj.get(rel.relative_id)!.add(rel.user_id);
+  }
+
+  const componentFrom = (startId: string): Set<string> => {
+    const seen = new Set<string>();
+    const queue = [startId];
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      if (seen.has(cur)) continue;
+      seen.add(cur);
+      const neighbors = undirectedAdj.get(cur);
+      if (!neighbors) continue;
+      for (const next of neighbors) {
+        if (!seen.has(next)) queue.push(next);
+      }
+    }
+    return seen;
+  };
+
+  // Family-wide canonical anchor: if an admin node exists, use it so all users
+  // share the same geometry. Otherwise keep viewer-based fallback behavior.
+  let layoutRootId = viewerId;
+  const adminAnchor = [...members]
+    .filter((m) => m.role === "ADMIN")
+    .sort((a, b) => {
+      if (a.created_at !== b.created_at) return a.created_at.localeCompare(b.created_at);
+      return a.id.localeCompare(b.id);
+    })[0];
+  if (adminAnchor) {
+    layoutRootId = adminAnchor.id;
+  } else if (memberById.has(viewerId)) {
+    const viewerComponent = componentFrom(viewerId);
+    if (viewerComponent.size <= 1) {
+      const visited = new Set<string>();
+      let largest: Set<string> | null = null;
+      for (const id of memberIds) {
+        if (visited.has(id)) continue;
+        const comp = componentFrom(id);
+        comp.forEach((cid) => visited.add(cid));
+        if (!largest || comp.size > largest.size) {
+          largest = comp;
+        }
+      }
+      if (largest && largest.size > 1) {
+        const candidates = [...largest];
+        candidates.sort((a, b) => {
+          const aDegree = undirectedAdj.get(a)?.size || 0;
+          const bDegree = undirectedAdj.get(b)?.size || 0;
+          if (aDegree !== bDegree) return bDegree - aDegree;
+          const aCreated = memberById.get(a)?.created_at || "";
+          const bCreated = memberById.get(b)?.created_at || "";
+          if (aCreated !== bCreated) return aCreated.localeCompare(bCreated);
+          return a.localeCompare(b);
+        });
+        layoutRootId = candidates[0];
+      }
+    }
+  }
+
   const generation = new Map<string, number>();
-  generation.set(viewerId, 0);
-  const queue = [viewerId];
+  generation.set(layoutRootId, 0);
+  const queue = [layoutRootId];
 
   while (queue.length > 0) {
     const current = queue.shift()!;
@@ -176,7 +241,7 @@ export function createFamilyTreeLayout(
     }
   }
 
-  const viewerParentIds = parentIdsByChild.get(viewerId);
+  const viewerParentIds = parentIdsByChild.get(layoutRootId);
   const viewerParents = [...(viewerParentIds ?? new Set<string>())]
     .map((id) => memberById.get(id))
     .filter((m): m is Profile => !!m);

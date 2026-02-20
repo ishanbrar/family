@@ -188,6 +188,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-overflow-scrolling: touch; /* Smooth momentum scrolling on iOS */
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -243,7 +244,9 @@ html.dark .app-input option {
   }
 }
 
-/* iOS ergonomics: avoid input auto-zoom and reserve bottom space for home indicator. */
+/* ── iOS Mobile Optimization ───────────────────── */
+
+/* Avoid input auto-zoom and reserve bottom space for home indicator */
 @media (max-width: 640px) {
   input,
   select,
@@ -252,8 +255,33 @@ html.dark .app-input option {
   }
 }
 
+/* 44pt minimum touch targets for primary controls on touch devices */
+.touch-target-44 {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Remove tap delay and improve touch feedback on iOS */
+@media (hover: none) and (pointer: coarse) {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button,
+  a,
+  [role="button"],
+  select,
+  input,
+  textarea {
+    touch-action: manipulation;
+  }
+}
+
 .safe-mobile-bottom {
   padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem);
+}
+
+.safe-mobile-top {
+  padding-top: env(safe-area-inset-top);
 }
 
 ::selection {
@@ -307,6 +335,15 @@ html.dark .app-input option {
 
 .app-overlay {
   background: var(--overlay-bg);
+}
+
+/* iOS: smooth scroll in overflow containers */
+@media (hover: none) and (pointer: coarse) {
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* ── Gold Glow Effects ────────────────────────── */

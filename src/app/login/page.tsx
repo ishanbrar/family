@@ -11,7 +11,15 @@ import Link from "next/link";
 import { Crown, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { DEV_SUPER_ADMIN_ENABLED, enableDevSuperAdmin } from "@/lib/dev-auth";
-import { clearPendingSignup, readPendingSignup } from "@/lib/pending-signup";
+
+interface PendingIntentPayload {
+  mode: "create" | "join";
+  first_name: string;
+  last_name: string;
+  gender?: "female" | "male" | null;
+  family_name?: string | null;
+  invite_code?: string | null;
+}
 
 function LoginPageContent() {
   const router = useRouter();
@@ -20,7 +28,55 @@ function LoginPageContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingIntent, setPendingIntent] = useState<PendingIntentPayload | null>(null);
   const inviteCodeFromUrl = searchParams.get("code")?.trim().toUpperCase() || "";
+
+  const completeDeferredSetup = async (
+    supabase: ReturnType<typeof createClient>,
+    userId: string,
+    intent: PendingIntentPayload,
+    fallbackRedirect: string
+  ): Promise<string> => {
+    if (intent.mode === "create" && intent.family_name?.trim()) {
+      const { data: family, error: famErr } = await supabase
+        .from("families")
+        .insert({ name: intent.family_name.trim(), created_by: userId })
+        .select("id")
+        .single();
+      if (famErr || !family) throw famErr || new Error("Family creation failed");
+
+      const { error: profileErr } = await supabase.from("profiles").upsert({
+        id: userId,
+        auth_user_id: userId,
+        first_name: intent.first_name || "Family",
+        last_name: intent.last_name || "Member",
+        gender: intent.gender || null,
+        role: "ADMIN",
+        family_id: family.id,
+      }, { onConflict: "id" });
+      if (profileErr) throw profileErr;
+      return "/dashboard";
+    }
+
+    if (intent.mode === "join") {
+      const pendingCode = intent.invite_code?.trim().toUpperCase() || "";
+      if (!pendingCode) throw new Error("Missing pending invite code");
+
+      const { error: profileErr } = await supabase.from("profiles").upsert({
+        id: userId,
+        auth_user_id: userId,
+        first_name: intent.first_name || "Family",
+        last_name: intent.last_name || "Member",
+        gender: intent.gender || null,
+        role: "MEMBER",
+        family_id: null,
+      }, { onConflict: "id" });
+      if (profileErr) throw profileErr;
+      return `/join?code=${encodeURIComponent(pendingCode)}`;
+    }
+
+    return fallbackRedirect;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,65 +108,76 @@ function LoginPageContent() {
       return;
     }
 
-    let redirectPath = inviteCodeFromUrl
+    const redirectPathBase = inviteCodeFromUrl
       ? `/join?code=${encodeURIComponent(inviteCodeFromUrl)}`
       : "/dashboard";
+    let redirectPath = redirectPathBase;
 
-    // Complete any deferred family setup from email-confirmation signup flow.
-    const pending = readPendingSignup();
-    if (pending && authData.user) {
+    // Complete any deferred family setup from email-confirmation signup flow (server-side intent).
+    const { data: consumedIntent, error: consumeErr } = await supabase.rpc("consume_pending_signup_intent", {
+      p_auth_user_id: authData.user.id,
+    });
+    if (consumeErr) {
+      setError(`Could not load deferred signup setup: ${consumeErr.message}`);
+      setLoading(false);
+      return;
+    }
+
+    const parsedIntent =
+      consumedIntent && typeof consumedIntent === "object"
+        ? (consumedIntent as PendingIntentPayload)
+        : null;
+
+    if (parsedIntent) {
       try {
-        if (pending.mode === "create" && pending.family_name?.trim()) {
-          let familyId: string | null = null;
-
-          const { data: family, error: famErr } = await supabase
-            .from("families")
-            .insert({ name: pending.family_name.trim(), created_by: authData.user.id })
-            .select("id")
-            .single();
-          if (famErr || !family) throw famErr || new Error("Family creation failed");
-          familyId = family.id;
-
-          const { error: profileErr } = await supabase.from("profiles").upsert({
-            id: authData.user.id,
-            auth_user_id: authData.user.id,
-            first_name: pending.first_name || "Family",
-            last_name: pending.last_name || "Member",
-            gender: pending.gender || null,
-            role: "ADMIN",
-            family_id: familyId,
-          }, { onConflict: "id" });
-
-          if (profileErr) throw profileErr;
-          redirectPath = "/dashboard";
-        } else if (pending.mode === "join") {
-          const pendingCode = pending.invite_code?.trim().toUpperCase() || "";
-          if (!pendingCode) {
-            throw new Error("Missing pending invite code");
-          }
-
-          const { error: profileErr } = await supabase.from("profiles").upsert({
-            id: authData.user.id,
-            auth_user_id: authData.user.id,
-            first_name: pending.first_name || "Family",
-            last_name: pending.last_name || "Member",
-            gender: pending.gender || null,
-            role: "MEMBER",
-            family_id: null,
-          }, { onConflict: "id" });
-
-          if (profileErr) throw profileErr;
-          redirectPath = `/join?code=${encodeURIComponent(pendingCode)}`;
-        }
-
-        clearPendingSignup();
+        redirectPath = await completeDeferredSetup(
+          supabase,
+          authData.user.id,
+          parsedIntent,
+          redirectPathBase
+        );
       } catch (err) {
-        console.error("Deferred signup completion failed:", err);
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setPendingIntent(parsedIntent);
+        setError(`Deferred signup completion failed: ${message}. Retry below.`);
+        setLoading(false);
+        return;
       }
     }
 
     router.push(redirectPath);
     router.refresh();
+  };
+
+  const handleRetryDeferred = async () => {
+    if (!pendingIntent) return;
+    setLoading(true);
+    setError(null);
+    const supabase = createClient();
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) {
+      setError("You are no longer signed in. Please log in again.");
+      setLoading(false);
+      return;
+    }
+    const redirectPathBase = inviteCodeFromUrl
+      ? `/join?code=${encodeURIComponent(inviteCodeFromUrl)}`
+      : "/dashboard";
+    try {
+      const redirectPath = await completeDeferredSetup(
+        supabase,
+        authData.user.id,
+        pendingIntent,
+        redirectPathBase
+      );
+      setPendingIntent(null);
+      router.push(redirectPath);
+      router.refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(`Retry failed: ${message}`);
+      setLoading(false);
+    }
   };
 
   const inputClass =
@@ -162,10 +229,19 @@ function LoginPageContent() {
             </div>
 
             {error && (
-              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="text-xs text-red-400/80 bg-red-400/[0.06] border border-red-400/10 rounded-xl px-4 py-2.5">
-                {error}
-              </motion.p>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="text-xs text-red-400/80 bg-red-400/[0.06] border border-red-400/10 rounded-xl px-4 py-2.5 space-y-2">
+                <p>{error}</p>
+                {pendingIntent && (
+                  <button
+                    type="button"
+                    onClick={handleRetryDeferred}
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-400/[0.15] px-2.5 py-1 text-[11px] text-red-200 hover:bg-red-400/[0.22] transition-colors"
+                  >
+                    Retry deferred setup
+                  </button>
+                )}
+              </motion.div>
             )}
 
             <motion.button

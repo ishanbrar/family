@@ -37,6 +37,7 @@ type FilterType = "all" | "hereditary" | "chronic" | "autoimmune" | "mental_heal
 export default function HealthPage() {
   const {
     viewer,
+    family,
     members,
     relationships,
     conditions: allConditions,
@@ -72,7 +73,7 @@ export default function HealthPage() {
     if (!viewer) return [];
     return treeLayout.nodes.map((n) => ({
       profile: n.profile,
-      match: calculateGeneticMatch(viewer.id, n.profile.id, relationships, n.profile.gender),
+      match: calculateGeneticMatch(viewer.id, n.profile.id, relationships, n.profile.gender, family?.relation_language, members),
       x: n.x,
       y: n.y,
       generation: n.generation,

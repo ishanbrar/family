@@ -39,6 +39,9 @@ interface FamilyOnboardingWizardProps {
     member: Omit<Profile, "id" | "created_at" | "updated_at">,
     rel: { relativeId: string; type: RelationshipType }
   ) => Promise<void>;
+  linkMembers?: (fromMemberId: string, toMemberId: string, type: RelationshipType) => Promise<void>;
+  linkOnlyMode?: boolean;
+  onLinkOnlySatisfied?: () => void;
 }
 
 const DIRECT_RELATION_TYPES: RelationshipType[] = [
@@ -117,6 +120,9 @@ export function FamilyOnboardingWizard({
   onRegenerateInviteCode,
   updateProfile,
   addMember,
+  linkMembers,
+  linkOnlyMode = false,
+  onLinkOnlySatisfied,
 }: FamilyOnboardingWizardProps) {
   const { dialogRef } = useAccessibleDialog({
     isOpen,
@@ -148,6 +154,8 @@ export function FamilyOnboardingWizard({
   const [regeneratingCode, setRegeneratingCode] = useState(false);
   const [inviteStepDone, setInviteStepDone] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
+  const [selectedExistingId, setSelectedExistingId] = useState("");
+  const [linkingExisting, setLinkingExisting] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -159,6 +167,8 @@ export function FamilyOnboardingWizard({
     setCopyInviteDone(false);
     setCopyCodeDone(false);
     setInviteStepDone(false);
+    setSelectedExistingId("");
+    setLinkingExisting(false);
     setSelfProfile({
       firstName: viewer.first_name,
       lastName: viewer.last_name,
@@ -196,6 +206,7 @@ export function FamilyOnboardingWizard({
 
   const coreRelativeCount = directRelatives.length;
   const coreGoalReached = coreRelativeCount >= 3;
+  const linkOnlySatisfied = !linkOnlyMode || coreRelativeCount > 0;
 
   const directRelationById = useMemo(() => {
     const map = new Map<string, RelationshipType>();
@@ -251,6 +262,14 @@ export function FamilyOnboardingWizard({
     };
   }, [stepTwoDraft.firstName, stepTwoDraft.lastName, stepTwoDraft.city, stepTwoDraft.dateOfBirth, members]);
 
+  const existingLinkCandidates = useMemo(
+    () =>
+      members
+        .filter((m) => m.id !== viewer.id)
+        .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
+    [members, viewer.id]
+  );
+
   const inviteLink = useMemo(() => {
     if (!family || typeof window === "undefined") return "";
     const url = new URL("/signup", window.location.origin);
@@ -270,7 +289,7 @@ export function FamilyOnboardingWizard({
         display_name: null,
         gender: draft.gender || null,
         avatar_url: null,
-        date_of_birth: draft.dateOfBirth || null,
+        date_of_birth: draft.dateOfBirth ? String(draft.dateOfBirth).slice(0, 10) : null,
         place_of_birth: null,
         profession: draft.profession.trim() || null,
         location_city: draft.city.trim() || null,
@@ -309,7 +328,7 @@ export function FamilyOnboardingWizard({
         first_name: selfProfile.firstName.trim(),
         last_name: selfProfile.lastName.trim(),
         gender: selfProfile.gender || null,
-        date_of_birth: selfProfile.dateOfBirth || null,
+        date_of_birth: selfProfile.dateOfBirth ? String(selfProfile.dateOfBirth).slice(0, 10) : null,
         location_city: selfProfile.locationCity.trim() || null,
         country_code: inferCountryCodeFromCity(selfProfile.locationCity),
         place_of_birth: selfProfile.placeOfBirth.trim() || null,
@@ -367,11 +386,55 @@ export function FamilyOnboardingWizard({
     }
   };
 
+  const handleLinkExistingMember = async () => {
+    if (!linkMembers) {
+      setStepError("Linking existing members is currently unavailable.");
+      return;
+    }
+    if (!stepTwoDraft.relation) {
+      setStepError("Choose a connection around your node first.");
+      return;
+    }
+    if (!selectedExistingId) {
+      setStepError("Select an existing family member to link.");
+      return;
+    }
+
+    const relation = stepTwoDraft.relation as RelationshipType;
+    const alreadyLinked = relationships.some(
+      (rel) =>
+        (rel.user_id === selectedExistingId &&
+          rel.relative_id === viewer.id &&
+          rel.type === relation) ||
+        (rel.user_id === viewer.id &&
+          rel.relative_id === selectedExistingId &&
+          rel.type === invertDirectRelation(relation))
+    );
+    if (alreadyLinked) {
+      setStepError("Those two members are already linked with that relation.");
+      return;
+    }
+
+    setLinkingExisting(true);
+    setStepError(null);
+    try {
+      await linkMembers(selectedExistingId, viewer.id, relation);
+      setLinksForged((v) => v + 1);
+      setSelectedExistingId("");
+      if (linkOnlyMode) {
+        onLinkOnlySatisfied?.();
+      }
+    } catch {
+      setStepError("Could not link the selected existing member. Please try again.");
+    } finally {
+      setLinkingExisting(false);
+    }
+  };
+
   const copyText = async (text: string, type: "code" | "link") => {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
-      setInviteStepDone(true);
       if (type === "code") {
         setCopyCodeDone(true);
         setTimeout(() => setCopyCodeDone(false), 1400);
@@ -541,15 +604,19 @@ export function FamilyOnboardingWizard({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <p className="text-sm text-white/55">
-                      {mandatory
+                      {linkOnlyMode
+                        ? "Step 2: connect your node to existing family members (new node creation is disabled here)."
+                        : mandatory
                         ? "Step 2: add at least 3 core relatives connected directly to you."
                         : "Step 2: add core relatives connected directly to you (you can continue any time)."}
                     </p>
                     <span className={cn(
                       "text-xs px-2.5 py-1 rounded-lg",
-                      coreGoalReached ? "bg-severity-mild/10 text-severity-mild" : "bg-white/[0.04] text-white/45"
+                      (linkOnlyMode ? linkOnlySatisfied : coreGoalReached)
+                        ? "bg-severity-mild/10 text-severity-mild"
+                        : "bg-white/[0.04] text-white/45"
                     )}>
-                      {coreRelativeCount}/3 added
+                      {linkOnlyMode ? `${Math.min(coreRelativeCount, 1)}/1 linked` : `${coreRelativeCount}/3 added`}
                     </span>
                   </div>
 
@@ -697,80 +764,114 @@ export function FamilyOnboardingWizard({
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <input
-                            className={inputClass}
-                            placeholder="First name"
-                            value={stepTwoDraft.firstName}
-                            onChange={(e) => {
-                              setAllowDuplicateStepTwo(false);
-                              setStepTwoDraft((s) => ({ ...s, firstName: e.target.value }));
-                            }}
-                          />
-                          <input
-                            className={inputClass}
-                            placeholder="Last name"
-                            value={stepTwoDraft.lastName}
-                            onChange={(e) => {
-                              setAllowDuplicateStepTwo(false);
-                              setStepTwoDraft((s) => ({ ...s, lastName: e.target.value }));
-                            }}
-                          />
-                          <select
-                            className={inputClass}
-                            value={stepTwoDraft.gender}
-                            onChange={(e) =>
-                              setStepTwoDraft((s) => ({ ...s, gender: e.target.value as Gender | "" }))
-                            }
-                          >
-                            <option value="" disabled>Select gender</option>
-                            {GENDER_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                          </select>
-                          <CitySearch
-                            value={stepTwoDraft.city}
-                            onChange={(next) => {
-                              setAllowDuplicateStepTwo(false);
-                              setStepTwoDraft((s) => ({ ...s, city: next }));
-                            }}
-                            placeholder="City (optional)"
-                          />
-                          <input
-                            type="date"
-                            className={inputClass}
-                            value={stepTwoDraft.dateOfBirth}
-                            onChange={(e) => {
-                              setAllowDuplicateStepTwo(false);
-                              setStepTwoDraft((s) => ({ ...s, dateOfBirth: e.target.value }));
-                            }}
-                          />
-                        </div>
-
-                        {duplicateInMembers && (
-                          <div className="mt-3 px-3 py-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.08] text-xs text-amber-200/90">
-                            {duplicateInMembers.confidence === "high" ? "Likely duplicate" : "Potential duplicate"}:
-                            {" "}
-                            {duplicateInMembers.member.first_name} {duplicateInMembers.member.last_name}
-                            {!allowDuplicateStepTwo && (
-                              <button
-                                type="button"
-                                onClick={() => setAllowDuplicateStepTwo(true)}
-                                className="ml-2 underline underline-offset-2 hover:text-amber-100"
+                        {!linkOnlyMode && (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <input
+                                className={inputClass}
+                                placeholder="First name"
+                                value={stepTwoDraft.firstName}
+                                onChange={(e) => {
+                                  setAllowDuplicateStepTwo(false);
+                                  setStepTwoDraft((s) => ({ ...s, firstName: e.target.value }));
+                                }}
+                              />
+                              <input
+                                className={inputClass}
+                                placeholder="Last name"
+                                value={stepTwoDraft.lastName}
+                                onChange={(e) => {
+                                  setAllowDuplicateStepTwo(false);
+                                  setStepTwoDraft((s) => ({ ...s, lastName: e.target.value }));
+                                }}
+                              />
+                              <select
+                                className={inputClass}
+                                value={stepTwoDraft.gender}
+                                onChange={(e) =>
+                                  setStepTwoDraft((s) => ({ ...s, gender: e.target.value as Gender | "" }))
+                                }
                               >
-                                Add anyway
-                              </button>
+                                <option value="" disabled>Select gender</option>
+                                {GENDER_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
+                              <CitySearch
+                                value={stepTwoDraft.city}
+                                onChange={(next) => {
+                                  setAllowDuplicateStepTwo(false);
+                                  setStepTwoDraft((s) => ({ ...s, city: next }));
+                                }}
+                                placeholder="City (optional)"
+                              />
+                              <input
+                                type="date"
+                                className={inputClass}
+                                value={stepTwoDraft.dateOfBirth}
+                                onChange={(e) => {
+                                  setAllowDuplicateStepTwo(false);
+                                  setStepTwoDraft((s) => ({ ...s, dateOfBirth: e.target.value }));
+                                }}
+                              />
+                            </div>
+
+                            {duplicateInMembers && (
+                              <div className="mt-3 px-3 py-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.08] text-xs text-amber-200/90">
+                                {duplicateInMembers.confidence === "high" ? "Likely duplicate" : "Potential duplicate"}:
+                                {" "}
+                                {duplicateInMembers.member.first_name} {duplicateInMembers.member.last_name}
+                                {!allowDuplicateStepTwo && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setAllowDuplicateStepTwo(true)}
+                                    className="ml-2 underline underline-offset-2 hover:text-amber-100"
+                                  >
+                                    Add anyway
+                                  </button>
+                                )}
+                              </div>
                             )}
-                          </div>
+
+                            <button
+                              onClick={handleAddDirectRelative}
+                              disabled={addingRelative || (!!duplicateInMembers && !allowDuplicateStepTwo)}
+                              className="mt-3 px-4 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 disabled:opacity-50 transition-colors"
+                            >
+                              {addingRelative ? "Adding..." : `Add ${relationLabel(stepTwoDraft.relation)}`}
+                            </button>
+                          </>
                         )}
 
-                        <button
-                          onClick={handleAddDirectRelative}
-                          disabled={addingRelative || (!!duplicateInMembers && !allowDuplicateStepTwo)}
-                          className="mt-3 px-4 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 disabled:opacity-50 transition-colors"
-                        >
-                          {addingRelative ? "Adding..." : `Add ${relationLabel(stepTwoDraft.relation)}`}
-                        </button>
+                        <div className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+                          <p className="text-xs text-white/40 mb-2">
+                            {linkOnlyMode
+                              ? "Link this relation to an existing family node (required for join setup)"
+                              : "Or link this relation to an existing family node"}
+                          </p>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <select
+                              value={selectedExistingId}
+                              onChange={(e) => setSelectedExistingId(e.target.value)}
+                              className={cn(inputClass, "flex-1")}
+                            >
+                              <option value="">Select existing member</option>
+                              {existingLinkCandidates.map((m) => (
+                                <option key={m.id} value={m.id}>
+                                  {m.first_name} {m.last_name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={handleLinkExistingMember}
+                              disabled={!selectedExistingId || linkingExisting || !linkMembers}
+                              className="px-3.5 py-2 rounded-xl bg-white/[0.04] border border-white/[0.12] text-xs text-white/75 hover:text-white/92 hover:border-gold-400/26 disabled:opacity-45 transition-colors"
+                            >
+                              {linkingExisting ? "Linking..." : `Link ${relationLabel(stepTwoDraft.relation)}`}
+                            </button>
+                          </div>
+                        </div>
                       </>
                     )}
                   </div>
@@ -794,10 +895,14 @@ export function FamilyOnboardingWizard({
                   <div className="flex justify-end">
                     <button
                       onClick={() => setStep(3)}
-                      disabled={mandatory ? !coreGoalReached : false}
+                      disabled={mandatory ? !coreGoalReached : !linkOnlySatisfied}
                       className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 disabled:opacity-50 transition-colors"
                     >
-                      {mandatory ? `Continue (${Math.min(coreRelativeCount, 3)}/3)` : "Continue to Invites"}
+                      {mandatory
+                        ? `Continue (${Math.min(coreRelativeCount, 3)}/3)`
+                        : linkOnlyMode
+                        ? `Continue (${Math.min(coreRelativeCount, 1)}/1 linked)`
+                        : "Continue to Invites"}
                       <ArrowRight size={14} />
                     </button>
                   </div>
@@ -850,8 +955,15 @@ export function FamilyOnboardingWizard({
                       </button>
 
                       <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-xs text-white/40">
-                        Invite sent? Copying the code or link marks this step complete.
+                        Mark this step complete after you actually send the invite to at least one family member.
                       </div>
+                      <button
+                        onClick={() => setInviteStepDone(true)}
+                        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gold-400/14 border border-gold-400/24 text-xs text-gold-300 hover:bg-gold-400/20 transition-colors"
+                      >
+                        <Check size={13} />
+                        I sent at least one invite
+                      </button>
                     </>
                   ) : (
                     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-xs text-white/40">
@@ -892,10 +1004,14 @@ export function FamilyOnboardingWizard({
                 {step === 2 && (
                   <button
                     onClick={() => setStep(3)}
-                    disabled={mandatory ? !coreGoalReached : false}
+                    disabled={mandatory ? !coreGoalReached : !linkOnlySatisfied}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 disabled:opacity-50 transition-colors"
                   >
-                    {mandatory ? `Continue (${Math.min(coreRelativeCount, 3)}/3)` : "Continue"}
+                    {mandatory
+                      ? `Continue (${Math.min(coreRelativeCount, 3)}/3)`
+                      : linkOnlyMode
+                      ? `Continue (${Math.min(coreRelativeCount, 1)}/1 linked)`
+                      : "Continue"}
                     <ArrowRight size={14} />
                   </button>
                 )}

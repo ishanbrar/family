@@ -17,6 +17,14 @@
 // ══════════════════════════════════════════════════════════
 
 import type { Relationship, RelationshipType, GeneticMatchResult, Gender } from "./types";
+import { getRelationDisplayLabel, type RelationLanguageCode } from "./relation-labels";
+
+/** Minimal member info for resolving maternal/paternal and elder/younger labels */
+export interface MemberForLabel {
+  id: string;
+  gender?: Gender | null;
+  date_of_birth?: string | null;
+}
 
 /** Coefficient of relationship for each edge type */
 const RELATIONSHIP_COEFFICIENTS: Record<RelationshipType, number> = {
@@ -120,6 +128,24 @@ function resolveSpecificDirectAuntUncleLabel(
   return null;
 }
 
+/** Get viewer's father id (parent who is male) when members are available */
+function getViewerFatherId(
+  viewerId: string,
+  relationships: Relationship[],
+  members: MemberForLabel[]
+): string | null {
+  const parentIds = new Set<string>();
+  for (const rel of relationships) {
+    if (rel.relative_id === viewerId && rel.type === "parent") parentIds.add(rel.user_id);
+    if (rel.user_id === viewerId && rel.type === "child") parentIds.add(rel.relative_id);
+  }
+  for (const id of parentIds) {
+    const m = members.find((x) => x.id === id);
+    if (m?.gender === "male") return id;
+  }
+  return null;
+}
+
 function applyGenderToRelationshipLabel(
   label: string,
   gender?: Gender | null
@@ -132,6 +158,8 @@ function applyGenderToRelationshipLabel(
     Sibling: { female: "Sister", male: "Brother" },
     Spouse: { female: "Wife", male: "Husband" },
     Grandparent: { female: "Grandmother", male: "Grandfather" },
+    "Maternal Grandparent": { female: "Maternal Grandmother", male: "Maternal Grandfather" },
+    "Paternal Grandparent": { female: "Paternal Grandmother", male: "Paternal Grandfather" },
     Grandchild: { female: "Granddaughter", male: "Grandson" },
     "Aunt/Uncle": { female: "Aunt", male: "Uncle" },
     "Great Aunt/Uncle": { female: "Great Aunt", male: "Great Uncle" },
@@ -157,7 +185,9 @@ export function calculateGeneticMatch(
   viewerId: string,
   targetId: string,
   relationships: Relationship[],
-  targetGender?: Gender | null
+  targetGender?: Gender | null,
+  relationLanguage?: RelationLanguageCode | string | null,
+  members?: MemberForLabel[]
 ): GeneticMatchResult {
   if (viewerId === targetId) {
     return { percentage: 100, relationship: "Self", path: [viewerId] };
@@ -194,13 +224,89 @@ export function calculateGeneticMatch(
           label =
             resolveSpecificDirectAuntUncleLabel(viewerId, targetId, relationships) ||
             RELATIONSHIP_LABELS[viewerPerspective[0]];
+          // Paternal uncle: elder (Tayaji) vs younger (Chacha ji) from birth dates
+          if (label === "Paternal Uncle" && members?.length) {
+            const fatherId = getViewerFatherId(viewerId, relationships, members);
+            const father = fatherId ? members.find((m) => m.id === fatherId) : null;
+            const target = members.find((m) => m.id === targetId);
+            if (father?.date_of_birth && target?.date_of_birth) {
+              const fBirth = new Date(father.date_of_birth).getTime();
+              const tBirth = new Date(target.date_of_birth).getTime();
+              if (tBirth < fBirth) label = "Paternal Uncle (elder)";
+              else label = "Paternal Uncle (younger)";
+            }
+          }
         } else {
           label = inferRelationship(viewerPerspective);
+          // Grandparent: maternal vs paternal from middle person's gender (path = viewer -> parent -> grandparent)
+          if (
+            label === "Grandparent" &&
+            path.length === 3 &&
+            viewerPerspective[0] === "parent" &&
+            viewerPerspective[1] === "parent" &&
+            members?.length
+          ) {
+            const parentInPath = members.find((m) => m.id === path[1]);
+            if (parentInPath?.gender === "female") label = "Maternal Grandparent";
+            else if (parentInPath?.gender === "male") label = "Paternal Grandparent";
+          }
+          // Aunt/uncle: maternal vs paternal from parent's gender (path = viewer -> parent -> sibling)
+          if (
+            label === "Aunt/Uncle" &&
+            path.length === 3 &&
+            viewerPerspective[0] === "parent" &&
+            viewerPerspective[1] === "sibling" &&
+            members?.length
+          ) {
+            const parentInPath = members.find((m) => m.id === path[1]);
+            const auntOrUncle = members.find((m) => m.id === path[2]);
+            const maternal = parentInPath?.gender === "female";
+            const aunt = auntOrUncle?.gender === "female";
+            if (maternal && aunt) label = "Maternal Aunt";
+            else if (maternal && !aunt) label = "Maternal Uncle";
+            else if (!maternal && aunt) label = "Paternal Aunt";
+            else if (!maternal && !aunt) {
+              label = "Paternal Uncle";
+              // Elder (Tayaji) vs younger (Chacha ji) when birth dates available
+              const fatherId = getViewerFatherId(viewerId, relationships, members);
+              const father = fatherId ? members.find((m) => m.id === fatherId) : null;
+              if (father?.date_of_birth && auntOrUncle?.date_of_birth) {
+                const fBirth = new Date(father.date_of_birth).getTime();
+                const uBirth = new Date(auntOrUncle.date_of_birth).getTime();
+                if (uBirth < fBirth) label = "Paternal Uncle (elder)";
+                else label = "Paternal Uncle (younger)";
+              }
+            }
+          }
+          // Aunt/uncle's spouse: maternal/paternal and aunt vs uncle from path (viewer -> parent -> sibling -> spouse)
+          if (
+            label === "Aunt's/Uncle's Spouse" &&
+            path.length === 4 &&
+            viewerPerspective[0] === "parent" &&
+            viewerPerspective[1] === "sibling" &&
+            viewerPerspective[2] === "spouse" &&
+            members?.length
+          ) {
+            const parentInPath = members.find((m) => m.id === path[1]);
+            const auntOrUncleInPath = members.find((m) => m.id === path[2]);
+            const maternal = parentInPath?.gender === "female";
+            const aunt = auntOrUncleInPath?.gender === "female";
+            if (maternal && aunt) label = "Maternal Aunt's Spouse";
+            else if (maternal && !aunt) label = "Maternal Uncle's Spouse";
+            else if (!maternal && aunt) label = "Paternal Aunt's Spouse";
+            else if (!maternal && !aunt) label = "Paternal Uncle's Spouse";
+          }
         }
 
+        const englishRelationship = applyGenderToRelationshipLabel(label, targetGender);
+        const relationship = getRelationDisplayLabel(
+          englishRelationship,
+          targetGender ?? null,
+          relationLanguage ?? "en"
+        );
         return {
           percentage: Math.round(coefficient * 100 * 10) / 10,
-          relationship: applyGenderToRelationshipLabel(label, targetGender),
+          relationship,
           path,
         };
       }
@@ -246,6 +352,8 @@ function inferRelationship(types: RelationshipType[]): string {
     "parent→parent→sibling": "Great Aunt/Uncle",
     "parent→parent→sibling→child": "First Cousin Once Removed",
     "parent→parent→child": "Half-Aunt/Uncle",
+    // Aunt/uncle's spouse (in-law)
+    "parent→sibling→spouse": "Aunt's/Uncle's Spouse",
     // Through spouse (coefficient will be 0 anyway)
     "spouse": "Spouse",
   };

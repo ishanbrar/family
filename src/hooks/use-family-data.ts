@@ -20,6 +20,8 @@ import {
   createFamilyInviteCode as dbCreateFamilyInviteCode,
   updateFamilyInviteCode as dbUpdateFamilyInviteCode,
   updateFamilyName as dbUpdateFamilyName,
+  updateFamilyRelationLanguage as dbUpdateFamilyRelationLanguage,
+  type RelationLanguageCode,
   deleteFamilyInviteCode as dbDeleteFamilyInviteCode,
   updateProfile as dbUpdateProfile,
   addRelationship as dbAddRelationship,
@@ -68,6 +70,7 @@ interface FamilyData {
   updateInviteCode: (inviteCodeId: string, nextCode: string, label?: string) => Promise<void>;
   deleteInviteCode: (inviteCodeId: string) => Promise<void>;
   updateFamilyName: (nextName: string) => Promise<void>;
+  updateFamilyRelationLanguage: (relationLanguage: RelationLanguageCode) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -772,6 +775,23 @@ export function useFamilyData(): FamilyData {
     setFamily(updated);
   }, [isOnline, familyId, supabase]);
 
+  const updateFamilyRelationLanguage = useCallback(
+    async (relationLanguage: RelationLanguageCode) => {
+      if (!family) return;
+      const previousLang = family.relation_language;
+      setFamily((prev) => (prev ? { ...prev, relation_language: relationLanguage } : null));
+      if (isOnline && familyId) {
+        const updated = await dbUpdateFamilyRelationLanguage(supabase, familyId, relationLanguage);
+        if (updated) setFamily(updated);
+        else {
+          setFamily((prev) => (prev ? { ...prev, relation_language: previousLang } : null));
+          console.error("Failed to save relation language. Check RLS and that migration 202602200003 is applied.");
+        }
+      }
+    },
+    [isOnline, familyId, family, supabase]
+  );
+
   const signOut = useCallback(async () => {
     if (isDevSuperAdminClient()) {
       disableDevSuperAdmin();
@@ -806,6 +826,7 @@ export function useFamilyData(): FamilyData {
     updateInviteCode,
     deleteInviteCode,
     updateFamilyName,
+    updateFamilyRelationLanguage,
     signOut,
     refresh: loadData,
   };

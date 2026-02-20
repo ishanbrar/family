@@ -35,9 +35,9 @@ export function ThemeToggle() {
       aria-label={`Switch to ${nextTheme} mode`}
       title={`Switch to ${nextTheme} mode`}
       suppressHydrationWarning
-      className="fixed right-4 top-4 z-30 glass rounded-xl w-10 h-10
-        text-white/70 hover:text-gold-300 transition-colors
-        inline-flex items-center justify-center shadow-lg"
+      className="fixed right-4 top-4 z-30 glass rounded-xl w-11 h-11 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px]
+        text-white/70 hover:text-gold-300 active:scale-[0.97] transition-colors
+        inline-flex items-center justify-center shadow-lg touch-target-44 sm:min-w-0 sm:min-h-0"
       style={{
         top: "max(env(safe-area-inset-top), 0.75rem)",
         right: "max(env(safe-area-inset-right), 0.75rem)",

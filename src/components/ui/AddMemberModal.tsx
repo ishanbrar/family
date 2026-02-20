@@ -154,7 +154,7 @@ export function AddMemberModal({
         display_name: displayName.trim() || null,
         gender: gender || null,
         avatar_url: null,
-        date_of_birth: dob || null,
+        date_of_birth: dob ? String(dob).slice(0, 10) : null,
         place_of_birth: placeOfBirth || null,
         profession: profession || null,
         location_city: locationCity || null,

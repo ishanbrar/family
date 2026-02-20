@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Bell, Globe, Lock, Palette, Settings, Users } from "lucide-react";
+import { Bell, Globe, Lock, Palette, Settings, Users, Languages } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { useFamilyData } from "@/hooks/use-family-data";
 import {
   resolveAppliedThemeMode,
   resolveAppliedThemePalette,
@@ -127,7 +128,13 @@ function ToggleRow({
   );
 }
 
+const RELATION_LANGUAGE_OPTIONS: { value: "en" | "punjabi"; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "punjabi", label: "Punjabi" },
+];
+
 export default function SettingsPage() {
+  const { viewer, family, loading, updateFamilyRelationLanguage } = useFamilyData();
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
     if (typeof document !== "undefined") return resolveAppliedThemeMode();
     return resolveInitialTheme();
@@ -137,6 +144,9 @@ export default function SettingsPage() {
     return resolveInitialPalette();
   });
   const [settings, setSettings] = useState<LocalSettings>(() => readStoredSettings());
+  const [relationLangSaving, setRelationLangSaving] = useState(false);
+  const relationLanguage = (family?.relation_language as "en" | "punjabi") || "en";
+  const isFamilyAdmin = !!viewer && viewer.role === "ADMIN" && !!family;
 
   useEffect(() => {
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
@@ -171,7 +181,7 @@ export default function SettingsPage() {
               <Settings size={22} className="text-white/40" />
             </div>
             <div>
-              <h1 className="font-serif text-3xl font-bold text-white/95">Settings</h1>
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white/95">Settings</h1>
               <p className="text-sm text-white/35 mt-0.5">Customize your workspace and family app behavior</p>
             </div>
           </div>
@@ -196,7 +206,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => chooseMode("dark")}
-                    className={`h-10 rounded-xl border text-xs transition-colors ${
+                    className={`min-h-[44px] h-11 sm:h-10 rounded-xl border text-xs transition-colors flex items-center justify-center ${
                       themeMode === "dark"
                         ? "border-gold-400/35 bg-gold-400/15 text-gold-300"
                         : "border-white/[0.12] bg-white/[0.03] text-white/70 hover:text-white/90"
@@ -207,7 +217,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => chooseMode("light")}
-                    className={`h-10 rounded-xl border text-xs transition-colors ${
+                    className={`min-h-[44px] h-11 sm:h-10 rounded-xl border text-xs transition-colors flex items-center justify-center ${
                       themeMode === "light"
                         ? "border-gold-400/35 bg-gold-400/15 text-gold-300"
                         : "border-white/[0.12] bg-white/[0.03] text-white/70 hover:text-white/90"
@@ -393,6 +403,40 @@ export default function SettingsPage() {
               </label>
             </div>
           </GlassCard>
+
+          {isFamilyAdmin && (
+            <GlassCard className="p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-xl bg-gold-400/10 border border-gold-400/20 flex items-center justify-center">
+                  <Languages size={16} className="text-gold-300" />
+                </div>
+                <h2 className="text-sm font-semibold text-white/90">Relation labels language</h2>
+              </div>
+              <p className="text-xs text-white/45 mb-4">
+                Choose the language for relation labels (e.g. Uncle, Aunt) shown in the tree and profiles. More languages can be added later.
+              </p>
+              <label className="block">
+                <span className="text-xs text-white/45">Language</span>
+                <select
+                  value={relationLanguage}
+                  disabled={loading || relationLangSaving}
+                  onChange={async (e) => {
+                    const next = e.target.value as "en" | "punjabi";
+                    setRelationLangSaving(true);
+                    await updateFamilyRelationLanguage(next);
+                    setRelationLangSaving(false);
+                  }}
+                  className="mt-1.5 w-full h-10 rounded-xl bg-white/[0.03] border border-white/[0.12] px-3 text-sm text-white/85 outline-none focus:border-gold-400/30 disabled:opacity-60"
+                >
+                  {RELATION_LANGUAGE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </GlassCard>
+          )}
 
           <GlassCard className="p-5">
             <div className="flex items-center gap-3 mb-3">

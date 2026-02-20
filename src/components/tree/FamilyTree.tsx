@@ -263,25 +263,25 @@ export function FamilyTree({
         pinchStateRef.current = null;
       }}
     >
-      <div className="absolute right-2 top-2 z-30 flex items-center gap-1 rounded-lg border border-white/[0.12] bg-black/45 p-1 backdrop-blur">
+      <div className="absolute right-2 top-2 z-30 flex items-center gap-1 rounded-xl border border-white/[0.12] bg-black/45 p-1.5 sm:p-1 backdrop-blur">
         <button
           type="button"
           onClick={zoomOut}
           disabled={zoom <= MIN_ZOOM}
-          className="h-7 w-7 rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] disabled:opacity-40 disabled:cursor-not-allowed"
+          className="h-11 w-11 sm:h-7 sm:w-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
           aria-label="Zoom out family tree"
         >
-          <Minus size={14} className="mx-auto" />
+          <Minus size={18} className="sm:w-3.5 sm:h-3.5" />
         </button>
         <button
           type="button"
           onClick={resetZoom}
-          className="h-7 min-w-14 rounded-md border border-white/[0.12] bg-white/[0.04] px-2 text-[11px] text-white/80 hover:bg-white/[0.09]"
+          className="h-11 min-w-[3.5rem] sm:h-7 sm:min-w-14 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] px-2 text-xs sm:text-[11px] text-white/80 hover:bg-white/[0.09] flex items-center justify-center"
           aria-label="Reset family tree zoom"
           title="Reset zoom"
         >
           <span className="inline-flex items-center gap-1">
-            <RotateCcw size={11} />
+            <RotateCcw size={14} className="sm:w-[11px] sm:h-[11px]" />
             {Math.round(zoom * 100)}%
           </span>
         </button>
@@ -289,10 +289,10 @@ export function FamilyTree({
           type="button"
           onClick={zoomIn}
           disabled={zoom >= MAX_ZOOM}
-          className="h-7 w-7 rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] disabled:opacity-40 disabled:cursor-not-allowed"
+          className="h-11 w-11 sm:h-7 sm:w-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
           aria-label="Zoom in family tree"
         >
-          <Plus size={14} className="mx-auto" />
+          <Plus size={18} className="sm:w-3.5 sm:h-3.5" />
         </button>
       </div>
       <div
@@ -350,7 +350,7 @@ export function FamilyTree({
               .filter(Boolean) as TreeMember[];
             if (parentNodes.length === 0 || childNodes.length === 0) return null;
 
-            const R = 44; // Keep connectors outside node circles
+            const R = 48; // Stop lines at/before node edge (node radius ~40)
             const parentBottom = Math.max(...parentNodes.map((p) => p.y + R));
             const childTop = Math.min(...childNodes.map((c) => c.y - R));
             const avgParentX =
@@ -394,7 +394,7 @@ export function FamilyTree({
                 fill="none"
                 stroke={stroke}
                 strokeWidth={strokeW}
-                strokeLinecap="round"
+                strokeLinecap="butt"
                 strokeLinejoin="round"
                 filter={bothHighlighted && !isDimmed ? "url(#glow)" : undefined}
                 initial={{ opacity: 0 }}
@@ -420,7 +420,7 @@ export function FamilyTree({
               if (parentEdgesCoveredBySibships.has(`${conn.from}:${conn.to}`)) return null;
               const parent = from;
               const child = to;
-              const R = 44;
+              const R = 48;
               const start = pointOnCircleToward(parent.x, parent.y, child.x, child.y, R);
               const end = pointOnCircleToward(child.x, child.y, parent.x, parent.y, R);
               const sx = start.x;
@@ -436,7 +436,7 @@ export function FamilyTree({
                   fill="none"
                   stroke={isDimmed ? "url(#dimThread)" : "url(#goldThread)"}
                   strokeWidth={isDimmed ? 0.6 : 1}
-                  strokeLinecap="round"
+                  strokeLinecap="butt"
                   strokeLinejoin="round"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -449,7 +449,7 @@ export function FamilyTree({
               if (Math.abs(from.y - to.y) > 1) return null;
               const pairKey = conn.from < conn.to ? `${conn.from}:${conn.to}` : `${conn.to}:${conn.from}`;
               if (spousePairsWithSharedChildren.has(pairKey)) return null;
-              const inset = 44;
+              const inset = 48;
               const left = from.x <= to.x ? from : to;
               const right = from.x <= to.x ? to : from;
               const startX = left.x + inset;

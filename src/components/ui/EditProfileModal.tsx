@@ -110,7 +110,7 @@ export function EditProfileModal({
       profession: profession || null,
       location_city: locationCity || null,
       pets: parsedPets,
-      date_of_birth: dob || null,
+      date_of_birth: dob ? String(dob).slice(0, 10) : null,
       place_of_birth: placeOfBirth || null,
       about_me: aboutMe || null,
       country_code: inferCountryCodeFromCity(locationCity),
@@ -328,8 +328,8 @@ export function EditProfileModal({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/[0.06]">
-              <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 hover:bg-white/5 transition-colors">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/[0.06]">
+              <button onClick={onClose} className="min-h-[44px] px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 hover:bg-white/5 active:scale-[0.98] transition-colors flex items-center justify-center">
                 Cancel
               </button>
               <motion.button
@@ -337,7 +337,7 @@ export function EditProfileModal({
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSubmit}
                 disabled={!firstName.trim() || !lastName.trim() || !gender}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 transition-colors"
+                className="flex items-center justify-center gap-2 min-h-[44px] px-5 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 active:scale-[0.98] transition-colors"
               >
                 <Save size={14} />
                 Save Changes

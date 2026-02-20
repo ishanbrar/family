@@ -15,7 +15,6 @@ import {
   Filter,
   X,
   UserPlus,
-  Link2,
   ChevronDown,
   MailPlus,
   Download,
@@ -44,6 +43,10 @@ import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
 import { exportFamilyTreeAsImage } from "@/lib/tree-export";
 
+const ONBOARDING_SNOOZE_KEY = "legacy:onboarding-snoozed-until";
+const POST_JOIN_LINK_ONLY_KEY = "legacy:post-join-link-only";
+const DIRECT_RELATION_TYPES: RelationshipType[] = ["parent", "child", "sibling", "spouse", "half_sibling"];
+
 export default function DashboardPage() {
   const router = useRouter();
   const {
@@ -68,7 +71,7 @@ export default function DashboardPage() {
   const { relatedByFilter, setRelatedByFilter } = useFamilyStore();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [manageTreeOpen, setManageTreeOpen] = useState(false);
+  const [relationshipModalOpen, setRelationshipModalOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [suppressAutoOnboarding, setSuppressAutoOnboarding] = useState(false);
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
@@ -87,6 +90,8 @@ export default function DashboardPage() {
   const [exportScope, setExportScope] = useState<"entire" | "related">("entire");
   const [exportingTree, setExportingTree] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [onboardingSnoozedUntil, setOnboardingSnoozedUntil] = useState<number | null>(null);
+  const [postJoinLinkOnlyRequired, setPostJoinLinkOnlyRequired] = useState(false);
 
   const navigateToProfile = useCallback(
     (id: string) => router.push(`/profile/${id}`),
@@ -103,7 +108,7 @@ export default function DashboardPage() {
     if (!viewer) return [];
     return treeLayout.nodes.map((n) => ({
       profile: n.profile,
-      match: calculateGeneticMatch(viewer.id, n.profile.id, relationships, n.profile.gender),
+      match: calculateGeneticMatch(viewer.id, n.profile.id, relationships, n.profile.gender, family?.relation_language, members),
       x: n.x,
       y: n.y,
       generation: n.generation,
@@ -126,7 +131,7 @@ export default function DashboardPage() {
     if (!viewer) return [];
     return members.filter((p) => p.id !== viewer.id).map((p) => ({
       profile: p,
-      match: calculateGeneticMatch(viewer.id, p.id, relationships, p.gender),
+      match: calculateGeneticMatch(viewer.id, p.id, relationships, p.gender, family?.relation_language, members),
     }));
   }, [viewer, members, relationships]);
 
@@ -141,7 +146,7 @@ export default function DashboardPage() {
         const relationship =
           member.id === viewer.id
             ? "Self"
-            : calculateGeneticMatch(viewer.id, member.id, relationships, member.gender).relationship;
+            : calculateGeneticMatch(viewer.id, member.id, relationships, member.gender, family?.relation_language, members).relationship;
         const relationTokens = relationshipSearchTokens(relationship);
         const location = member.location_city ?? "";
         const profession = member.profession ?? "";
@@ -232,20 +237,64 @@ export default function DashboardPage() {
     [navigateToProfile]
   );
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem(ONBOARDING_SNOOZE_KEY);
+    const parsed = raw ? Number(raw) : NaN;
+    setOnboardingSnoozedUntil(Number.isFinite(parsed) ? parsed : null);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !viewer?.id) return;
+    const raw = window.localStorage.getItem(POST_JOIN_LINK_ONLY_KEY);
+    if (!raw) {
+      setPostJoinLinkOnlyRequired(false);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw) as { userId?: string; required?: boolean };
+      setPostJoinLinkOnlyRequired(parsed.userId === viewer.id && parsed.required === true);
+    } catch {
+      setPostJoinLinkOnlyRequired(false);
+    }
+  }, [viewer?.id]);
+
+  const viewerHasDirectRelationship = useMemo(() => {
+    if (!viewer) return false;
+    return relationships.some(
+      (rel) =>
+        DIRECT_RELATION_TYPES.includes(rel.type) &&
+        (rel.user_id === viewer.id || rel.relative_id === viewer.id)
+    );
+  }, [relationships, viewer]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !viewer?.id) return;
+    if (!postJoinLinkOnlyRequired) return;
+    if (!viewerHasDirectRelationship) return;
+    window.localStorage.removeItem(POST_JOIN_LINK_ONLY_KEY);
+    setPostJoinLinkOnlyRequired(false);
+  }, [postJoinLinkOnlyRequired, viewerHasDirectRelationship, viewer?.id]);
+
+  const isOnboardingSnoozed =
+    onboardingSnoozedUntil != null && onboardingSnoozedUntil > Date.now();
+
   const onboardingRequired =
-    !!viewer && isOnline && !viewer.onboarding_completed && !suppressAutoOnboarding;
+    !!viewer &&
+    isOnline &&
+    !viewer.onboarding_completed &&
+    !suppressAutoOnboarding &&
+    !isOnboardingSnoozed;
 
   const dismissOnboarding = useCallback(async () => {
     setSuppressAutoOnboarding(true);
     setWizardOpen(false);
-    if (viewer) {
-      try {
-        await updateProfile(viewer.id, { onboarding_completed: true });
-      } catch (err) {
-        console.error("[Onboarding] Dismiss update failed:", err);
-      }
+    const snoozeUntil = Date.now() + 1000 * 60 * 60 * 24; // 24h snooze
+    setOnboardingSnoozedUntil(snoozeUntil);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ONBOARDING_SNOOZE_KEY, String(snoozeUntil));
     }
-  }, [viewer, updateProfile]);
+  }, []);
 
   const completeOnboarding = useCallback(async () => {
     setSuppressAutoOnboarding(true);
@@ -253,6 +302,9 @@ export default function DashboardPage() {
     if (viewer) {
       try {
         await updateProfile(viewer.id, { onboarding_completed: true });
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(ONBOARDING_SNOOZE_KEY);
+        }
       } catch (err) {
         console.error("[Onboarding] Complete update failed:", err);
       }
@@ -270,6 +322,8 @@ export default function DashboardPage() {
   }, []);
 
   const canExportRelated = !!relatedByFilter && highlightedIds.size > 0;
+  const actionButtonClass =
+    "inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gold-400/12 border border-gold-400/25 text-[10px] font-medium text-gold-300 hover:bg-gold-400/18 transition-colors";
 
   const handleOpenExportModal = useCallback(() => {
     if (!canExportRelated) setExportScope("entire");
@@ -384,8 +438,8 @@ export default function DashboardPage() {
         onAdd={handleAddMember}
       />
       <ManageTreeModal
-        isOpen={manageTreeOpen}
-        onClose={() => setManageTreeOpen(false)}
+        isOpen={relationshipModalOpen}
+        onClose={() => setRelationshipModalOpen(false)}
         viewer={viewer}
         members={members}
         relationships={relationships}
@@ -393,6 +447,7 @@ export default function DashboardPage() {
         onConnectMembers={linkMembers}
         onRemoveRelationship={unlinkRelationship}
         onRemoveMember={removeMember}
+        restrictToViewer
       />
       <FamilyOnboardingWizard
         viewer={viewer}
@@ -406,6 +461,14 @@ export default function DashboardPage() {
         onRegenerateInviteCode={regenerateInviteCode}
         updateProfile={updateProfile}
         addMember={handleAddMember}
+        linkMembers={linkMembers}
+        linkOnlyMode={postJoinLinkOnlyRequired}
+        onLinkOnlySatisfied={() => {
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(POST_JOIN_LINK_ONLY_KEY);
+          }
+          setPostJoinLinkOnlyRequired(false);
+        }}
       />
       {family && viewer.role === "ADMIN" && (
         <InviteFamilyModal
@@ -526,10 +589,10 @@ export default function DashboardPage() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-8"
+          className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6 sm:mb-8"
         >
-          <div>
-            <h1 className="font-serif text-3xl font-bold text-white/95">
+          <div className="min-w-0">
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white/95">
               Welcome back,{" "}
               <span style={{
                 background: "linear-gradient(135deg, var(--accent-300), var(--accent-200))",
@@ -553,29 +616,60 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="w-full lg:w-[560px] space-y-2.5">
-            <div className="flex flex-wrap items-stretch sm:items-center lg:justify-end gap-2">
+          <div className="w-full lg:w-[560px] space-y-2.5 min-w-0">
+            <div className="flex flex-wrap items-center lg:justify-end gap-2">
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => {
                   setSuppressAutoOnboarding(false);
                   setWizardOpen(true);
                 }}
-                className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.12]
+                className="inline-flex sm:w-auto justify-center items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
                   bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
-                  hover:bg-gold-400/[0.08] transition-colors"
+                  hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
               >
                 <GitBranch size={14} />
                 Guided Setup
+              </motion.button>
+
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setAddModalOpen(true)}
+                className="inline-flex sm:w-auto justify-center items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
+                  bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
+                  hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
+              >
+                <UserPlus size={14} />
+                Add Member
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setRelationshipModalOpen(true)}
+                className="inline-flex sm:w-auto justify-center items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
+                  bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
+                  hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
+              >
+                <Users size={14} />
+                Modify Relationships
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={handleOpenExportModal}
+                className="inline-flex sm:w-auto justify-center items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
+                  bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
+                  hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
+              >
+                <Download size={14} />
+                Export Tree
               </motion.button>
 
               {family && viewer.role === "ADMIN" && (
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setInviteModalOpen(true)}
-                  className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3.5 py-2 rounded-xl border border-white/[0.12]
+                  className="inline-flex sm:w-auto justify-center items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
                     bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
-                    hover:bg-gold-400/[0.08] transition-colors"
+                    hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
                 >
                   <MailPlus size={14} />
                   Invite Family
@@ -593,8 +687,8 @@ export default function DashboardPage() {
                 }}
                 onFocus={() => setMemberSearchOpen(true)}
                 onBlur={() => setTimeout(() => setMemberSearchOpen(false), 120)}
-                placeholder="Search members by name, nickname, city, country, profession, or relation..."
-                className="w-full h-10 rounded-xl pl-9 pr-3 app-input text-sm outline-none transition-colors"
+                placeholder="Search members..."
+                className="w-full h-11 sm:h-10 min-h-[44px] rounded-xl pl-9 pr-3 app-input text-sm outline-none transition-colors"
               />
 
               {memberSearchOpen && (
@@ -605,8 +699,8 @@ export default function DashboardPage() {
                         key={entry.profile.id}
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={() => handleSelectSearchMember(entry.profile.id)}
-                        className="w-full px-3 py-2.5 text-left border-b border-white/[0.06] last:border-b-0
-                          hover:bg-white/[0.05] transition-colors"
+                        className="w-full px-3 py-3 sm:py-2.5 min-h-[44px] text-left border-b border-white/[0.06] last:border-b-0
+                          hover:bg-white/[0.05] active:bg-white/[0.06] transition-colors flex flex-col justify-center"
                       >
                         <p className="text-sm text-white/85">
                           {entry.profile.first_name} {entry.profile.last_name}
@@ -635,52 +729,12 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Main Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
           {/* ── Family Tree (2 cols) ─────────────── */}
-          <GlassCard className="xl:col-span-2 p-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-3">
-              <div>
-                <h2 className="font-serif text-xl font-semibold text-white/90">Family Tree</h2>
-                <p className="text-xs text-white/30 mt-0.5">Genetic relationships from your perspective</p>
-              </div>
-              <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:justify-end">
-                <motion.button
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setAddModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                    bg-gold-400/12 border border-gold-400/25 text-xs font-medium text-gold-300
-                    hover:bg-gold-400/18 transition-colors"
-                >
-                  <UserPlus size={12} />
-                  Add Member
-                </motion.button>
-                {viewer.role === "ADMIN" && (
-                  <motion.button
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setManageTreeOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                      bg-white/[0.04] border border-white/[0.12] text-xs font-medium text-white/75
-                      hover:text-white/92 hover:border-gold-400/28 hover:bg-gold-400/[0.08] transition-colors"
-                  >
-                    <Link2 size={12} />
-                    Manage Tree
-                  </motion.button>
-                )}
-                <motion.button
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleOpenExportModal}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                    bg-white/[0.04] border border-white/[0.12] text-xs font-medium text-white/75
-                    hover:text-white/92 hover:border-gold-400/28 hover:bg-gold-400/[0.08] transition-colors"
-                >
-                  <Download size={12} />
-                  Export Image
-                </motion.button>
-                <div className="hidden md:flex items-center gap-2 text-[10px] text-white/25">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gold-400" /> 50%</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gold-300" /> 25%</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gold-200" /> 12.5%</span>
-                </div>
+          <GlassCard className="xl:col-span-2 p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
+              <h2 className="font-serif text-xl font-semibold text-white/90">Family Tree</h2>
+              <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:flex-nowrap sm:justify-end">
                 <TreeControls
                   members={members}
                   relatedByFilter={relatedByFilter}
@@ -755,8 +809,6 @@ export default function DashboardPage() {
           {/* ── Right Column ─────────────────────── */}
           <div className="space-y-6">
             <GlassCard className="p-6">
-              <h2 className="font-serif text-lg font-semibold text-white/90 mb-1">Family Worldwide</h2>
-              <p className="text-xs text-white/30 mb-4">{locations} cities across the globe</p>
               <div className="flex flex-col lg:flex-row gap-4 items-start">
                 <div className="flex-shrink-0 flex justify-center lg:justify-start">
                   <InteractiveGlobe

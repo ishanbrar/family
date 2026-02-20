@@ -10,7 +10,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Crown, Mail, Lock, User, Users, ArrowRight, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { savePendingSignup } from "@/lib/pending-signup";
 import type { Gender } from "@/lib/types";
 
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
@@ -88,14 +87,22 @@ function SignupPageContent() {
     // With email-confirmation flows there is no session yet, so RLS-protected
     // family/profile writes should happen after first authenticated sign-in.
     if (!authData.session) {
-      savePendingSignup({
-        mode,
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        gender: selectedGender,
-        family_name: mode === "create" ? familyName.trim() : undefined,
-        invite_code: mode === "join" ? inviteCode.trim().toUpperCase() : undefined,
+      const { error: pendingErr } = await supabase.rpc("upsert_pending_signup_intent", {
+        p_auth_user_id: userId,
+        p_mode: mode,
+        p_first_name: firstName.trim(),
+        p_last_name: lastName.trim(),
+        p_gender: selectedGender,
+        p_family_name: mode === "create" ? familyName.trim() : null,
+        p_invite_code: mode === "join" ? inviteCode.trim().toUpperCase() : null,
       });
+      if (pendingErr) {
+        setError(
+          `Account created, but we could not save your onboarding intent: ${pendingErr.message}. Please sign in and try again.`
+        );
+        setLoading(false);
+        return;
+      }
       setSuccess(true);
       setLoading(false);
       return;

@@ -3,15 +3,33 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GitBranch, Loader2, MapPin, Briefcase, Calendar, User, PawPrint, X, Edit3, Check } from "lucide-react";
+import {
+  GitBranch,
+  Loader2,
+  MapPin,
+  Briefcase,
+  Calendar,
+  User,
+  PawPrint,
+  X,
+  Edit3,
+  Check,
+  UserPlus,
+  Users,
+  Download,
+} from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { FamilyTree } from "@/components/tree/FamilyTree";
+import { AddMemberModal } from "@/components/ui/AddMemberModal";
+import { ManageTreeModal } from "@/components/ui/ManageTreeModal";
 import { TreeControls } from "@/components/tree/TreeControls";
 import { useFamilyData } from "@/hooks/use-family-data";
 import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
+import { exportFamilyTreeAsImage } from "@/lib/tree-export";
+import type { Profile, RelationshipType } from "@/lib/types";
 import { formatGenderLabel } from "@/lib/display-format";
 import { cn } from "@/lib/cn";
 
@@ -35,7 +53,20 @@ function getAge(value: string | null): number | null {
 
 export default function TreeExplorerPage() {
   const router = useRouter();
-  const { viewer, family, members, relationships, userConditions, conditions, loading, updateFamilyName } = useFamilyData();
+  const {
+    viewer,
+    family,
+    members,
+    relationships,
+    userConditions,
+    conditions,
+    loading,
+    updateFamilyName,
+    addMember: addMemberAction,
+    linkMembers,
+    unlinkRelationship,
+    removeMember,
+  } = useFamilyData();
   const { relatedByFilter, setRelatedByFilter } = useFamilyStore();
 
   const [showPercentages, setShowPercentages] = useState(false);
@@ -48,6 +79,9 @@ export default function TreeExplorerPage() {
   const [editingTitle, setEditingTitle] = useState(false);
   const [draftFamilyName, setDraftFamilyName] = useState("");
   const [savingTitle, setSavingTitle] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [relationshipModalOpen, setRelationshipModalOpen] = useState(false);
+  const [exportingTree, setExportingTree] = useState(false);
 
   const treeLayout = useMemo(() => {
     if (!viewer) return { nodes: [], connections: [], sibships: [], width: 900, height: 620 };
@@ -58,7 +92,7 @@ export default function TreeExplorerPage() {
     if (!viewer) return [];
     return treeLayout.nodes.map((node) => ({
       profile: node.profile,
-      match: calculateGeneticMatch(viewer.id, node.profile.id, relationships, node.profile.gender),
+      match: calculateGeneticMatch(viewer.id, node.profile.id, relationships, node.profile.gender, family?.relation_language, members),
       x: node.x,
       y: node.y,
       generation: node.generation,
@@ -77,7 +111,7 @@ export default function TreeExplorerPage() {
 
   const selectedMatch = useMemo(() => {
     if (!viewer || !selectedMember) return null;
-    return calculateGeneticMatch(viewer.id, selectedMember.id, relationships, selectedMember.gender);
+    return calculateGeneticMatch(viewer.id, selectedMember.id, relationships, selectedMember.gender, family?.relation_language, members);
   }, [viewer, selectedMember, relationships]);
 
   const selectedConditions = useMemo(() => {
@@ -114,6 +148,36 @@ export default function TreeExplorerPage() {
     setEditingTitle(false);
   };
 
+  const handleAddMember = useCallback(
+    async (
+      memberData: Omit<Profile, "id" | "created_at" | "updated_at">,
+      rel: { relativeId: string; type: RelationshipType },
+      avatarFile?: File
+    ) => {
+      await addMemberAction(memberData, rel, avatarFile);
+    },
+    [addMemberAction]
+  );
+
+  const handleExportTree = useCallback(async () => {
+    if (!viewer) return;
+    setExportingTree(true);
+    try {
+      await exportFamilyTreeAsImage({
+        familyName: family?.name || `${viewer.last_name || "Family"} Family Tree`,
+        members,
+        relationships,
+        rootId: viewer.id,
+        scope: "entire",
+        scopeLabel: "Family Tree",
+      });
+    } catch {
+      // ignore export errors for now
+    } finally {
+      setExportingTree(false);
+    }
+  }, [viewer, family?.name, members, relationships]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
@@ -139,16 +203,33 @@ export default function TreeExplorerPage() {
   return (
     <div className="min-h-screen bg-[color:var(--background)]">
       <Sidebar />
-
+      <AddMemberModal
+        existingMembers={members}
+        isOpen={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        onAdd={handleAddMember}
+      />
+      <ManageTreeModal
+        isOpen={relationshipModalOpen}
+        onClose={() => setRelationshipModalOpen(false)}
+        viewer={viewer}
+        members={members}
+        relationships={relationships}
+        familyName={family?.name}
+        onConnectMembers={linkMembers}
+        onRemoveRelationship={unlinkRelationship}
+        onRemoveMember={removeMember}
+        restrictToViewer
+      />
       <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6"
         >
-          <div>
-            <h1 className="font-serif text-3xl font-bold text-white/95">{familyTreeTitle}</h1>
-            <p className="text-sm text-white/40 mt-1">
+          <div className="min-w-0">
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white/95">{familyTreeTitle}</h1>
+            <p className="text-sm text-white/40 mt-1 hidden sm:block">
               Browse your full family graph. Hover a member for quick info, click a member for detailed side panel.
             </p>
             {editingTitle && canEditTitle && (
@@ -180,10 +261,45 @@ export default function TreeExplorerPage() {
           </div>
 
           <div className="flex w-full lg:w-auto flex-wrap items-center gap-2.5">
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setAddModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
+                bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
+                hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
+            >
+              <UserPlus size={14} />
+              Add Member
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setRelationshipModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
+                bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
+                hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
+            >
+              <Users size={14} />
+              Modify Relationships
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={handleExportTree}
+              disabled={exportingTree}
+              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
+                bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
+                hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors disabled:opacity-50 touch-target-44 sm:min-w-0"
+            >
+              {exportingTree ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Download size={14} />
+              )}
+              Export Tree
+            </motion.button>
             {canEditTitle && !editingTitle && (
               <button
                 onClick={startEditTitle}
-                className="h-9 px-3 rounded-lg bg-white/[0.04] border border-white/[0.12] text-xs text-white/75 hover:text-white/92 hover:border-gold-400/28 hover:bg-gold-400/[0.08] transition-colors"
+                className="min-h-[44px] h-11 sm:h-9 px-3 rounded-lg bg-white/[0.04] border border-white/[0.12] text-xs text-white/75 hover:text-white/92 hover:border-gold-400/28 hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors flex items-center touch-target-44 sm:min-w-0"
               >
                 <span className="inline-flex items-center gap-1.5">
                   <Edit3 size={12} />
@@ -218,7 +334,7 @@ export default function TreeExplorerPage() {
           </div>
         )}
 
-        <div className={cn("grid gap-5 items-start", selectedMember ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1")}>
+        <div className={cn("grid gap-4 sm:gap-5 items-start", selectedMember ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1")}>
           <GlassCard className={cn("p-4 sm:p-5", selectedMember ? "lg:col-span-2" : "lg:col-span-1")}>
             <div className="flex items-center justify-between mb-3">
               <div>
