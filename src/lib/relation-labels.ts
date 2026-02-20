@@ -53,7 +53,7 @@ export function getRelationDisplayLabel(
   relationLanguage: RelationLanguageCode | string | undefined
 ): string {
   if (relationLanguage === "punjabi") {
-    if (gender != null && gender !== "") return PUNJABI_LABELS[englishLabel] ?? englishLabel;
+    if (gender) return PUNJABI_LABELS[englishLabel] ?? englishLabel;
     return englishLabel;
   }
   return simplifyEnglishLabel(englishLabel);
