@@ -120,6 +120,93 @@ function getParentIdsForMember(
   return parentIds;
 }
 
+function getChildrenForParent(
+  relationships: Relationship[],
+  parentId: string
+): Set<string> {
+  const children = new Set<string>();
+  for (const rel of relationships) {
+    if (rel.type === "parent" && rel.user_id === parentId) {
+      children.add(rel.relative_id);
+    } else if (rel.type === "child" && rel.relative_id === parentId) {
+      children.add(rel.user_id);
+    }
+  }
+  return children;
+}
+
+function getSpouseIds(
+  relationships: Relationship[],
+  memberId: string
+): Set<string> {
+  const spouses = new Set<string>();
+  for (const rel of relationships) {
+    if (rel.type !== "spouse") continue;
+    if (rel.user_id === memberId) spouses.add(rel.relative_id);
+    else if (rel.relative_id === memberId) spouses.add(rel.user_id);
+  }
+  return spouses;
+}
+
+/** When one spouse has kids, infer the other spouse(s) as shared parents. */
+function inferSpouseParentRelationships(
+  relationships: Relationship[],
+  parentId: string,
+  childId: string
+): Array<{ userId: string; relativeId: string; type: "parent" }> {
+  const inferred: Array<{ userId: string; relativeId: string; type: "parent" }> = [];
+  for (const spouseId of getSpouseIds(relationships, parentId)) {
+    if (hasParentChildRelationship(relationships, spouseId, childId)) continue;
+    if (inferred.some((r) => r.userId === spouseId && r.relativeId === childId)) continue;
+    inferred.push({ userId: spouseId, relativeId: childId, type: "parent" });
+  }
+  return inferred;
+}
+
+function hasSiblingRelationship(
+  relationships: Relationship[],
+  aId: string,
+  bId: string
+): boolean {
+  return relationships.some(
+    (rel) =>
+      (rel.type === "sibling" || rel.type === "half_sibling") &&
+      ((rel.user_id === aId && rel.relative_id === bId) ||
+        (rel.user_id === bId && rel.relative_id === aId))
+  );
+}
+
+/** Children of this parent or any of their spouses (shared-parent household). */
+function getSharedChildren(
+  relationships: Relationship[],
+  parentId: string
+): Set<string> {
+  const children = new Set(getChildrenForParent(relationships, parentId));
+  for (const spouseId of getSpouseIds(relationships, parentId)) {
+    for (const c of getChildrenForParent(relationships, spouseId)) {
+      children.add(c);
+    }
+  }
+  return children;
+}
+
+/** When adding parent-child, infer sibling links between the new child and existing siblings (including spouse's kids). */
+function inferSiblingRelationshipsFromParentChild(
+  relationships: Relationship[],
+  parentId: string,
+  childId: string
+): Array<{ userId: string; relativeId: string; type: "sibling" }> {
+  const inferred: Array<{ userId: string; relativeId: string; type: "sibling" }> = [];
+  const siblings = getSharedChildren(relationships, parentId);
+  for (const sibId of siblings) {
+    if (sibId === childId) continue;
+    if (hasSiblingRelationship(relationships, childId, sibId)) continue;
+    if (inferred.some((r) => (r.userId === childId && r.relativeId === sibId) || (r.userId === sibId && r.relativeId === childId))) continue;
+    inferred.push({ userId: childId, relativeId: sibId, type: "sibling" });
+  }
+  return inferred;
+}
+
 function inferSiblingParentRelationships(
   relationships: Relationship[],
   memberAId: string,
@@ -323,6 +410,34 @@ export function useFamilyData(): FamilyData {
           const inferred = inferSiblingParentRelationships(currentRels, rel.user_id, rel.relative_id, rel.type);
           for (const nextRel of inferred) {
             if (hasParentChildRelationship(currentRels, nextRel.userId, nextRel.relativeId)) continue;
+            const created = await dbAddRelationship(supabase, nextRel.userId, nextRel.relativeId, nextRel.type);
+            if (created) {
+              addRelationshipToStoreIfMissing(created);
+              currentRels = useFamilyStore.getState().relationships;
+            }
+          }
+        }
+        // Backfill: if one spouse has kids, infer the other spouse(s) as shared parents
+        for (const rel of currentRels) {
+          if (rel.type !== "parent" && rel.type !== "child") continue;
+          const parentId = rel.type === "parent" ? rel.user_id : rel.relative_id;
+          const childId = rel.type === "parent" ? rel.relative_id : rel.user_id;
+          const spouseParents = inferSpouseParentRelationships(currentRels, parentId, childId);
+          for (const nextRel of spouseParents) {
+            const created = await dbAddRelationship(supabase, nextRel.userId, nextRel.relativeId, nextRel.type);
+            if (created) {
+              addRelationshipToStoreIfMissing(created);
+              currentRels = useFamilyStore.getState().relationships;
+            }
+          }
+        }
+        // Backfill inferred sibling links when people share parents but lack explicit sibling rels
+        for (const rel of currentRels) {
+          if (rel.type !== "parent" && rel.type !== "child") continue;
+          const parentId = rel.type === "parent" ? rel.user_id : rel.relative_id;
+          const childId = rel.type === "parent" ? rel.relative_id : rel.user_id;
+          const inferred = inferSiblingRelationshipsFromParentChild(currentRels, parentId, childId);
+          for (const nextRel of inferred) {
             const created = await dbAddRelationship(supabase, nextRel.userId, nextRel.relativeId, nextRel.type);
             if (created) {
               addRelationshipToStoreIfMissing(created);
@@ -564,16 +679,44 @@ export function useFamilyData(): FamilyData {
         };
         addRelationshipToStoreIfMissing(directRelationship);
 
-        const withDirect = useFamilyStore.getState().relationships;
-        const inferred = inferSiblingParentRelationships(
+        let withDirect = useFamilyStore.getState().relationships;
+        if (type === "parent" || type === "child") {
+          const parentId = type === "parent" ? fromMemberId : toMemberId;
+          const childId = type === "parent" ? toMemberId : fromMemberId;
+          const spouseParents = inferSpouseParentRelationships(withDirect, parentId, childId);
+          spouseParents.forEach((nextRel, index) => {
+            addRelationshipToStoreIfMissing({
+              id: `rel-${Date.now()}-sp-${index}`,
+              user_id: nextRel.userId,
+              relative_id: nextRel.relativeId,
+              type: nextRel.type,
+              created_at: new Date().toISOString(),
+            });
+          });
+          withDirect = useFamilyStore.getState().relationships;
+        }
+        const inferredParents = inferSiblingParentRelationships(
           withDirect,
           fromMemberId,
           toMemberId,
           type
         );
-        inferred.forEach((nextRel, index) => {
+        inferredParents.forEach((nextRel, index) => {
           addRelationshipToStoreIfMissing({
-            id: `rel-${Date.now()}-${index}`,
+            id: `rel-${Date.now()}-p-${index}`,
+            user_id: nextRel.userId,
+            relative_id: nextRel.relativeId,
+            type: nextRel.type,
+            created_at: new Date().toISOString(),
+          });
+        });
+        withDirect = useFamilyStore.getState().relationships;
+        const parentId = type === "parent" ? fromMemberId : toMemberId;
+        const childId = type === "parent" ? toMemberId : fromMemberId;
+        const inferredSiblings = inferSiblingRelationshipsFromParentChild(withDirect, parentId, childId);
+        inferredSiblings.forEach((nextRel, index) => {
+          addRelationshipToStoreIfMissing({
+            id: `rel-${Date.now()}-s-${index}`,
             user_id: nextRel.userId,
             relative_id: nextRel.relativeId,
             type: nextRel.type,
@@ -590,14 +733,53 @@ export function useFamilyData(): FamilyData {
       }
       addRelationshipToStoreIfMissing(newRel);
 
-      const withDirect = useFamilyStore.getState().relationships;
-      const inferred = inferSiblingParentRelationships(
+      let withDirect = useFamilyStore.getState().relationships;
+      // If one spouse has kids, infer the other spouse(s) as shared parents
+      if (type === "parent" || type === "child") {
+        const parentId = type === "parent" ? fromMemberId : toMemberId;
+        const childId = type === "parent" ? toMemberId : fromMemberId;
+        const spouseParents = inferSpouseParentRelationships(withDirect, parentId, childId);
+        for (const nextRel of spouseParents) {
+          const created = await dbAddRelationship(
+            supabase,
+            nextRel.userId,
+            nextRel.relativeId,
+            nextRel.type
+          );
+          if (created) {
+            addRelationshipToStoreIfMissing(created);
+            withDirect = useFamilyStore.getState().relationships;
+          }
+        }
+      }
+      // Infer parent links when adding sibling
+      const inferredParents = inferSiblingParentRelationships(
         withDirect,
         fromMemberId,
         toMemberId,
         type
       );
-      for (const nextRel of inferred) {
+      for (const nextRel of inferredParents) {
+        const created = await dbAddRelationship(
+          supabase,
+          nextRel.userId,
+          nextRel.relativeId,
+          nextRel.type
+        );
+        if (created) {
+          addRelationshipToStoreIfMissing(created);
+          withDirect = useFamilyStore.getState().relationships;
+        }
+      }
+      // Infer sibling links when adding parent-child (so aunt/cousin labels resolve correctly)
+      const parentId = type === "parent" ? fromMemberId : toMemberId;
+      const childId = type === "parent" ? toMemberId : fromMemberId;
+      const inferredSiblings = inferSiblingRelationshipsFromParentChild(
+        withDirect,
+        parentId,
+        childId
+      );
+      for (const nextRel of inferredSiblings) {
         const created = await dbAddRelationship(
           supabase,
           nextRel.userId,

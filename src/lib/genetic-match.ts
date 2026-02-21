@@ -345,13 +345,15 @@ function inferRelationship(types: RelationshipType[]): string {
     // Descending
     "child→child": "Grandchild",
     "child→child→child": "Great-Grandchild",
-    // Collateral
+    // Collateral - via explicit sibling
     "parent→sibling": "Aunt/Uncle",
     "sibling→child": "Niece/Nephew",
     "parent→sibling→child": "First Cousin",
     "parent→parent→sibling": "Great Aunt/Uncle",
     "parent→parent→sibling→child": "First Cousin Once Removed",
-    "parent→parent→child": "Half-Aunt/Uncle",
+    // Via grandparents only (no explicit sibling links) - common when adding new members
+    "parent→parent→child": "Aunt/Uncle",
+    "parent→parent→child→child": "First Cousin",
     // Aunt/uncle's spouse (in-law)
     "parent→sibling→spouse": "Aunt's/Uncle's Spouse",
     // Through spouse (coefficient will be 0 anyway)

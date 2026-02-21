@@ -102,8 +102,15 @@ function LoginPageContent() {
 
     if (authError) {
       const msg = authError.message;
+      const isLoadFailed = /load\s*failed|failed\s*to\s*fetch|network\s*error/i.test(msg);
       const isRateLimit = /rate\s*limit|too\s*many\s*requests|429/i.test(msg);
-      setError(isRateLimit ? "Too many attempts. Please wait an hour and try again." : msg);
+      setError(
+        isLoadFailed
+          ? "Connection failed. Please check your internet and try again."
+          : isRateLimit
+            ? "Too many attempts. Please wait an hour and try again."
+            : msg
+      );
       setLoading(false);
       return;
     }

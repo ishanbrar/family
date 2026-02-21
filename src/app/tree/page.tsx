@@ -24,6 +24,7 @@ import { FamilyTree } from "@/components/tree/FamilyTree";
 import { AddMemberModal } from "@/components/ui/AddMemberModal";
 import { ManageTreeModal } from "@/components/ui/ManageTreeModal";
 import { TreeControls } from "@/components/tree/TreeControls";
+import { FamilyMembersTable } from "@/components/tree/FamilyMembersTable";
 import { useFamilyData } from "@/hooks/use-family-data";
 import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
@@ -62,6 +63,7 @@ export default function TreeExplorerPage() {
     conditions,
     loading,
     updateFamilyName,
+    updateProfile,
     addMember: addMemberAction,
     linkMembers,
     unlinkRelationship,
@@ -219,7 +221,7 @@ export default function TreeExplorerPage() {
         onConnectMembers={linkMembers}
         onRemoveRelationship={unlinkRelationship}
         onRemoveMember={removeMember}
-        restrictToViewer
+        restrictToViewer={viewer.role !== "ADMIN"}
       />
       <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
         <motion.div
@@ -364,6 +366,23 @@ export default function TreeExplorerPage() {
               onBackgroundClick={() => setSelectedMemberId(null)}
               canvasWidth={treeLayout.width}
               canvasHeight={Math.max(treeLayout.height, 740)}
+            />
+          </GlassCard>
+
+          <GlassCard className="lg:col-span-3 mt-5 p-4 sm:p-5">
+            <h2 className="font-serif text-lg text-white/92 mb-3">Members Table</h2>
+            <p className="text-xs text-white/35 mb-4">
+              {canEditTitle
+                ? "Click any cell to edit Name, Birth date, or City. Changes save on blur or Enter."
+                : "View all family members. Click a row to open the detail panel."}
+            </p>
+            <FamilyMembersTable
+              members={members}
+              canEdit={canEditTitle}
+              onUpdate={async (memberId, updates) => {
+                await updateProfile(memberId, updates);
+              }}
+              onMemberClick={handleMemberClick}
             />
           </GlassCard>
 

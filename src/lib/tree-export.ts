@@ -10,6 +10,8 @@ interface ExportFamilyTreeImageOptions {
   rootId: string;
   scope: ExportScope;
   scopeLabel: string;
+  /** Use oldest ancestor as root for classic top-down pedigree layout. */
+  preferAncestorRoot?: boolean;
 }
 
 function formatFullName(member: Profile): string {
@@ -55,12 +57,15 @@ export async function exportFamilyTreeAsImage({
   rootId,
   scope,
   scopeLabel,
+  preferAncestorRoot,
 }: ExportFamilyTreeImageOptions): Promise<void> {
   if (members.length === 0) {
     throw new Error("No family members available for export.");
   }
 
-  const tree = createFamilyTreeLayout(members, relationships, rootId);
+  const tree = createFamilyTreeLayout(members, relationships, rootId, {
+    preferAncestorRoot: preferAncestorRoot ?? scope === "entire",
+  });
 
   const canvas = document.createElement("canvas");
   const width = 4800;
@@ -140,7 +145,8 @@ export async function exportFamilyTreeAsImage({
   const mapX = (x: number) => treeOffsetX + x * scale;
   const mapY = (y: number) => treeOffsetY + y * scale;
 
-  // Pedigree orthogonal connectors: union drop + sibling bar + child drops
+  // Pedigree orthogonal connectors: use canvas-space node bounds so lines meet node edges
+  const halfH = nodeHeight / 2;
   ctx.strokeStyle = "#5f4932";
   ctx.lineWidth = 2.5;
   for (const sib of tree.sibships) {
@@ -148,36 +154,34 @@ export async function exportFamilyTreeAsImage({
     const childNodes = sib.children.map((id) => nodesById.get(id)).filter(Boolean) as typeof tree.nodes;
     if (parentNodes.length === 0 || childNodes.length === 0) continue;
 
-    const topY = Math.max(...parentNodes.map((p) => p.y));
-    const bottomY = Math.min(...childNodes.map((c) => c.y));
-    const midX =
-      (Math.min(...parentNodes.map((p) => p.x)) +
-        Math.max(...parentNodes.map((p) => p.x)) +
-        Math.min(...childNodes.map((c) => c.x)) +
-        Math.max(...childNodes.map((c) => c.x))) /
-      4;
-    const mx = mapX(midX);
+    // Canvas-space: parent row bottom, child row top, so lines connect to node edges
+    const parentBarY = Math.max(...parentNodes.map((p) => mapY(p.y) + halfH));
+    const childBarY = Math.min(...childNodes.map((c) => mapY(c.y) - halfH));
+    const parentLeftX = Math.min(...parentNodes.map((p) => mapX(p.x)));
+    const parentRightX = Math.max(...parentNodes.map((p) => mapX(p.x)));
+    const childLeftX = Math.min(...childNodes.map((c) => mapX(c.x)));
+    const childRightX = Math.max(...childNodes.map((c) => mapX(c.x)));
+    const midX = (Math.min(parentLeftX, childLeftX) + Math.max(parentRightX, childRightX)) / 2;
 
-    const inset = 40;
-    const barY = (topY + bottomY) / 2;
     ctx.beginPath();
     if (parentNodes.length >= 2) {
-      const parentLeft = Math.min(...parentNodes.map((p) => p.x)) + inset;
-      const parentRight = Math.max(...parentNodes.map((p) => p.x)) - inset;
-      ctx.moveTo(mapX(parentLeft), mapY(topY));
-      ctx.lineTo(mapX(parentRight), mapY(topY));
+      const inset = nodeWidth * 0.45;
+      ctx.moveTo(parentLeftX + inset, parentBarY);
+      ctx.lineTo(parentRightX - inset, parentBarY);
     }
     for (const p of parentNodes) {
-      ctx.moveTo(mapX(p.x), mapY(p.y + inset));
-      ctx.lineTo(mapX(p.x), mapY(topY));
+      const py = mapY(p.y) + halfH;
+      ctx.moveTo(mapX(p.x), py);
+      ctx.lineTo(mapX(p.x), parentBarY);
     }
-    ctx.moveTo(mx, mapY(topY));
-    ctx.lineTo(mx, mapY(barY));
-    ctx.moveTo(mapX(Math.min(...childNodes.map((c) => c.x))), mapY(barY));
-    ctx.lineTo(mapX(Math.max(...childNodes.map((c) => c.x))), mapY(barY));
+    ctx.moveTo(midX, parentBarY);
+    ctx.lineTo(midX, childBarY);
+    ctx.moveTo(childLeftX, childBarY);
+    ctx.lineTo(childRightX, childBarY);
     for (const c of childNodes) {
-      ctx.moveTo(mapX(c.x), mapY(barY));
-      ctx.lineTo(mapX(c.x), mapY(c.y - inset));
+      const cy = mapY(c.y) - halfH;
+      ctx.moveTo(mapX(c.x), childBarY);
+      ctx.lineTo(mapX(c.x), cy);
     }
     ctx.stroke();
   }

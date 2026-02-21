@@ -14,6 +14,7 @@ import { cn } from "@/lib/cn";
 interface CitySearchProps {
   value: string;
   onChange: (city: string) => void;
+  onBlur?: (currentValue: string) => void;
   placeholder?: string;
   className?: string;
 }
@@ -21,6 +22,7 @@ interface CitySearchProps {
 export function CitySearch({
   value,
   onChange,
+  onBlur,
   placeholder = "Search a city...",
   className,
 }: CitySearchProps) {
@@ -31,6 +33,7 @@ export function CitySearch({
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const justSelectedRef = useRef(false);
 
   useEffect(() => {
     setQuery(value);
@@ -46,6 +49,7 @@ export function CitySearch({
 
   const handleSelect = useCallback(
     (city: City) => {
+      justSelectedRef.current = true;
       setQuery(city.label);
       onChange(city.label);
       setIsOpen(false);
@@ -92,8 +96,13 @@ export function CitySearch({
             setIsOpen(matches.length > 0);
           }}
           onBlur={() => {
-            // Delay to allow click on dropdown
-            setTimeout(() => setIsOpen(false), 200);
+            const q = query;
+            const selected = justSelectedRef.current;
+            justSelectedRef.current = false;
+            setTimeout(() => {
+              setIsOpen(false);
+              if (!selected && onBlur) onBlur(q);
+            }, 200);
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}

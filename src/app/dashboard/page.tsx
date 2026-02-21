@@ -447,7 +447,7 @@ export default function DashboardPage() {
         onConnectMembers={linkMembers}
         onRemoveRelationship={unlinkRelationship}
         onRemoveMember={removeMember}
-        restrictToViewer
+        restrictToViewer={viewer.role !== "ADMIN"}
       />
       <FamilyOnboardingWizard
         viewer={viewer}

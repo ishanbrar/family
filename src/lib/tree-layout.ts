@@ -53,10 +53,22 @@ function generationDelta(type: RelationshipType): number {
 
 type Side = "paternal" | "maternal" | "neutral";
 
+export interface TreeLayoutOptions {
+  /** When true, use the oldest ancestor as root for a classic top-down pedigree (e.g. for export). */
+  preferAncestorRoot?: boolean;
+}
+
+function birthYear(profile: Profile): number | null {
+  if (!profile.date_of_birth) return null;
+  const y = new Date(profile.date_of_birth).getFullYear();
+  return Number.isFinite(y) ? y : null;
+}
+
 export function createFamilyTreeLayout(
   members: Profile[],
   relationships: Relationship[],
-  viewerId: string
+  viewerId: string,
+  options?: TreeLayoutOptions
 ): TreeLayout {
   if (members.length === 0) {
     return { nodes: [], connections: [], sibships: [], width: 800, height: 560 };
@@ -100,6 +112,37 @@ export function createFamilyTreeLayout(
     return seen;
   };
 
+  // Build parentIdsByChild early for root selection and sibships
+  const parentIdsByChild = new Map<string, Set<string>>();
+  const addParentMapEntry = (parentId: string, childId: string) => {
+    if (!parentIdsByChild.has(childId)) parentIdsByChild.set(childId, new Set());
+    parentIdsByChild.get(childId)!.add(parentId);
+  };
+  for (const rel of relationships) {
+    if (rel.type === "parent") addParentMapEntry(rel.user_id, rel.relative_id);
+    else if (rel.type === "child") addParentMapEntry(rel.relative_id, rel.user_id);
+  }
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const rel of relationships) {
+      if (rel.type !== "sibling") continue;
+      const a = rel.user_id,
+        b = rel.relative_id;
+      const pa = parentIdsByChild.get(a) || new Set<string>();
+      const pb = parentIdsByChild.get(b) || new Set<string>();
+      const union = new Set([...pa, ...pb]);
+      if (union.size > pa.size) {
+        parentIdsByChild.set(a, new Set(union));
+        changed = true;
+      }
+      if (union.size > pb.size) {
+        parentIdsByChild.set(b, new Set(union));
+        changed = true;
+      }
+    }
+  }
+
   // Family-wide canonical anchor: if an admin node exists, use it so all users
   // share the same geometry. Otherwise keep viewer-based fallback behavior.
   let layoutRootId = viewerId;
@@ -111,7 +154,29 @@ export function createFamilyTreeLayout(
     })[0];
   if (adminAnchor) {
     layoutRootId = adminAnchor.id;
-  } else if (memberById.has(viewerId)) {
+  }
+
+  // For export: use oldest ancestor as root for classic top-down pedigree
+  if (options?.preferAncestorRoot) {
+    const topmostAncestors = members.filter((m) => {
+      const parentIds = parentIdsByChild.get(m.id);
+      if (!parentIds || parentIds.size === 0) return true;
+      const parentsInTree = [...parentIds].filter((pid) => memberById.has(pid));
+      return parentsInTree.length === 0;
+    });
+    const inMainComponent = memberById.has(viewerId)
+      ? componentFrom(viewerId)
+      : componentFrom(members[0]?.id ?? "");
+    const candidates = topmostAncestors.filter((m) => inMainComponent.size === 0 || inMainComponent.has(m.id));
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => {
+        const ay = birthYear(a) ?? 9999;
+        const by = birthYear(b) ?? 9999;
+        return ay - by; // oldest (lowest year) first
+      });
+      layoutRootId = candidates[0].id;
+    }
+  } else if (!adminAnchor && memberById.has(viewerId)) {
     const viewerComponent = componentFrom(viewerId);
     if (viewerComponent.size <= 1) {
       const visited = new Set<string>();
@@ -155,12 +220,24 @@ export function createFamilyTreeLayout(
     }
   }
 
-  // Keep all members visible even if disconnected from viewer.
-  let disconnectedGen = (Math.max(...generation.values(), 0) || 0) + 1;
-  for (const member of members) {
-    if (!generation.has(member.id)) {
-      generation.set(member.id, disconnectedGen);
-      disconnectedGen++;
+  // Keep all members visible even if disconnected. Cluster by birth year into generations.
+  const disconnectedMembers = members.filter((m) => !generation.has(m.id));
+  if (disconnectedMembers.length > 0) {
+    const maxGen = Math.max(...generation.values(), 0);
+    // Assign generation by birth year: oldest at top (highest gen if parents-use-higher)
+    const withYear = disconnectedMembers
+      .map((m) => ({ id: m.id, year: birthYear(m) }))
+      .sort((a, b) => (a.year ?? 9999) - (b.year ?? 9999));
+    const BUCKET_YEARS = 30;
+    let lastYear = -Infinity;
+    let bucketGen = maxGen + 1;
+    for (const { id, year } of withYear) {
+      const y = year ?? 9999;
+      if (y - lastYear > BUCKET_YEARS) {
+        bucketGen++;
+        lastYear = y;
+      }
+      generation.set(id, bucketGen);
     }
   }
 
@@ -175,37 +252,46 @@ export function createFamilyTreeLayout(
   const levelGap = 220;
   const nodeYStart = 90;
 
-  const parentIdsByChild = new Map<string, Set<string>>();
-  const addParentMapEntry = (parentId: string, childId: string) => {
-    if (!parentIdsByChild.has(childId)) parentIdsByChild.set(childId, new Set());
-    parentIdsByChild.get(childId)!.add(parentId);
-  };
-  for (const rel of relationships) {
-    if (rel.type === "parent") addParentMapEntry(rel.user_id, rel.relative_id);
-    else if (rel.type === "child") addParentMapEntry(rel.relative_id, rel.user_id);
+  // Birth-year refinement: split generations that span >35 years (uncle/nephew wrongly same row)
+  const GEN_SPLIT_YEAR_GAP = 35;
+  const refinedGeneration = new Map<string, number>();
+  for (const [id, gen] of generation) {
+    refinedGeneration.set(id, gen);
   }
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const rel of relationships) {
-      if (rel.type !== "sibling") continue;
-      const a = rel.user_id, b = rel.relative_id;
-      const pa = parentIdsByChild.get(a) || new Set<string>();
-      const pb = parentIdsByChild.get(b) || new Set<string>();
-      const union = new Set([...pa, ...pb]);
-      if (union.size > pa.size) { parentIdsByChild.set(a, new Set(union)); changed = true; }
-      if (union.size > pb.size) { parentIdsByChild.set(b, new Set(union)); changed = true; }
+  for (const gen of sortedGens) {
+    const rowMembers = byGen.get(gen) ?? [];
+    const withYear = rowMembers
+      .map((m) => ({ id: m.id, year: birthYear(m) }))
+      .filter((x): x is { id: string; year: number } => x.year != null);
+    if (withYear.length < 2) continue;
+    const years = withYear.map((x) => x.year);
+    const minY = Math.min(...years);
+    const maxY = Math.max(...years);
+    if (maxY - minY <= GEN_SPLIT_YEAR_GAP) continue;
+    const midY = (minY + maxY) / 2;
+    for (const { id, year } of withYear) {
+      if (year < midY) {
+        refinedGeneration.set(id, gen + 1); // older -> older generation
+      }
     }
   }
+  // Rebuild byGen from refined generations
+  const byGenRefined = new Map<number, Profile[]>();
+  for (const member of members) {
+    const g = refinedGeneration.get(member.id) ?? generation.get(member.id)!;
+    if (!byGenRefined.has(g)) byGenRefined.set(g, []);
+    byGenRefined.get(g)!.push(member);
+  }
+  const sortedGensRefined = [...byGenRefined.keys()].sort((a, b) => a - b);
 
   // Orientation guard: detect whether older generations are represented with lower or higher generation values.
   // We then choose row ordering so parents always render above children.
   const parentDeltas: number[] = [];
   for (const [childId, parentIds] of parentIdsByChild.entries()) {
-    const childGen = generation.get(childId);
+    const childGen = refinedGeneration.get(childId);
     if (childGen == null) continue;
     for (const parentId of parentIds) {
-      const parentGen = generation.get(parentId);
+      const parentGen = refinedGeneration.get(parentId);
       if (parentGen == null) continue;
       const d = parentGen - childGen;
       if (d !== 0) parentDeltas.push(d);
@@ -215,9 +301,9 @@ export function createFamilyTreeLayout(
   const positiveCount = parentDeltas.filter((d) => d > 0).length;
   const parentsUseLowerGenerationNumber = negativeCount >= positiveCount;
   const orderedRows = parentsUseLowerGenerationNumber
-    ? [...sortedGens].sort((a, b) => a - b)
-    : [...sortedGens].sort((a, b) => b - a);
-  const maxCols = Math.max(...orderedRows.map((g) => byGen.get(g)?.length || 0), 1);
+    ? [...sortedGensRefined].sort((a, b) => a - b)
+    : [...sortedGensRefined].sort((a, b) => b - a);
+  const maxCols = Math.max(...orderedRows.map((g) => byGenRefined.get(g)?.length || 0), 1);
   const width = Math.max(1300, maxCols * 280 + 420);
   const height = Math.max(560, orderedRows.length * levelGap + 120);
 
@@ -333,7 +419,7 @@ export function createFamilyTreeLayout(
 
   for (let row = 0; row < orderedRows.length; row++) {
     const gen = orderedRows[row];
-    const rowMembers = byGen.get(gen) || [];
+    const rowMembers = byGenRefined.get(gen) || [];
     const ids = rowMembers.map((m) => m.id);
     const units = buildSpouseUnits(ids);
 
@@ -415,7 +501,7 @@ export function createFamilyTreeLayout(
   for (let pass = 0; pass < 3; pass++) {
     for (let row = 0; row < orderedRows.length; row++) {
       const gen = orderedRows[row];
-      const rowMembers = byGen.get(gen) || [];
+      const rowMembers = byGenRefined.get(gen) || [];
       for (const member of rowMembers) {
         const children = childIdsByParent.get(member.id);
         if (!children || children.size === 0) continue;
@@ -433,10 +519,10 @@ export function createFamilyTreeLayout(
 
   // Validation/correction: maternal sibling adjacency with mother (if shared-parent siblings).
   if (motherParent) {
-    const motherRow = rowIndexByGen.get(generation.get(motherParent.id) ?? 0);
+    const motherRow = rowIndexByGen.get(refinedGeneration.get(motherParent.id) ?? 0);
     if (motherRow != null) {
       const motherParents = parentIdsByChild.get(motherParent.id) || new Set<string>();
-      const rowIds = (byGen.get(orderedRows[motherRow]) || []).map((m) => m.id);
+      const rowIds = (byGenRefined.get(orderedRows[motherRow]) || []).map((m) => m.id);
       const maternalSiblings = rowIds.filter((id) => {
         if (id === motherParent.id) return false;
         const pids = parentIdsByChild.get(id);
@@ -481,7 +567,7 @@ export function createFamilyTreeLayout(
   // 2) Ensure minimum horizontal gap across each generation row.
   const minNodeGap = 96;
   for (const gen of orderedRows) {
-    const rowMembers = byGen.get(gen) || [];
+    const rowMembers = byGenRefined.get(gen) || [];
     const ordered = rowMembers
       .map((m) => ({ id: m.id, pos: positions.get(m.id) }))
       .filter((entry): entry is { id: string; pos: { x: number; y: number } } => !!entry.pos)
@@ -565,7 +651,7 @@ export function createFamilyTreeLayout(
     .map((profile) => {
       const pos = positions.get(profile.id);
       if (!pos) return null;
-      return { profile, ...pos, generation: generation.get(profile.id) ?? 0 };
+      return { profile, ...pos, generation: refinedGeneration.get(profile.id) ?? 0 };
     })
     .filter((node): node is TreeLayoutNode => node !== null);
 
