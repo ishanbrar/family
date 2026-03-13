@@ -336,8 +336,8 @@ export default function TreeExplorerPage() {
           </div>
         )}
 
-        <div className={cn("grid gap-4 sm:gap-5 items-start", selectedMember ? "grid-cols-1 lg:grid-cols-3" : "grid-cols-1")}>
-          <GlassCard className={cn("p-4 sm:p-5", selectedMember ? "lg:col-span-2" : "lg:col-span-1")}>
+        <div className={cn("grid gap-4 sm:gap-5 items-start", selectedMember ? "grid-cols-1 lg:grid-cols-[1fr_320px]" : "grid-cols-1")}>
+          <GlassCard className={cn("p-4 sm:p-5 min-w-0", "lg:col-span-1")}>
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h2 className="font-serif text-lg text-white/92">Family Network</h2>
@@ -369,23 +369,6 @@ export default function TreeExplorerPage() {
             />
           </GlassCard>
 
-          <GlassCard className="lg:col-span-3 mt-5 p-4 sm:p-5">
-            <h2 className="font-serif text-lg text-white/92 mb-3">Members Table</h2>
-            <p className="text-xs text-white/35 mb-4">
-              {canEditTitle
-                ? "Click any cell to edit Name, Birth date, or City. Changes save on blur or Enter."
-                : "View all family members. Click a row to open the detail panel."}
-            </p>
-            <FamilyMembersTable
-              members={members}
-              canEdit={canEditTitle}
-              onUpdate={async (memberId, updates) => {
-                await updateProfile(memberId, updates);
-              }}
-              onMemberClick={handleMemberClick}
-            />
-          </GlassCard>
-
           <AnimatePresence>
             {selectedMember && (
               <motion.div
@@ -394,9 +377,9 @@ export default function TreeExplorerPage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 24 }}
                 transition={{ duration: 0.2 }}
-                className="lg:col-span-1"
+                className="min-w-[280px] w-full lg:w-[320px]"
               >
-                <GlassCard className="p-5 sticky top-6">
+                <GlassCard className="p-5 sticky top-6 h-fit">
                   <div className="flex items-start justify-between gap-2 mb-4">
                     <div>
                       <h3 className="font-serif text-xl text-white/93">
@@ -411,7 +394,7 @@ export default function TreeExplorerPage() {
                     </div>
                     <button
                       onClick={() => setSelectedMemberId(null)}
-                      className="w-8 h-8 rounded-lg text-white/45 hover:text-white/82 hover:bg-white/[0.05]"
+                      className="w-8 h-8 rounded-lg text-white/45 hover:text-white/82 hover:bg-white/[0.05] shrink-0"
                       aria-label="Close details"
                     >
                       <X size={14} className="mx-auto" />
@@ -462,6 +445,23 @@ export default function TreeExplorerPage() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          <GlassCard className={cn("p-4 sm:p-5", selectedMember && "lg:col-span-2 mt-5")}>
+            <h2 className="font-serif text-lg text-white/92 mb-3">Members Table</h2>
+            <p className="text-xs text-white/35 mb-4">
+              {canEditTitle
+                ? "Click any cell to edit Name, Birth date, or City. Changes save on blur or Enter."
+                : "View all family members. Click a row to open the detail panel."}
+            </p>
+            <FamilyMembersTable
+              members={members}
+              canEdit={canEditTitle}
+              onUpdate={async (memberId, updates) => {
+                await updateProfile(memberId, updates);
+              }}
+              onMemberClick={handleMemberClick}
+            />
+          </GlassCard>
         </div>
       </main>
     </div>

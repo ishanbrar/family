@@ -245,15 +245,10 @@ export function FamilyMembersTable({
                         <CitySearch
                           value={draft.city}
                           onChange={(city) => {
+                            const next = city.trim();
+                            setDraft((p) => ({ ...p, city: next }));
                             setSavingId(member.id);
-                            onUpdate(member.id, { location_city: city.trim() || null }).finally(() => {
-                              setEditingCell(null);
-                              setSavingId(null);
-                            });
-                          }}
-                          onBlur={(currentValue) => {
-                            setSavingId(member.id);
-                            onUpdate(member.id, { location_city: currentValue.trim() || null }).finally(() => {
+                            void onUpdate(member.id, { location_city: next || null }).finally(() => {
                               setEditingCell(null);
                               setSavingId(null);
                             });

@@ -146,6 +146,44 @@ export async function updateProfile(
   return mapProfile(data);
 }
 
+/**
+ * Ensure a profile exists for an auth user (e.g. after OAuth sign-in).
+ * If none exists, creates one from user metadata. Idempotent.
+ */
+export async function ensureProfileForAuthUser(
+  supabase: SupabaseClient,
+  user: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }
+): Promise<Profile | null> {
+  const existing = await getProfile(supabase, user.id);
+  if (existing) return existing;
+
+  const meta = user.user_metadata || {};
+  const fullName = (meta.full_name as string) || (meta.name as string) || "";
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  const firstName = parts[0] || (user.email?.split("@")[0]) || "Family";
+  const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "Member";
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .upsert(
+      {
+        id: user.id,
+        auth_user_id: user.id,
+        first_name: firstName,
+        last_name: lastName,
+        gender: null,
+        role: "MEMBER",
+        family_id: null,
+      },
+      { onConflict: "id" }
+    )
+    .select("*")
+    .single();
+
+  if (error || !data) return null;
+  return mapProfile(data);
+}
+
 // ── Relationships ───────────────────────────────
 
 export async function getFamilyRelationships(

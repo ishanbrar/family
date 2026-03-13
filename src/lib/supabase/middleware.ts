@@ -16,6 +16,7 @@ export async function updateSession(request: NextRequest) {
   const isPublicPage = request.nextUrl.pathname === "/";
   const isCallbackPage = request.nextUrl.pathname.startsWith("/auth/callback");
   const isDemoPage = request.nextUrl.pathname.startsWith("/demo");
+  const isPreviewPage = request.nextUrl.pathname.startsWith("/preview");
   const isDevSuperAdmin = DEV_SUPER_ADMIN_ENABLED && request.cookies.get(DEV_SUPER_ADMIN_COOKIE)?.value === "1";
 
   // Dev super-admin bypasses Supabase auth in all environments.
@@ -60,7 +61,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && !isAuthPage && !isPublicPage && !isCallbackPage && !isDemoPage) {
+  if (!user && !isAuthPage && !isPublicPage && !isCallbackPage && !isDemoPage && !isPreviewPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

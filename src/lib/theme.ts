@@ -17,12 +17,12 @@ function isThemePalette(value: string | null): value is ThemePalette {
 }
 
 export function resolveInitialTheme(): ThemeMode {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "light";
 
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
   if (isThemeMode(stored)) return stored;
 
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  return "light";
 }
 
 export function resolveInitialPalette(): ThemePalette {

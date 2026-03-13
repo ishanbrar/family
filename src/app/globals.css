@@ -100,35 +100,35 @@ html.theme-yellow {
 }
 
 html.light {
-  --background: #f5f7fb;
-  --foreground: #0f172a;
-  --glass-bg: rgba(15, 23, 42, 0.04);
-  --glass-border: rgba(15, 23, 42, 0.12);
-  --glass-highlight: rgba(15, 23, 42, 0.06);
+  --background: #eef5ee;
+  --foreground: #1a2f1a;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(26, 47, 26, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.5);
   --cmdk-bg: rgba(255, 255, 255, 0.98);
-  --cmdk-border: rgba(15, 23, 42, 0.14);
-  --cmdk-input-border: rgba(15, 23, 42, 0.12);
-  --cmdk-text: #0f172a;
-  --cmdk-muted: #64748b;
-  --cmdk-item: #334155;
-  --cmdk-item-hover: rgba(15, 23, 42, 0.05);
-  --cmdk-item-selected: rgb(var(--accent-rgb) / 0.2);
-  --surface-bg: rgba(255, 255, 255, 0.96);
-  --surface-border: rgba(15, 23, 42, 0.16);
+  --cmdk-border: rgba(26, 47, 26, 0.14);
+  --cmdk-input-border: rgba(26, 47, 26, 0.12);
+  --cmdk-text: #1a2f1a;
+  --cmdk-muted: #4a5d4a;
+  --cmdk-item: #2d3d2d;
+  --cmdk-item-hover: rgba(26, 47, 26, 0.05);
+  --cmdk-item-selected: rgba(134, 179, 134, 0.25);
+  --surface-bg: rgba(255, 255, 255, 0.98);
+  --surface-border: rgba(26, 47, 26, 0.12);
   --popover-bg: rgba(255, 255, 255, 0.98);
-  --popover-border: rgba(15, 23, 42, 0.16);
-  --overlay-bg: rgba(15, 23, 42, 0.36);
-  --map-globe-bg: #ebf2f8;
-  --map-globe-stroke: rgba(15, 23, 42, 0.2);
-  --map-graticule: rgba(15, 23, 42, 0.2);
-  --map-country-fill: rgba(15, 23, 42, 0.12);
-  --map-country-stroke: rgba(15, 23, 42, 0.26);
-  --map-country-member-fill: rgb(var(--accent-rgb) / 0.2);
-  --map-country-member-stroke: rgb(var(--accent-rgb) / 0.5);
-  --map-country-focus-fill: rgb(var(--accent-rgb) / 0.3);
-  --map-country-focus-stroke: rgb(var(--accent-rgb) / 0.72);
-  --map-flat-bg: rgba(255, 255, 255, 0.92);
-  --map-flat-border: rgba(15, 23, 42, 0.18);
+  --popover-border: rgba(26, 47, 26, 0.14);
+  --overlay-bg: rgba(26, 47, 26, 0.28);
+  --map-globe-bg: #e8f0e8;
+  --map-globe-stroke: rgba(26, 47, 26, 0.18);
+  --map-graticule: rgba(26, 47, 26, 0.08);
+  --map-country-fill: rgba(26, 47, 26, 0.08);
+  --map-country-stroke: rgba(26, 47, 26, 0.2);
+  --map-country-member-fill: rgba(134, 179, 134, 0.35);
+  --map-country-member-stroke: rgba(74, 128, 74, 0.5);
+  --map-country-focus-fill: rgba(134, 179, 134, 0.45);
+  --map-country-focus-stroke: rgba(74, 128, 74, 0.65);
+  --map-flat-bg: rgba(255, 255, 255, 0.95);
+  --map-flat-border: rgba(26, 47, 26, 0.14);
 }
 
 html.light .app-surface [class*="text-white"],

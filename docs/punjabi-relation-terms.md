@@ -25,7 +25,7 @@ Relation labels can be shown in Punjabi (English script) when the family admin e
 | Maternal Aunt              | Masi ji                   |
 | Paternal Aunt              | Bua ji                    |
 | Maternal Uncle             | Mamaji                    |
-| Paternal Uncle             | Chacha ji / Tayaji        |
+| Paternal Uncle             | Chacha ji / Taya ji        |
 | Paternal Uncle (elder)     | Tayaji                    |
 | Paternal Uncle (younger)   | Chacha ji                 |
 | Aunt (generic)             | Masi ji / Bua ji          |
