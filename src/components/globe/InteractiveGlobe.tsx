@@ -454,6 +454,29 @@ export function InteractiveGlobe({
 
   const visibleMembers = isFlatMap ? mapMembers : globeMembers;
 
+  const memberMarkers = useMemo(() => {
+    const cityMap = new Map<string, { members: Profile[]; xs: number[]; ys: number[]; city: string }>();
+    for (const { member, x, y, visible } of visibleMembers) {
+      if (!visible) continue;
+      const city = (member.location_city || "").trim();
+      const key = city.toLowerCase() || `_${member.id}`;
+      const existing = cityMap.get(key);
+      if (existing) {
+        existing.members.push(member);
+        existing.xs.push(x);
+        existing.ys.push(y);
+      } else {
+        cityMap.set(key, { members: [member], xs: [x], ys: [y], city });
+      }
+    }
+    return [...cityMap.values()].map((g) => ({
+      members: g.members,
+      x: g.xs.reduce((a, b) => a + b, 0) / g.xs.length,
+      y: g.ys.reduce((a, b) => a + b, 0) / g.ys.length,
+      city: g.city,
+    }));
+  }, [visibleMembers]);
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       setAutoRotate(false);
@@ -684,44 +707,74 @@ export function InteractiveGlobe({
           </motion.g>
         </svg>
 
-        {visibleMembers.map(({ member, x, y, visible }) => {
-          if (!visible) return null;
-          const isHovered = hoveredMember?.id === member.id;
+        {memberMarkers.map((group) => {
+          const isHovered = group.members.some((m) => hoveredMember?.id === m.id);
+          const primary = group.members[0];
 
           return (
-            <div key={member.id} className="absolute pointer-events-auto cursor-pointer" style={{ left: x, top: y, zIndex: 10 }}>
+            <div
+              key={group.city || primary.id}
+              className="absolute"
+              style={{ left: group.x, top: group.y, zIndex: isHovered ? 20 : 10 }}
+            >
+              {/* Hit area */}
               <div
-                className="absolute w-12 h-12 -translate-x-1/2 -translate-y-1/2 rounded-full cursor-pointer"
+                className="absolute w-7 h-7 -translate-x-1/2 -translate-y-1/2 rounded-full cursor-pointer pointer-events-auto"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onMemberClick?.(member);
+                  onMemberClick?.(primary);
                 }}
-                onMouseEnter={() => setHoveredMember(member)}
+                onMouseEnter={() => setHoveredMember(primary)}
                 onMouseLeave={() => setHoveredMember(null)}
               />
-              <motion.div
-                animate={{ scale: [1, 2.5], opacity: [0.5, 0] }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
-                className="absolute w-5 h-5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-gold-400/50"
-              />
+              {/* Dot */}
               <div
-                className="absolute w-4 h-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gold-400 transition-transform duration-150"
+                className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
                 style={{
-                  boxShadow: isHovered ? "0 0 16px rgba(212,165,116,0.78)" : "0 0 8px rgba(212,165,116,0.55)",
-                  transform: `translate(-50%,-50%) scale(${isHovered ? 1.5 : 1})`,
+                  width: isHovered ? 7 : 5,
+                  height: isHovered ? 7 : 5,
+                  backgroundColor: isHovered ? "var(--map-marker-dot-hover)" : "var(--map-marker-dot)",
+                  boxShadow: `0 0 ${isHovered ? 6 : 3}px ${isHovered ? "var(--map-marker-glow-hover)" : "var(--map-marker-glow)"}`,
+                  transition: "all 0.2s ease",
                 }}
               />
+              {/* City label */}
+              {group.city && (
+                <div
+                  className="absolute pointer-events-none whitespace-nowrap"
+                  style={{
+                    left: 5,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    fontSize: 7,
+                    fontWeight: 500,
+                    letterSpacing: "0.01em",
+                    color: isHovered ? "var(--map-marker-label-hover)" : "var(--map-marker-label)",
+                    textShadow: "0 1px 3px rgba(0,0,0,0.5)",
+                    transition: "color 0.2s ease",
+                  }}
+                >
+                  {group.city}
+                  {group.members.length > 1 ? ` (${group.members.length})` : ""}
+                </div>
+              )}
+              {/* Hover popover */}
               {isHovered && (
                 <motion.div
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   className="absolute left-5 top-1/2 -translate-y-1/2 z-50 rounded-xl px-3 py-2 whitespace-nowrap pointer-events-none app-popover"
+                  style={{ marginTop: group.city ? -14 : 0 }}
                 >
-                  <p className="text-xs font-medium text-white/90">
-                    {member.first_name} {member.last_name}
-                  </p>
-                  <p className="text-[10px] text-white/40">{member.location_city}</p>
+                  {group.members.map((m) => (
+                    <p key={m.id} className="text-xs font-medium text-white/90">
+                      {m.first_name} {m.last_name}
+                    </p>
+                  ))}
+                  {group.city && (
+                    <p className="text-[10px] text-white/40 mt-0.5">{group.city}</p>
+                  )}
                 </motion.div>
               )}
             </div>

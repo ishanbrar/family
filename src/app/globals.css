@@ -50,6 +50,12 @@
   --map-country-focus-stroke: rgb(var(--accent-rgb) / 0.68);
   --map-flat-bg: rgba(255, 255, 255, 0.02);
   --map-flat-border: rgba(255, 255, 255, 0.06);
+  --map-marker-dot: rgba(212, 165, 116, 0.45);
+  --map-marker-dot-hover: rgba(212, 165, 116, 0.85);
+  --map-marker-glow: rgba(212, 165, 116, 0.2);
+  --map-marker-glow-hover: rgba(212, 165, 116, 0.5);
+  --map-marker-label: rgba(255, 255, 255, 0.32);
+  --map-marker-label-hover: rgba(255, 255, 255, 0.72);
 }
 
 html,
@@ -129,6 +135,12 @@ html.light {
   --map-country-focus-stroke: rgba(74, 128, 74, 0.65);
   --map-flat-bg: rgba(255, 255, 255, 0.95);
   --map-flat-border: rgba(26, 47, 26, 0.14);
+  --map-marker-dot: rgba(74, 128, 74, 0.5);
+  --map-marker-dot-hover: rgba(74, 128, 74, 0.88);
+  --map-marker-glow: rgba(74, 128, 74, 0.22);
+  --map-marker-glow-hover: rgba(74, 128, 74, 0.45);
+  --map-marker-label: rgba(26, 47, 26, 0.38);
+  --map-marker-label-hover: rgba(26, 47, 26, 0.75);
 }
 
 html.light .app-surface [class*="text-white"],

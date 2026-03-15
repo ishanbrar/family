@@ -83,13 +83,14 @@ export function FamilyTree({
 }: FamilyTreeProps) {
   const hasHighlight = dimNonHighlighted && highlightedMembers && highlightedMembers.size > 0;
   const [hoveredMemberId, setHoveredMemberId] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const viewRef = useRef({ x: 0, y: 0, scale: 1 });
+  const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const pinchStateRef = useRef<{ initialDistance: number; initialZoom: number } | null>(null);
-  const zoomRef = useRef(zoom);
-  const gestureBaseZoomRef = useRef<number | null>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const panStartRef = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  const pinchStartRef = useRef<{ dist: number; scale: number; vx: number; vy: number; mx: number; my: number } | null>(null);
+  const isAnimatingRef = useRef(false);
   const hasAutoCenteredRef = useRef(false);
-  const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
   const didDragRef = useRef(false);
 
   const hoveredMember = useMemo(
@@ -132,34 +133,76 @@ export function FamilyTree({
     return map;
   }, [members]);
 
-  const MIN_ZOOM = 0.7;
-  const MAX_ZOOM = 1.8;
-  const ZOOM_STEP = 0.1;
-  const zoomIn = () => setZoom((prev) => Math.min(MAX_ZOOM, Number((prev + ZOOM_STEP).toFixed(2))));
-  const zoomOut = () => setZoom((prev) => Math.max(MIN_ZOOM, Number((prev - ZOOM_STEP).toFixed(2))));
-  const resetZoom = () => setZoom(1);
+  const MIN_ZOOM = 0.3;
+  const MAX_ZOOM = 3;
+  const clampScale = (s: number) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, s));
+
+  const updateView = useCallback((next: { x: number; y: number; scale: number }) => {
+    viewRef.current = next;
+    setView(next);
+  }, []);
+
+  const animateTo = useCallback((target: { x: number; y: number; scale: number }) => {
+    isAnimatingRef.current = true;
+    updateView(target);
+    setTimeout(() => { isAnimatingRef.current = false; }, 320);
+  }, [updateView]);
+
+  const zoomTo = useCallback((newScale: number, cx: number, cy: number, animate = false) => {
+    const v = viewRef.current;
+    const clamped = clampScale(newScale);
+    const ratio = clamped / v.scale;
+    const x = cx - (cx - v.x) * ratio;
+    const y = cy - (cy - v.y) * ratio;
+    if (animate) animateTo({ x, y, scale: clamped });
+    else updateView({ x, y, scale: clamped });
+  }, [animateTo, updateView]);
+
+  const zoomIn = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    zoomTo(viewRef.current.scale * 1.3, el.clientWidth / 2, el.clientHeight / 2, true);
+  }, [zoomTo]);
+
+  const zoomOut = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    zoomTo(viewRef.current.scale / 1.3, el.clientWidth / 2, el.clientHeight / 2, true);
+  }, [zoomTo]);
 
   const fitToView = useCallback(() => {
     const el = containerRef.current;
     if (!el || members.length === 0) return;
     const xs = members.map((m) => m.x);
     const ys = members.map((m) => m.y);
-    const pad = 80;
+    const pad = 60;
     const minX = Math.min(...xs) - pad;
     const maxX = Math.max(...xs) + pad;
     const minY = Math.min(...ys) - pad;
     const maxY = Math.max(...ys) + pad;
     const treeW = maxX - minX;
     const treeH = maxY - minY;
-    const fitZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.min(el.clientWidth / treeW, el.clientHeight / treeH)));
-    setZoom(fitZoom);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        el.scrollLeft = ((minX + treeW / 2) * fitZoom) - el.clientWidth / 2;
-        el.scrollTop = ((minY + treeH / 2) * fitZoom) - el.clientHeight / 2;
-      });
-    });
-  }, [members]);
+    const vw = el.clientWidth;
+    const vh = el.clientHeight;
+    const scale = clampScale(Math.min(vw / treeW, vh / treeH));
+    const x = (vw - treeW * scale) / 2 - minX * scale;
+    const y = (vh - treeH * scale) / 2 - minY * scale;
+    animateTo({ x, y, scale });
+  }, [members, animateTo]);
+
+  const resetZoom = useCallback(() => {
+    const el = containerRef.current;
+    if (!el || members.length === 0) return;
+    const xs = members.map((m) => m.x);
+    const ys = members.map((m) => m.y);
+    const pad = 60;
+    const minX = Math.min(...xs) - pad;
+    const maxX = Math.max(...xs) + pad;
+    const treeW = maxX - minX;
+    const x = (el.clientWidth - treeW) / 2 - minX;
+    const y = 20;
+    animateTo({ x, y, scale: 1 });
+  }, [members, animateTo]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -172,146 +215,160 @@ export function FamilyTree({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [fitToView]);
-
-  useEffect(() => {
-    zoomRef.current = zoom;
-  }, [zoom]);
+  }, [zoomIn, zoomOut, resetZoom, fitToView]);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
 
-    const clampZoom = (value: number) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(value.toFixed(2))));
-
-    const onWheel = (event: WheelEvent) => {
-      // Trackpad pinch on desktop browsers emits wheel with ctrlKey/metaKey.
-      if (!event.ctrlKey && !event.metaKey) return;
-      event.preventDefault();
-      const factor = Math.exp(-event.deltaY * 0.0025);
-      const next = clampZoom(zoomRef.current * factor);
-      zoomRef.current = next;
-      setZoom(next);
-    };
-
-    const onGestureStart = (event: Event) => {
-      event.preventDefault();
-      gestureBaseZoomRef.current = zoomRef.current;
-    };
-
-    const onGestureChange = (event: Event) => {
-      event.preventDefault();
-      const gestureEvent = event as Event & { scale?: number };
-      const scale = gestureEvent.scale ?? 1;
-      const base = gestureBaseZoomRef.current ?? zoomRef.current;
-      const next = clampZoom(base * scale);
-      zoomRef.current = next;
-      setZoom(next);
-    };
-    const onGestureEnd = () => {
-      gestureBaseZoomRef.current = null;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const delta = e.ctrlKey ? -e.deltaY * 0.01 : -e.deltaY * 0.003;
+      const factor = Math.exp(delta);
+      zoomTo(viewRef.current.scale * factor, cx, cy);
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
-    el.addEventListener("gesturestart", onGestureStart, { passive: false } as AddEventListenerOptions);
-    el.addEventListener("gesturechange", onGestureChange, { passive: false } as AddEventListenerOptions);
-    el.addEventListener("gestureend", onGestureEnd);
-
-    return () => {
-      el.removeEventListener("wheel", onWheel);
-      el.removeEventListener("gesturestart", onGestureStart);
-      el.removeEventListener("gesturechange", onGestureChange);
-      el.removeEventListener("gestureend", onGestureEnd);
-    };
-  }, []);
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoomTo]);
 
   useEffect(() => {
-    if (hasAutoCenteredRef.current) return;
-    if (members.length === 0) return;
     const el = containerRef.current;
     if (!el) return;
 
-    // Center horizontally once after first non-empty render.
-    const centerTree = () => {
-      const nextLeft = Math.max(0, (el.scrollWidth - el.clientWidth) / 2);
-      el.scrollLeft = nextLeft;
-      hasAutoCenteredRef.current = true;
+    let gestureBase = 1;
+    let gestureView = { x: 0, y: 0 };
+
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      gestureBase = viewRef.current.scale;
+      gestureView = { x: viewRef.current.x, y: viewRef.current.y };
+    };
+    const onGestureChange = (e: Event) => {
+      e.preventDefault();
+      const ge = e as Event & { scale?: number };
+      const rect = el.getBoundingClientRect();
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const newScale = clampScale(gestureBase * (ge.scale ?? 1));
+      const canvasX = (cx - gestureView.x) / gestureBase;
+      const canvasY = (cy - gestureView.y) / gestureBase;
+      updateView({ x: cx - canvasX * newScale, y: cy - canvasY * newScale, scale: newScale });
     };
 
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(centerTree);
-    });
-
+    el.addEventListener("gesturestart", onGestureStart, { passive: false } as AddEventListenerOptions);
+    el.addEventListener("gesturechange", onGestureChange, { passive: false } as AddEventListenerOptions);
+    el.addEventListener("gestureend", () => {}, { passive: false } as AddEventListenerOptions);
     return () => {
-      cancelAnimationFrame(raf1);
-      if (raf2) cancelAnimationFrame(raf2);
+      el.removeEventListener("gesturestart", onGestureStart);
+      el.removeEventListener("gesturechange", onGestureChange);
     };
-  }, [members.length]);
+  }, [updateView]);
 
-  const touchDistance = (touches: { length: number; [index: number]: { clientX: number; clientY: number } }) => {
-    if (touches.length < 2) return 0;
-    const dx = touches[0].clientX - touches[1].clientX;
-    const dy = touches[0].clientY - touches[1].clientY;
-    return Math.hypot(dx, dy);
-  };
+  useEffect(() => {
+    if (hasAutoCenteredRef.current || members.length === 0) return;
+    hasAutoCenteredRef.current = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => fitToView()));
+  }, [members.length, fitToView]);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.setPointerCapture(e.pointerId);
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    didDragRef.current = false;
+
+    if (pointersRef.current.size === 1) {
+      panStartRef.current = { x: e.clientX, y: e.clientY, vx: viewRef.current.x, vy: viewRef.current.y };
+    }
+    if (pointersRef.current.size === 2) {
+      panStartRef.current = null;
+      const pts = [...pointersRef.current.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const rect = el.getBoundingClientRect();
+      pinchStartRef.current = {
+        dist,
+        scale: viewRef.current.scale,
+        vx: viewRef.current.x,
+        vy: viewRef.current.y,
+        mx: (pts[0].x + pts[1].x) / 2 - rect.left,
+        my: (pts[0].y + pts[1].y) / 2 - rect.top,
+      };
+    }
+  }, []);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointersRef.current.size === 1 && panStartRef.current) {
+      const dx = e.clientX - panStartRef.current.x;
+      const dy = e.clientY - panStartRef.current.y;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) didDragRef.current = true;
+      updateView({
+        x: panStartRef.current.vx + dx,
+        y: panStartRef.current.vy + dy,
+        scale: viewRef.current.scale,
+      });
+    }
+
+    if (pointersRef.current.size === 2 && pinchStartRef.current) {
+      const pts = [...pointersRef.current.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const newScale = clampScale(pinchStartRef.current.scale * (dist / pinchStartRef.current.dist));
+      const el = containerRef.current!;
+      const rect = el.getBoundingClientRect();
+      const mx = (pts[0].x + pts[1].x) / 2 - rect.left;
+      const my = (pts[0].y + pts[1].y) / 2 - rect.top;
+      const canvasX = (pinchStartRef.current.mx - pinchStartRef.current.vx) / pinchStartRef.current.scale;
+      const canvasY = (pinchStartRef.current.my - pinchStartRef.current.vy) / pinchStartRef.current.scale;
+      updateView({
+        x: mx - canvasX * newScale,
+        y: my - canvasY * newScale,
+        scale: newScale,
+      });
+      didDragRef.current = true;
+    }
+  }, [updateView]);
+
+  const handlePointerEnd = useCallback((e: React.PointerEvent) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size === 0) {
+      panStartRef.current = null;
+      pinchStartRef.current = null;
+    } else if (pointersRef.current.size === 1) {
+      pinchStartRef.current = null;
+      const [pt] = [...pointersRef.current.values()];
+      panStartRef.current = { x: pt.x, y: pt.y, vx: viewRef.current.x, vy: viewRef.current.y };
+    }
+  }, []);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    zoomTo(viewRef.current.scale * 1.8, e.clientX - rect.left, e.clientY - rect.top, true);
+  }, [zoomTo]);
 
   return (
     <div
       ref={containerRef}
-      className={cn("relative w-full overflow-auto cursor-grab", className)}
-      onMouseDown={(e) => {
-        if (e.button !== 0) return;
-        const el = containerRef.current;
-        if (!el) return;
-        didDragRef.current = false;
-        panStartRef.current = { x: e.clientX, y: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop };
-        el.style.cursor = "grabbing";
-      }}
-      onMouseMove={(e) => {
-        if (!(e.buttons & 1)) return;
-        const el = containerRef.current;
-        if (!el) return;
-        const dx = e.clientX - panStartRef.current.x;
-        const dy = e.clientY - panStartRef.current.y;
-        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDragRef.current = true;
-        el.scrollLeft = panStartRef.current.scrollLeft - dx;
-        el.scrollTop = panStartRef.current.scrollTop - dy;
-      }}
-      onMouseUp={() => { if (containerRef.current) containerRef.current.style.cursor = ""; }}
-      onMouseLeave={() => { if (containerRef.current) containerRef.current.style.cursor = ""; }}
-      onTouchStart={(event) => {
-        if (event.touches.length === 2) {
-          const initialDistance = touchDistance(event.touches);
-          if (initialDistance > 0) {
-            pinchStateRef.current = { initialDistance, initialZoom: zoom };
-          }
-        }
-      }}
-      onTouchMove={(event) => {
-        if (event.touches.length !== 2 || !pinchStateRef.current) return;
-        const currentDistance = touchDistance(event.touches);
-        if (currentDistance <= 0) return;
-        event.preventDefault();
-        const scaleFactor = currentDistance / pinchStateRef.current.initialDistance;
-        const nextZoom = Math.max(
-          MIN_ZOOM,
-          Math.min(MAX_ZOOM, Number((pinchStateRef.current.initialZoom * scaleFactor).toFixed(2)))
-        );
-        setZoom(nextZoom);
-      }}
-      onTouchEnd={(event) => {
-        if (event.touches.length < 2) pinchStateRef.current = null;
-      }}
-      onTouchCancel={() => {
-        pinchStateRef.current = null;
-      }}
+      className={cn("relative w-full overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing", className)}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onDoubleClick={handleDoubleClick}
     >
       <div className="absolute right-2 top-2 z-30 flex items-center gap-1 rounded-xl border border-white/[0.12] bg-black/45 p-1.5 sm:p-1 backdrop-blur">
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={zoomOut}
-          disabled={zoom <= MIN_ZOOM}
+          disabled={view.scale <= MIN_ZOOM}
           className="h-11 w-11 sm:h-7 sm:w-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
           aria-label="Zoom out family tree"
         >
@@ -319,6 +376,7 @@ export function FamilyTree({
         </button>
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={resetZoom}
           className="h-11 min-w-[3.5rem] sm:h-7 sm:min-w-14 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] px-2 text-xs sm:text-[11px] text-white/80 hover:bg-white/[0.09] flex items-center justify-center"
           aria-label="Reset family tree zoom"
@@ -326,11 +384,12 @@ export function FamilyTree({
         >
           <span className="inline-flex items-center gap-1">
             <RotateCcw size={14} className="sm:w-[11px] sm:h-[11px]" />
-            {Math.round(zoom * 100)}%
+            {Math.round(view.scale * 100)}%
           </span>
         </button>
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={fitToView}
           className="h-11 w-11 sm:h-7 sm:w-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] flex items-center justify-center"
           aria-label="Fit tree to view"
@@ -340,8 +399,9 @@ export function FamilyTree({
         </button>
         <button
           type="button"
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={zoomIn}
-          disabled={zoom >= MAX_ZOOM}
+          disabled={view.scale >= MAX_ZOOM}
           className="h-11 w-11 sm:h-7 sm:w-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
           aria-label="Zoom in family tree"
         >
@@ -350,20 +410,18 @@ export function FamilyTree({
       </div>
       <div
         className="relative"
-        style={{ minWidth: canvasWidth * zoom, minHeight: canvasHeight * zoom }}
+        style={{
+          width: canvasWidth,
+          minHeight: canvasHeight,
+          transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
+          transformOrigin: "0 0",
+          transition: isAnimatingRef.current ? "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)" : "none",
+          willChange: "transform",
+        }}
+        onClick={() => {
+          if (!didDragRef.current) onBackgroundClick?.();
+        }}
       >
-        <div
-          className="relative origin-top-left"
-          style={{
-            width: canvasWidth,
-            minHeight: canvasHeight,
-            transform: `scale(${zoom})`,
-            transformOrigin: "top left",
-          }}
-          onClick={() => {
-            if (!didDragRef.current) onBackgroundClick?.();
-          }}
-        >
         {/* ── SVG Connection Layer (Orthogonal Routing) ── */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ minHeight: canvasHeight }}>
           {/* Sibship groups: spouse bar + drop line + rail + child stems */}
@@ -686,7 +744,6 @@ export function FamilyTree({
           </motion.div>
         )}
         </div>
-      </div>
     </div>
   );
 }
