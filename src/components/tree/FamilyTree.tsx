@@ -7,8 +7,8 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Minus, Plus, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Maximize2, Minus, Plus, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
@@ -60,19 +60,6 @@ function getInitials(first: string, last: string): string {
   return `${first[0] || ""}${last[0] || ""}`.toUpperCase();
 }
 
-function pointOnCircleToward(
-  cx: number,
-  cy: number,
-  tx: number,
-  ty: number,
-  radius: number
-): { x: number; y: number } {
-  const dx = tx - cx;
-  const dy = ty - cy;
-  const dist = Math.hypot(dx, dy) || 1;
-  return { x: cx + (dx / dist) * radius, y: cy + (dy / dist) * radius };
-}
-
 export function FamilyTree({
   members,
   connections,
@@ -102,6 +89,8 @@ export function FamilyTree({
   const zoomRef = useRef(zoom);
   const gestureBaseZoomRef = useRef<number | null>(null);
   const hasAutoCenteredRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+  const didDragRef = useRef(false);
 
   const hoveredMember = useMemo(
     () => members.find((member) => member.profile.id === hoveredMemberId) || null,
@@ -149,6 +138,41 @@ export function FamilyTree({
   const zoomIn = () => setZoom((prev) => Math.min(MAX_ZOOM, Number((prev + ZOOM_STEP).toFixed(2))));
   const zoomOut = () => setZoom((prev) => Math.max(MIN_ZOOM, Number((prev - ZOOM_STEP).toFixed(2))));
   const resetZoom = () => setZoom(1);
+
+  const fitToView = useCallback(() => {
+    const el = containerRef.current;
+    if (!el || members.length === 0) return;
+    const xs = members.map((m) => m.x);
+    const ys = members.map((m) => m.y);
+    const pad = 80;
+    const minX = Math.min(...xs) - pad;
+    const maxX = Math.max(...xs) + pad;
+    const minY = Math.min(...ys) - pad;
+    const maxY = Math.max(...ys) + pad;
+    const treeW = maxX - minX;
+    const treeH = maxY - minY;
+    const fitZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.min(el.clientWidth / treeW, el.clientHeight / treeH)));
+    setZoom(fitZoom);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        el.scrollLeft = ((minX + treeW / 2) * fitZoom) - el.clientWidth / 2;
+        el.scrollTop = ((minY + treeH / 2) * fitZoom) - el.clientHeight / 2;
+      });
+    });
+  }, [members]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) return;
+      if (e.key === "=" || e.key === "+") { e.preventDefault(); zoomIn(); }
+      else if (e.key === "-") { e.preventDefault(); zoomOut(); }
+      else if (e.key === "0") { e.preventDefault(); resetZoom(); }
+      else if (e.key === "f") { e.preventDefault(); fitToView(); }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fitToView]);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -235,7 +259,27 @@ export function FamilyTree({
   return (
     <div
       ref={containerRef}
-      className={cn("relative w-full overflow-auto", className)}
+      className={cn("relative w-full overflow-auto cursor-grab", className)}
+      onMouseDown={(e) => {
+        if (e.button !== 0) return;
+        const el = containerRef.current;
+        if (!el) return;
+        didDragRef.current = false;
+        panStartRef.current = { x: e.clientX, y: e.clientY, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop };
+        el.style.cursor = "grabbing";
+      }}
+      onMouseMove={(e) => {
+        if (!(e.buttons & 1)) return;
+        const el = containerRef.current;
+        if (!el) return;
+        const dx = e.clientX - panStartRef.current.x;
+        const dy = e.clientY - panStartRef.current.y;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDragRef.current = true;
+        el.scrollLeft = panStartRef.current.scrollLeft - dx;
+        el.scrollTop = panStartRef.current.scrollTop - dy;
+      }}
+      onMouseUp={() => { if (containerRef.current) containerRef.current.style.cursor = ""; }}
+      onMouseLeave={() => { if (containerRef.current) containerRef.current.style.cursor = ""; }}
       onTouchStart={(event) => {
         if (event.touches.length === 2) {
           const initialDistance = touchDistance(event.touches);
@@ -287,6 +331,15 @@ export function FamilyTree({
         </button>
         <button
           type="button"
+          onClick={fitToView}
+          className="h-11 w-11 sm:h-7 sm:w-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] flex items-center justify-center"
+          aria-label="Fit tree to view"
+          title="Fit to view (F)"
+        >
+          <Maximize2 size={16} className="sm:w-3.5 sm:h-3.5" />
+        </button>
+        <button
+          type="button"
           onClick={zoomIn}
           disabled={zoom >= MAX_ZOOM}
           className="h-11 w-11 sm:h-7 sm:w-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
@@ -308,39 +361,12 @@ export function FamilyTree({
             transformOrigin: "top left",
           }}
           onClick={() => {
-            onBackgroundClick?.();
+            if (!didDragRef.current) onBackgroundClick?.();
           }}
         >
-        {/* ── SVG Connection Layer ─────────────────── */}
+        {/* ── SVG Connection Layer (Orthogonal Routing) ── */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ minHeight: canvasHeight }}>
-          <defs>
-            <linearGradient id="goldThread" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="var(--accent-300)" stopOpacity="0.72" />
-              <stop offset="100%" stopColor="var(--accent-200)" stopOpacity="0.46" />
-            </linearGradient>
-            <linearGradient id="dimThread" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.04)" />
-              <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
-            </linearGradient>
-            <linearGradient id="spouseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="var(--accent-300)" stopOpacity="0.34" />
-              <stop offset="50%" stopColor="var(--accent-300)" stopOpacity="0.48" />
-              <stop offset="100%" stopColor="var(--accent-200)" stopOpacity="0.34" />
-            </linearGradient>
-            <linearGradient id="spouseGradDim" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.02)" />
-              <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
-            </linearGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          {/* Parent-child merged fluid connectors */}
+          {/* Sibship groups: spouse bar + drop line + rail + child stems */}
           {sibships.map((sib, sibIdx) => {
             const parentNodes = sib.parents
               .map((id) => members.find((m) => m.profile.id === id))
@@ -350,132 +376,154 @@ export function FamilyTree({
               .filter(Boolean) as TreeMember[];
             if (parentNodes.length === 0 || childNodes.length === 0) return null;
 
-            const R = 48; // Stop lines at/before node edge (node radius ~40)
-            const parentBottom = Math.max(...parentNodes.map((p) => p.y + R));
-            const childTop = Math.min(...childNodes.map((c) => c.y - R));
-            const avgParentX =
-              parentNodes.reduce((sum, p) => sum + p.x, 0) / Math.max(parentNodes.length, 1);
-            const avgChildX =
-              childNodes.reduce((sum, c) => sum + c.x, 0) / Math.max(childNodes.length, 1);
-            const unionX = avgParentX * 0.7 + avgChildX * 0.3;
-            const rawUnionY = parentBottom + Math.max(24, (childTop - parentBottom) * 0.34);
-            const unionY = Math.min(rawUnionY, childTop - 24);
+            const NODE_R = 42;
+            const sortedParents = [...parentNodes].sort((a, b) => a.x - b.x);
+            const sortedChildren = [...childNodes].sort((a, b) => a.x - b.x);
+
+            const parentY = sortedParents.reduce((s, p) => s + p.y, 0) / sortedParents.length;
+            const childY = sortedChildren.reduce((s, c) => s + c.y, 0) / sortedChildren.length;
+
+            const hasCouple = sortedParents.length >= 2;
+            const leftParent = sortedParents[0];
+            const rightParent = sortedParents[sortedParents.length - 1];
+            const unionX = hasCouple
+              ? (leftParent.x + rightParent.x) / 2
+              : sortedParents[0].x;
+
+            const dropStartY = hasCouple ? parentY : parentY + NODE_R;
+            const childTopEdge = childY - NODE_R;
+            const railY = Math.min(
+              childTopEdge - 8,
+              Math.max(dropStartY + 8, dropStartY + (childTopEdge - dropStartY) * 0.5)
+            );
 
             const allIds = [...sib.parents, ...sib.children];
-            const bothHighlighted =
-              hasHighlight && allIds.every((id) => highlightedMembers!.has(id));
+            const bothHighlighted = hasHighlight && allIds.every((id) => highlightedMembers!.has(id));
             const isDimmed = hasHighlight && !bothHighlighted;
-            const stroke = isDimmed ? "url(#dimThread)" : "url(#goldThread)";
-            const strokeW = isDimmed ? 0.6 : 1;
-            const curve = 26;
-            const segments: string[] = [];
 
-            // Parents -> one union point
-            for (const p of parentNodes) {
-              const start = pointOnCircleToward(p.x, p.y, unionX, unionY, R);
-              const ctrlX = start.x + (unionX - start.x) * 0.45;
-              const ctrlY = start.y + (unionY - start.y) * 0.22;
-              segments.push(`M ${start.x} ${start.y} Q ${ctrlX} ${ctrlY}, ${unionX} ${unionY}`);
+            const bracketSegments: string[] = [];
+
+            bracketSegments.push(`M ${unionX} ${dropStartY} L ${unionX} ${railY}`);
+
+            const railLeft = Math.min(unionX, ...sortedChildren.map((c) => c.x));
+            const railRight = Math.max(unionX, ...sortedChildren.map((c) => c.x));
+            if (railRight - railLeft > 0.5) {
+              bracketSegments.push(`M ${railLeft} ${railY} L ${railRight} ${railY}`);
             }
 
-            // Union point -> each child
-            for (const c of childNodes) {
-              const end = pointOnCircleToward(c.x, c.y, unionX, unionY, R);
-              const childDir = c.x < unionX ? -1 : 1;
-              const ctrlX = unionX + childDir * Math.min(curve, Math.abs(c.x - unionX) * 0.38);
-              const ctrlY = unionY + (end.y - unionY) * 0.45;
-              segments.push(`M ${unionX} ${unionY} Q ${ctrlX} ${ctrlY}, ${end.x} ${end.y}`);
+            for (const child of sortedChildren) {
+              bracketSegments.push(`M ${child.x} ${railY} L ${child.x} ${childTopEdge}`);
             }
-            const d = segments.join(" ");
+
+            const accentColor = "var(--accent-300)";
+            const dimColor = "var(--accent-200)";
+
             return (
-              <motion.path
-                key={`sibship-${sibIdx}`}
-                d={d}
-                fill="none"
-                stroke={stroke}
-                strokeWidth={strokeW}
-                strokeLinecap="butt"
-                strokeLinejoin="round"
-                filter={bothHighlighted && !isDimmed ? "url(#glow)" : undefined}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.2 + sibIdx * 0.05 }}
-              />
+              <g key={`sibship-${sibIdx}`}>
+                {hasCouple && (
+                  <motion.line
+                    x1={leftParent.x + NODE_R}
+                    y1={parentY}
+                    x2={rightParent.x - NODE_R}
+                    y2={parentY}
+                    stroke={isDimmed ? dimColor : accentColor}
+                    strokeOpacity={isDimmed ? 0.12 : 0.6}
+                    strokeWidth={isDimmed ? 0.8 : 2}
+                    strokeLinecap="round"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, delay: 0.2 + sibIdx * 0.05 }}
+                  />
+                )}
+                <motion.path
+                  d={bracketSegments.join(" ")}
+                  fill="none"
+                  stroke={isDimmed ? dimColor : accentColor}
+                  strokeOpacity={isDimmed ? 0.1 : 0.5}
+                  strokeWidth={isDimmed ? 0.6 : 1.5}
+                  strokeLinecap="round"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5, delay: 0.3 + sibIdx * 0.05 }}
+                />
+              </g>
             );
           })}
 
-          {connections.map((conn, i) => {
-            const from = members.find((m) => m.profile.id === conn.from);
-            const to = members.find((m) => m.profile.id === conn.to);
-            if (!from || !to) return null;
+          {/* Standalone parent-child connections not covered by sibships */}
+          {connections
+            .filter((conn) => conn.type === "parent" && !parentEdgesCoveredBySibships.has(`${conn.from}:${conn.to}`))
+            .map((conn, i) => {
+              const parent = members.find((m) => m.profile.id === conn.from);
+              const child = members.find((m) => m.profile.id === conn.to);
+              if (!parent || !child) return null;
 
-            const bothHighlighted =
-              hasHighlight &&
-              highlightedMembers!.has(conn.from) &&
-              highlightedMembers!.has(conn.to);
-            const isDimmed = hasHighlight && !bothHighlighted;
+              const NODE_R = 42;
+              const bothHighlighted = hasHighlight && highlightedMembers!.has(conn.from) && highlightedMembers!.has(conn.to);
+              const isDimmed = hasHighlight && !bothHighlighted;
 
-            if (conn.type === "parent") {
-              // Fallback line for parent-child pairs not covered by a sibship group.
-              if (parentEdgesCoveredBySibships.has(`${conn.from}:${conn.to}`)) return null;
-              const parent = from;
-              const child = to;
-              const R = 48;
-              const start = pointOnCircleToward(parent.x, parent.y, child.x, child.y, R);
-              const end = pointOnCircleToward(child.x, child.y, parent.x, parent.y, R);
-              const sx = start.x;
-              const sy = start.y;
-              const ex = end.x;
-              const ey = end.y;
-              const ctrlX = Math.abs(ex - sx) < 10 ? sx + 14 : (sx + ex) / 2 + (ex - sx) * 0.18;
-              const ctrlY = (sy + ey) / 2;
+              const parentBottom = parent.y + NODE_R;
+              const childTop = child.y - NODE_R;
+              const midY = parentBottom + (childTop - parentBottom) * 0.5;
+
+              const d = Math.abs(parent.x - child.x) < 4
+                ? `M ${parent.x} ${parentBottom} L ${child.x} ${childTop}`
+                : `M ${parent.x} ${parentBottom} L ${parent.x} ${midY} L ${child.x} ${midY} L ${child.x} ${childTop}`;
+
               return (
                 <motion.path
                   key={`parent-${conn.from}-${conn.to}-${i}`}
-                  d={`M ${sx} ${sy} Q ${ctrlX} ${ctrlY}, ${ex} ${ey}`}
+                  d={d}
                   fill="none"
-                  stroke={isDimmed ? "url(#dimThread)" : "url(#goldThread)"}
-                  strokeWidth={isDimmed ? 0.6 : 1}
-                  strokeLinecap="butt"
+                  stroke={isDimmed ? "var(--accent-200)" : "var(--accent-300)"}
+                  strokeOpacity={isDimmed ? 0.1 : 0.5}
+                  strokeWidth={isDimmed ? 0.6 : 1.5}
+                  strokeLinecap="round"
                   strokeLinejoin="round"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.45, delay: 0.2 + i * 0.04 }}
+                  transition={{ duration: 0.4, delay: 0.2 + i * 0.04 }}
                 />
               );
-            }
+            })}
 
-            if (conn.type === "spouse") {
-              if (Math.abs(from.y - to.y) > 1) return null;
+          {/* Spouse-only connections (no shared children) */}
+          {connections
+            .filter((conn) => {
+              if (conn.type !== "spouse") return false;
+              const from = members.find((m) => m.profile.id === conn.from);
+              const to = members.find((m) => m.profile.id === conn.to);
+              if (!from || !to || Math.abs(from.y - to.y) > 1) return false;
               const pairKey = conn.from < conn.to ? `${conn.from}:${conn.to}` : `${conn.to}:${conn.from}`;
-              if (spousePairsWithSharedChildren.has(pairKey)) return null;
-              const inset = 48;
+              return !spousePairsWithSharedChildren.has(pairKey);
+            })
+            .map((conn) => {
+              const from = members.find((m) => m.profile.id === conn.from)!;
+              const to = members.find((m) => m.profile.id === conn.to)!;
+              const NODE_R = 42;
               const left = from.x <= to.x ? from : to;
               const right = from.x <= to.x ? to : from;
-              const startX = left.x + inset;
-              const endX = right.x - inset;
-              const y = (left.y + right.y) / 2;
+
+              const bothHighlighted = hasHighlight && highlightedMembers!.has(conn.from) && highlightedMembers!.has(conn.to);
+              const isDimmed = hasHighlight && !bothHighlighted;
 
               return (
-                <g key={`spouse-${conn.from}-${conn.to}`}>
-                  <motion.line
-                    x1={startX} y1={y} x2={endX} y2={y}
-                    stroke={isDimmed ? "rgba(212,165,116,0.2)" : "rgba(212,165,116,0.82)"}
-                    strokeWidth={isDimmed ? 1.2 : 2}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.45, delay: 0.3 }}
-                  />
-                </g>
+                <motion.line
+                  key={`spouse-${conn.from}-${conn.to}`}
+                  x1={left.x + NODE_R}
+                  y1={left.y}
+                  x2={right.x - NODE_R}
+                  y2={right.y}
+                  stroke={isDimmed ? "var(--accent-200)" : "var(--accent-300)"}
+                  strokeOpacity={isDimmed ? 0.12 : 0.6}
+                  strokeWidth={isDimmed ? 0.8 : 2}
+                  strokeLinecap="round"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.4, delay: 0.3 }}
+                />
               );
-            }
-
-            if (conn.type === "sibling" || conn.type === "half_sibling") {
-              return null;
-            }
-
-            return null;
-          })}
+            })}
         </svg>
 
         {/* ── Member Nodes ─────────────────────────── */}
@@ -530,23 +578,26 @@ export function FamilyTree({
               }}
             >
               <div className="flex flex-col items-center">
-                <GeneticMatchRing
-                  percentage={member.match.percentage}
-                  size={isViewerNode ? 86 : 80}
-                  strokeWidth={2.5}
-                  avatarUrl={member.profile.avatar_url}
-                  initials={initials}
-                  edgeColor={
-                    typeof member.generation === "number"
-                      ? generationColorByValue.get(member.generation)
-                      : undefined
-                  }
-                  showPercentage={
-                    showPercentages &&
-                    member.match.percentage > 0 &&
-                    member.match.relationship !== "Self"
-                  }
-                />
+                <div className="relative">
+                  <div className="absolute inset-[-3px] rounded-full bg-[var(--background)]" />
+                  <GeneticMatchRing
+                    percentage={member.match.percentage}
+                    size={isViewerNode ? 86 : 80}
+                    strokeWidth={2.5}
+                    avatarUrl={member.profile.avatar_url}
+                    initials={initials}
+                    edgeColor={
+                      typeof member.generation === "number"
+                        ? generationColorByValue.get(member.generation)
+                        : undefined
+                    }
+                    showPercentage={
+                      showPercentages &&
+                      member.match.percentage > 0 &&
+                      member.match.relationship !== "Self"
+                    }
+                  />
+                </div>
                 {isViewerNode && (
                   <span className="mt-1.5 inline-flex items-center rounded-full bg-gold-400/15 border border-gold-400/30 px-2 py-0.5 text-[9px] font-semibold tracking-wider text-gold-300">
                     YOU

@@ -816,6 +816,7 @@ export default function DashboardPage() {
                     focusCountryCode={focusedCountryCode}
                     focusSignal={focusSignal}
                     onMemberClick={(member) => navigateToProfile(member.id)}
+                    onCountryClick={handleFocusCountry}
                   />
                 </div>
                 {countryGroups.length > 0 && (

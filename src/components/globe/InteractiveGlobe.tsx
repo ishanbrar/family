@@ -29,6 +29,7 @@ import { countryName } from "@/lib/country-utils";
 interface InteractiveGlobeProps {
   members: Profile[];
   onMemberClick?: (member: Profile) => void;
+  onCountryClick?: (countryCode: string) => void;
   focusCountryCode?: string | null;
   focusSignal?: number;
   className?: string;
@@ -99,6 +100,7 @@ function centerPanForGeoPoint(baseSize: number, zoom: number, lng: number, lat: 
 export function InteractiveGlobe({
   members,
   onMemberClick,
+  onCountryClick,
   focusCountryCode,
   focusSignal,
   className,
@@ -332,6 +334,16 @@ export function InteractiveGlobe({
 
     return { memberCountryByMemberId, memberCountryIds };
   }, [countries, locatedMembers]);
+
+  const countryCodeByFeatureId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of locatedMembers) {
+      if (!m.countryCode) continue;
+      const fid = countryMembership.memberCountryByMemberId.get(m.member.id);
+      if (fid && !map.has(fid)) map.set(fid, m.countryCode);
+    }
+    return map;
+  }, [locatedMembers, countryMembership]);
 
   const focusedCountryIds = useMemo(() => {
     const ids = new Set<string>();
@@ -584,6 +596,12 @@ export function InteractiveGlobe({
                           : "var(--map-country-stroke)"
                     }
                     strokeWidth={isFocused ? 1 : hasMember ? 0.8 : 0.3}
+                    style={hasMember ? { cursor: "pointer", pointerEvents: "auto" } : undefined}
+                    onClick={hasMember ? (e) => {
+                      e.stopPropagation();
+                      const code = countryCodeByFeatureId.get(country.id);
+                      if (code) onCountryClick?.(code);
+                    } : undefined}
                   />
                 );
               })}
@@ -654,6 +672,12 @@ export function InteractiveGlobe({
                         : "var(--map-country-stroke)"
                   }
                   strokeWidth={isFocused ? 1 : hasMember ? 0.7 : 0.35}
+                  style={hasMember ? { cursor: "pointer", pointerEvents: "auto" } : undefined}
+                  onClick={hasMember ? (e) => {
+                    e.stopPropagation();
+                    const code = countryCodeByFeatureId.get(country.id);
+                    if (code) onCountryClick?.(code);
+                  } : undefined}
                 />
               );
             })}

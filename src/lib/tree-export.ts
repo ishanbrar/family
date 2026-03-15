@@ -68,205 +68,239 @@ export async function exportFamilyTreeAsImage({
   });
 
   const canvas = document.createElement("canvas");
-  const width = 4800;
-  const height = 3000;
+  const width = 5400;
+  const height = 3400;
   canvas.width = width;
   canvas.height = height;
 
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not initialize export canvas.");
 
-  // Parchment-like backdrop
-  const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, "#efe2c8");
-  bg.addColorStop(0.5, "#f4ead4");
-  bg.addColorStop(1, "#e5d3b1");
-  ctx.fillStyle = bg;
+  // Clean cream background
+  ctx.fillStyle = "#faf7f2";
   ctx.fillRect(0, 0, width, height);
 
-  // Subtle paper grain
-  for (let i = 0; i < 2600; i += 1) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
-    const alpha = 0.02 + Math.random() * 0.04;
-    ctx.fillStyle = `rgba(62, 43, 25, ${alpha.toFixed(3)})`;
-    ctx.fillRect(x, y, 2, 2);
+  // Minimal paper texture
+  for (let i = 0; i < 500; i++) {
+    ctx.fillStyle = `rgba(180, 165, 140, ${(0.012 + Math.random() * 0.018).toFixed(3)})`;
+    ctx.fillRect(Math.random() * width, Math.random() * height, 1.5, 1.5);
   }
 
-  // Border
-  ctx.strokeStyle = "#6f5537";
-  ctx.lineWidth = 8;
-  ctx.strokeRect(54, 54, width - 108, height - 108);
-  ctx.lineWidth = 2;
-  ctx.strokeRect(78, 78, width - 156, height - 156);
+  // Elegant border
+  const bi = 40;
+  ctx.strokeStyle = "#c4a97d";
+  ctx.lineWidth = 3;
+  drawRoundedRect(ctx, bi, bi, width - bi * 2, height - bi * 2, 16);
+  ctx.stroke();
+  ctx.strokeStyle = "#d4c4a8";
+  ctx.lineWidth = 1;
+  drawRoundedRect(ctx, bi + 12, bi + 12, width - (bi + 12) * 2, height - (bi + 12) * 2, 12);
+  ctx.stroke();
 
-  // Header
+  // Header ornamental line
+  const hdrY = 110;
+  const ornW = 220;
+  ctx.strokeStyle = "#c4a97d";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(width / 2 - ornW, hdrY);
+  ctx.lineTo(width / 2 + ornW, hdrY);
+  ctx.stroke();
+
+  // Family name
   ctx.textAlign = "center";
-  ctx.fillStyle = "#3b2a1a";
-  ctx.font = "700 78px 'Times New Roman', Georgia, serif";
-  ctx.fillText(`${familyName} Family Tree`, width / 2, 180);
+  ctx.fillStyle = "#2c1810";
+  ctx.font = "700 88px Georgia, 'Times New Roman', serif";
+  ctx.fillText(`The ${familyName} Family`, width / 2, hdrY + 84);
 
-  ctx.font = "500 36px 'Times New Roman', Georgia, serif";
-  ctx.fillStyle = "#58412a";
-  ctx.fillText("Genealogical Print Edition", width / 2, 234);
+  // Subtitle
+  ctx.font = "italic 400 34px Georgia, 'Times New Roman', serif";
+  ctx.fillStyle = "#6b5840";
+  ctx.fillText(scopeLabel, width / 2, hdrY + 132);
 
-  ctx.font = "500 30px 'Times New Roman', Georgia, serif";
-  ctx.fillStyle = "#6c5335";
-  ctx.fillText(scopeLabel, width / 2, 282);
+  // Bottom ornamental line
+  ctx.strokeStyle = "#c4a97d";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(width / 2 - ornW, hdrY + 155);
+  ctx.lineTo(width / 2 + ornW, hdrY + 155);
+  ctx.stroke();
 
-  ctx.font = "400 24px 'Times New Roman', Georgia, serif";
-  ctx.fillStyle = "#6f604f";
-  const exportedAt = new Date().toLocaleString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-  ctx.fillText(`Exported ${exportedAt}`, width / 2, 322);
-
-  const horizontalPadding = 220;
-  const topPadding = 430;
-  const bottomPadding = 180;
+  // Layout metrics
+  const horizontalPadding = 200;
+  const topPadding = 380;
+  const bottomPadding = 160;
   const drawAreaWidth = width - horizontalPadding * 2;
   const drawAreaHeight = height - topPadding - bottomPadding;
 
   const scaleX = drawAreaWidth / Math.max(tree.width, 1);
   const scaleY = drawAreaHeight / Math.max(tree.height, 1);
   const scale = Math.min(scaleX, scaleY);
-
   const treeOffsetX = horizontalPadding + (drawAreaWidth - tree.width * scale) / 2;
   const treeOffsetY = topPadding + (drawAreaHeight - tree.height * scale) / 2;
 
-  const nodesById = new Map(tree.nodes.map((node) => [node.profile.id, node]));
-
-  const nodeWidth = Math.max(170, Math.min(220, 155 * scale));
-  const nodeHeight = Math.max(82, Math.min(104, 66 * scale));
-  const nodeRadius = 12;
-
+  const nodesById = new Map(tree.nodes.map((n) => [n.profile.id, n]));
   const mapX = (x: number) => treeOffsetX + x * scale;
   const mapY = (y: number) => treeOffsetY + y * scale;
 
-  // Pedigree orthogonal connectors: use canvas-space node bounds so lines meet node edges
-  const halfH = nodeHeight / 2;
-  ctx.strokeStyle = "#5f4932";
-  ctx.lineWidth = 2.5;
+  const circleR = Math.max(38, Math.min(52, 36 * scale));
+
+  // Generation color palette
+  const genPalette = ["#6b4226", "#5b21b6", "#15803d", "#1d4ed8"];
+  const genValues = [...new Set(tree.nodes.map((n) => n.generation))].sort((a, b) => b - a);
+  const genColor = new Map<number, string>();
+  genValues.forEach((g, i) => genColor.set(g, genPalette[Math.min(i, genPalette.length - 1)]));
+
+  // ── Connections ──
+  ctx.lineCap = "round";
+
+  // Sibship brackets
   for (const sib of tree.sibships) {
-    const parentNodes = sib.parents.map((id) => nodesById.get(id)).filter(Boolean) as typeof tree.nodes;
-    const childNodes = sib.children.map((id) => nodesById.get(id)).filter(Boolean) as typeof tree.nodes;
-    if (parentNodes.length === 0 || childNodes.length === 0) continue;
+    const pNodes = sib.parents.map((id) => nodesById.get(id)).filter(Boolean) as typeof tree.nodes;
+    const cNodes = sib.children.map((id) => nodesById.get(id)).filter(Boolean) as typeof tree.nodes;
+    if (pNodes.length === 0 || cNodes.length === 0) continue;
 
-    // Canvas-space: parent row bottom, child row top, so lines connect to node edges
-    const parentBarY = Math.max(...parentNodes.map((p) => mapY(p.y) + halfH));
-    const childBarY = Math.min(...childNodes.map((c) => mapY(c.y) - halfH));
-    const parentLeftX = Math.min(...parentNodes.map((p) => mapX(p.x)));
-    const parentRightX = Math.max(...parentNodes.map((p) => mapX(p.x)));
-    const childLeftX = Math.min(...childNodes.map((c) => mapX(c.x)));
-    const childRightX = Math.max(...childNodes.map((c) => mapX(c.x)));
-    const midX = (Math.min(parentLeftX, childLeftX) + Math.max(parentRightX, childRightX)) / 2;
+    const sortedP = [...pNodes].sort((a, b) => mapX(a.x) - mapX(b.x));
+    const sortedC = [...cNodes].sort((a, b) => mapX(a.x) - mapX(b.x));
+    const pY = sortedP.reduce((s, p) => s + mapY(p.y), 0) / sortedP.length;
+    const cY = sortedC.reduce((s, c) => s + mapY(c.y), 0) / sortedC.length;
 
+    const hasCouple = sortedP.length >= 2;
+    const lx = mapX(sortedP[0].x);
+    const rx = mapX(sortedP[sortedP.length - 1].x);
+    const ux = hasCouple ? (lx + rx) / 2 : lx;
+    const dropStart = hasCouple ? pY : pY + circleR;
+    const childTop = cY - circleR;
+    const railY = dropStart + (childTop - dropStart) * 0.5;
+
+    ctx.strokeStyle = "#b8a080";
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    if (parentNodes.length >= 2) {
-      const inset = nodeWidth * 0.45;
-      ctx.moveTo(parentLeftX + inset, parentBarY);
-      ctx.lineTo(parentRightX - inset, parentBarY);
+
+    if (hasCouple) {
+      ctx.moveTo(lx + circleR, pY);
+      ctx.lineTo(rx - circleR, pY);
     }
-    for (const p of parentNodes) {
-      const py = mapY(p.y) + halfH;
-      ctx.moveTo(mapX(p.x), py);
-      ctx.lineTo(mapX(p.x), parentBarY);
+
+    ctx.moveTo(ux, dropStart);
+    ctx.lineTo(ux, railY);
+
+    const railL = Math.min(ux, ...sortedC.map((c) => mapX(c.x)));
+    const railR = Math.max(ux, ...sortedC.map((c) => mapX(c.x)));
+    if (railR - railL > 0.5) {
+      ctx.moveTo(railL, railY);
+      ctx.lineTo(railR, railY);
     }
-    ctx.moveTo(midX, parentBarY);
-    ctx.lineTo(midX, childBarY);
-    ctx.moveTo(childLeftX, childBarY);
-    ctx.lineTo(childRightX, childBarY);
-    for (const c of childNodes) {
-      const cy = mapY(c.y) - halfH;
-      ctx.moveTo(mapX(c.x), childBarY);
-      ctx.lineTo(mapX(c.x), cy);
+    for (const c of sortedC) {
+      ctx.moveTo(mapX(c.x), railY);
+      ctx.lineTo(mapX(c.x), childTop);
     }
     ctx.stroke();
   }
 
-  // Spouse and sibling connections
-  for (const connection of tree.connections) {
-    const fromNode = nodesById.get(connection.from);
-    const toNode = nodesById.get(connection.to);
-    if (!fromNode || !toNode) continue;
-
-    const x1 = mapX(fromNode.x);
-    const y1 = mapY(fromNode.y);
-    const x2 = mapX(toNode.x);
-    const y2 = mapY(toNode.y);
-
-    if (connection.type === "parent") continue; // Handled by sibships
-
-    if (connection.type === "spouse") {
-      ctx.save();
-      ctx.strokeStyle = "#7a5f3d";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      const y = (y1 + y2) / 2;
-      ctx.moveTo(Math.min(x1, x2) + nodeWidth * 0.55, y);
-      ctx.lineTo(Math.max(x1, x2) - nodeWidth * 0.55, y);
-      ctx.stroke();
-      ctx.restore();
-      continue;
-    }
-
-    if (connection.type === "sibling" || connection.type === "half_sibling") continue;
+  // Spouse-only connections
+  ctx.strokeStyle = "#b8a080";
+  ctx.lineWidth = 2.5;
+  for (const conn of tree.connections) {
+    if (conn.type !== "spouse") continue;
+    const a = nodesById.get(conn.from);
+    const b = nodesById.get(conn.to);
+    if (!a || !b) continue;
+    const ax = mapX(a.x), ay = mapY(a.y), bx = mapX(b.x), by = mapY(b.y);
+    ctx.beginPath();
+    ctx.moveTo(Math.min(ax, bx) + circleR, (ay + by) / 2);
+    ctx.lineTo(Math.max(ax, bx) - circleR, (ay + by) / 2);
+    ctx.stroke();
   }
 
-  // Nodes
+  // ── Nodes ──
   for (const node of tree.nodes) {
-    const centerX = mapX(node.x);
-    const centerY = mapY(node.y);
-    const x = centerX - nodeWidth / 2;
-    const y = centerY - nodeHeight / 2;
+    const cx = mapX(node.x);
+    const cy = mapY(node.y);
 
-    const fill = ctx.createLinearGradient(x, y, x, y + nodeHeight);
-    fill.addColorStop(0, "#fff9ec");
-    fill.addColorStop(1, "#efe1c6");
-    ctx.fillStyle = fill;
-    drawRoundedRect(ctx, x, y, nodeWidth, nodeHeight, nodeRadius);
+    // Background circle masks lines
+    ctx.beginPath();
+    ctx.arc(cx, cy, circleR + 4, 0, Math.PI * 2);
+    ctx.fillStyle = "#faf7f2";
     ctx.fill();
 
-    ctx.strokeStyle = "#7a5f3d";
-    ctx.lineWidth = 2.5;
-    drawRoundedRect(ctx, x, y, nodeWidth, nodeHeight, nodeRadius);
+    // Colored generation ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, circleR, 0, Math.PI * 2);
+    ctx.strokeStyle = genColor.get(node.generation) || "#6b4226";
+    ctx.lineWidth = 3;
     ctx.stroke();
 
-    const name = formatFullName(node.profile);
-    const year = formatBirthYear(node.profile);
+    // Inner fill
+    const nFill = ctx.createRadialGradient(cx - circleR * 0.15, cy - circleR * 0.15, 0, cx, cy, circleR);
+    nFill.addColorStop(0, "#ffffff");
+    nFill.addColorStop(1, "#f0ebe3");
+    ctx.beginPath();
+    ctx.arc(cx, cy, circleR - 2, 0, Math.PI * 2);
+    ctx.fillStyle = nFill;
+    ctx.fill();
 
+    // Initials
+    const initials = `${node.profile.first_name[0] || ""}${node.profile.last_name[0] || ""}`.toUpperCase();
     ctx.textAlign = "center";
-    ctx.fillStyle = "#332312";
-    ctx.font = "600 24px 'Times New Roman', Georgia, serif";
+    ctx.textBaseline = "middle";
+    ctx.font = `600 ${Math.round(circleR * 0.62)}px Georgia, serif`;
+    ctx.fillStyle = "#3b2a1a";
+    ctx.fillText(initials, cx, cy + 1);
 
-    const maxNameWidth = nodeWidth - 18;
-    let renderedName = name;
-    while (ctx.measureText(renderedName).width > maxNameWidth && renderedName.length > 5) {
+    // Name
+    ctx.textBaseline = "top";
+    const fontSize = Math.round(Math.max(19, 17 * scale));
+    ctx.font = `600 ${fontSize}px Georgia, serif`;
+    ctx.fillStyle = "#2c1810";
+    const maxW = Math.max(140, circleR * 4.5);
+    let renderedName = formatFullName(node.profile);
+    while (ctx.measureText(renderedName).width > maxW && renderedName.length > 5) {
       renderedName = `${renderedName.slice(0, -2)}…`;
     }
-    ctx.fillText(renderedName, centerX, y + 34);
+    ctx.fillText(renderedName, cx, cy + circleR + 12);
 
+    let labelY = cy + circleR + 12 + fontSize + 4;
+
+    // Display name
     if (node.profile.display_name) {
-      ctx.font = "italic 500 18px 'Times New Roman', Georgia, serif";
-      ctx.fillStyle = "#6c5335";
-      let alias = `"${node.profile.display_name}"`;
-      while (ctx.measureText(alias).width > maxNameWidth && alias.length > 4) {
-        alias = `${alias.slice(0, -2)}…`;
-      }
-      ctx.fillText(alias, centerX, y + 55);
+      const aliasSize = Math.round(Math.max(15, 14 * scale));
+      ctx.font = `italic 400 ${aliasSize}px Georgia, serif`;
+      ctx.fillStyle = "#6b5840";
+      ctx.fillText(`"${node.profile.display_name}"`, cx, labelY);
+      labelY += aliasSize + 3;
     }
 
-    ctx.font = "500 18px 'Times New Roman', Georgia, serif";
-    ctx.fillStyle = "#5f4932";
-    ctx.fillText(year, centerX, y + nodeHeight - 14);
+    // Birth year
+    const yearSize = Math.round(Math.max(15, 14 * scale));
+    ctx.font = `400 ${yearSize}px Georgia, serif`;
+    ctx.fillStyle = "#8a7a65";
+    ctx.fillText(formatBirthYear(node.profile), cx, labelY);
   }
 
+  // ── Footer ──
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  const exportedAt = new Date().toLocaleString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  ctx.font = "400 22px Georgia, serif";
+  ctx.fillStyle = "#8a7a65";
+  ctx.fillText(
+    `${members.length} members · ${genValues.length} generations · Exported ${exportedAt}`,
+    width / 2,
+    height - bi - 22
+  );
+  ctx.font = "italic 400 18px Georgia, serif";
+  ctx.fillStyle = "#b0a090";
+  ctx.fillText("Generated by Legacy", width / 2, height - bi - 50);
+
+  // ── Download ──
   const blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob((nextBlob) => resolve(nextBlob), "image/png", 1);
   });
-
   if (!blob) throw new Error("Could not render export image.");
 
   const fileFamily = sanitizeFileName(familyName || "family");
