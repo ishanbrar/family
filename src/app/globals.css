@@ -619,3 +619,50 @@ html.light select option {
   color: #0f172a;
   background-color: #ffffff;
 }
+
+/* ── PWA: iOS safe areas for notched devices ── */
+@supports (padding-top: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* ── PWA: Visual tap feedback on all interactive elements ── */
+button,
+a,
+[role="button"],
+[tabindex="0"],
+.tap-target {
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 75ms ease-out, opacity 75ms ease-out;
+}
+
+button:active,
+a:active,
+[role="button"]:active,
+[tabindex="0"]:active,
+.tap-target:active {
+  transform: scale(0.97);
+  opacity: 0.82;
+}
+
+/* Prevent tap feedback on elements that manage their own transforms */
+button:active:disabled,
+.no-tap-feedback:active {
+  transform: none;
+  opacity: 1;
+}
+
+/* Standalone PWA: hide scrollbars for cleaner native feel */
+@media (display-mode: standalone) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: none;
+  }
+}

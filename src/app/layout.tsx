@@ -32,11 +32,22 @@ export const metadata: Metadata = {
   title: "Legacy — Ancestry & Health Platform",
   description:
     "A luxury platform for exploring your family tree, genetic connections, and hereditary health insights.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Legacy",
+  },
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
   viewportFit: "cover",
 };
 
@@ -51,6 +62,11 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var modeKey='${THEME_STORAGE_KEY}';var paletteKey='${THEME_PALETTE_STORAGE_KEY}';var storedMode=localStorage.getItem(modeKey);var mode=storedMode==='light'||storedMode==='dark'?storedMode:'light';var storedPalette=localStorage.getItem(paletteKey);var palette=(storedPalette==='gold'||storedPalette==='blue'||storedPalette==='red'||storedPalette==='yellow')?storedPalette:'gold';var root=document.documentElement;root.classList.remove('light','dark');root.classList.remove('theme-gold','theme-blue','theme-red','theme-yellow');root.classList.add(mode);root.classList.add('theme-'+palette);}catch(e){var root=document.documentElement;root.classList.add('light');root.classList.add('theme-gold');}})();`,
+          }}
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js')});}`,
           }}
         />
       </head>
