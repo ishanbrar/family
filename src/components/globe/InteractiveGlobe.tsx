@@ -32,6 +32,8 @@ interface InteractiveGlobeProps {
   onCountryClick?: (countryCode: string) => void;
   focusCountryCode?: string | null;
   focusSignal?: number;
+  /** Globe diameter in pixels. Default 300. */
+  size?: number;
   className?: string;
 }
 
@@ -85,6 +87,11 @@ function normalizeCountryName(value: string): string {
     .trim();
 }
 
+/** Show only city name (e.g. "Dallas, TX, USA" → "Dallas"). */
+function cityOnly(locationCity: string): string {
+  return (locationCity || "").split(",")[0].trim() || locationCity.trim();
+}
+
 function centerPanForGeoPoint(baseSize: number, zoom: number, lng: number, lat: number) {
   const projection = geoNaturalEarth1()
     .scale((baseSize / 6.2) * zoom)
@@ -103,9 +110,10 @@ export function InteractiveGlobe({
   onCountryClick,
   focusCountryCode,
   focusSignal,
+  size = 420,
   className,
 }: InteractiveGlobeProps) {
-  const baseSize = 300;
+  const baseSize = size;
   const [rotation, setRotation] = useState<[number, number]>(BASE_ROTATION);
   const [isFlatMap, setIsFlatMap] = useState(false);
   const [mapZoom, setMapZoom] = useState(MAP_MIN_ZOOM);
@@ -738,7 +746,7 @@ export function InteractiveGlobe({
                   transition: "all 0.2s ease",
                 }}
               />
-              {/* City label */}
+              {/* City label (city name only) */}
               {group.city && (
                 <div
                   className="absolute pointer-events-none whitespace-nowrap"
@@ -754,7 +762,7 @@ export function InteractiveGlobe({
                     transition: "color 0.2s ease",
                   }}
                 >
-                  {group.city}
+                  {cityOnly(group.city)}
                   {group.members.length > 1 ? ` (${group.members.length})` : ""}
                 </div>
               )}
@@ -773,7 +781,7 @@ export function InteractiveGlobe({
                     </p>
                   ))}
                   {group.city && (
-                    <p className="text-[10px] text-white/40 mt-0.5">{group.city}</p>
+                    <p className="text-[10px] text-white/40 mt-0.5">{cityOnly(group.city)}</p>
                   )}
                 </motion.div>
               )}

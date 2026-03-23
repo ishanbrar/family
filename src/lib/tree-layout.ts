@@ -122,15 +122,22 @@ export function createFamilyTreeLayout(
     if (rel.type === "parent") addParentMapEntry(rel.user_id, rel.relative_id);
     else if (rel.type === "child") addParentMapEntry(rel.relative_id, rel.user_id);
   }
+  // Merge parent sets only when siblings plausibly share a parent (intersection) or one side has no parents yet.
+  // Unions of disjoint parent sets (e.g. half-siblings on different sides) used to merge everyone into one
+  // fake nuclear family and broke tree layout (wrong spouse bars / wrong branches).
   let changed = true;
   while (changed) {
     changed = false;
     for (const rel of relationships) {
-      if (rel.type !== "sibling") continue;
+      if (rel.type !== "sibling" && rel.type !== "half_sibling") continue;
       const a = rel.user_id,
         b = rel.relative_id;
       const pa = parentIdsByChild.get(a) || new Set<string>();
       const pb = parentIdsByChild.get(b) || new Set<string>();
+      const intersection = new Set([...pa].filter((id) => pb.has(id)));
+      const canMerge =
+        intersection.size > 0 || pa.size === 0 || pb.size === 0;
+      if (!canMerge) continue;
       const union = new Set([...pa, ...pb]);
       if (union.size > pa.size) {
         parentIdsByChild.set(a, new Set(union));

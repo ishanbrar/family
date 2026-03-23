@@ -77,6 +77,7 @@ export default function TreeExplorerPage() {
   const [showBirthYear, setShowBirthYear] = useState(true);
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
+  const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [draftFamilyName, setDraftFamilyName] = useState("");
@@ -153,7 +154,7 @@ export default function TreeExplorerPage() {
   const handleAddMember = useCallback(
     async (
       memberData: Omit<Profile, "id" | "created_at" | "updated_at">,
-      rel: { relativeId: string; type: RelationshipType },
+      rel: { relativeId: string; type: RelationshipType; marriageDate?: string | null },
       avatarFile?: File
     ) => {
       await addMemberAction(memberData, rel, avatarFile);
@@ -325,6 +326,7 @@ export default function TreeExplorerPage() {
               onShowDeathYearChange={setShowDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
               onShowBirthCountryFlagChange={setShowBirthCountryFlag}
+              onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
             />
           </div>
         </motion.div>
@@ -361,6 +363,7 @@ export default function TreeExplorerPage() {
               showBirthYear={showBirthYear}
               showDeathYear={showDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
+              viewResetSignal={treeViewResetSignal}
               showHoverCard
               onMemberClick={handleMemberClick}
               onBackgroundClick={() => setSelectedMemberId(null)}

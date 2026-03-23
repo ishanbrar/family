@@ -14,7 +14,7 @@ export default function PreviewAddPage() {
           onClose={() => {}}
           onAdd={(
             _member: Omit<Profile, "id" | "created_at" | "updated_at">,
-            _rel: { relativeId: string; type: RelationshipType },
+            _rel: { relativeId: string; type: RelationshipType; marriageDate?: string | null },
             _avatarFile?: File
           ) => {}}
         />

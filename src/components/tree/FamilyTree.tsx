@@ -50,6 +50,7 @@ interface FamilyTreeProps {
   onMemberClick?: (id: string) => void;
   onMemberHover?: (id: string | null) => void;
   onBackgroundClick?: () => void;
+  viewResetSignal?: number;
   showHoverCard?: boolean;
   canvasWidth?: number;
   canvasHeight?: number;
@@ -76,6 +77,7 @@ export function FamilyTree({
   onMemberClick,
   onMemberHover,
   onBackgroundClick,
+  viewResetSignal,
   showHoverCard = false,
   canvasWidth = 800,
   canvasHeight = 560,
@@ -89,9 +91,11 @@ export function FamilyTree({
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const panStartRef = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
   const pinchStartRef = useRef<{ dist: number; scale: number; vx: number; vy: number; mx: number; my: number } | null>(null);
-  const isAnimatingRef = useRef(false);
+  const animationTimeoutRef = useRef<number | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
   const hasAutoCenteredRef = useRef(false);
   const didDragRef = useRef(false);
+  const lastResetSignalRef = useRef<number | undefined>(undefined);
 
   const hoveredMember = useMemo(
     () => members.find((member) => member.profile.id === hoveredMemberId) || null,
@@ -143,10 +147,20 @@ export function FamilyTree({
   }, []);
 
   const animateTo = useCallback((target: { x: number; y: number; scale: number }) => {
-    isAnimatingRef.current = true;
+    setIsAnimating(true);
     updateView(target);
-    setTimeout(() => { isAnimatingRef.current = false; }, 320);
+    if (animationTimeoutRef.current) window.clearTimeout(animationTimeoutRef.current);
+    animationTimeoutRef.current = window.setTimeout(() => {
+      setIsAnimating(false);
+      animationTimeoutRef.current = null;
+    }, 320);
   }, [updateView]);
+
+  useEffect(() => {
+    return () => {
+      if (animationTimeoutRef.current) window.clearTimeout(animationTimeoutRef.current);
+    };
+  }, []);
 
   const zoomTo = useCallback((newScale: number, cx: number, cy: number, animate = false) => {
     const v = viewRef.current;
@@ -273,6 +287,13 @@ export function FamilyTree({
     hasAutoCenteredRef.current = true;
     requestAnimationFrame(() => requestAnimationFrame(() => fitToView()));
   }, [members.length, fitToView]);
+
+  useEffect(() => {
+    if (viewResetSignal == null) return;
+    if (lastResetSignalRef.current === viewResetSignal) return;
+    lastResetSignalRef.current = viewResetSignal;
+    fitToView();
+  }, [viewResetSignal, fitToView]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     const el = containerRef.current;
@@ -415,7 +436,7 @@ export function FamilyTree({
           minHeight: canvasHeight,
           transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
           transformOrigin: "0 0",
-          transition: isAnimatingRef.current ? "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)" : "none",
+          transition: isAnimating ? "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)" : "none",
           willChange: "transform",
         }}
         onClick={() => {
@@ -630,8 +651,13 @@ export function FamilyTree({
                 );
                 onMemberHover?.(null);
               }}
+              onPointerDown={(event) => {
+                // Prevent container-level pan capture so node taps/clicks stay clickable.
+                event.stopPropagation();
+              }}
               onClick={(event) => {
                 event.stopPropagation();
+                if (didDragRef.current) return;
                 onMemberClick?.(member.profile.id);
               }}
             >

@@ -56,9 +56,148 @@ export function ProfileCard({
   const age = calculateAge(profile.date_of_birth);
   const initials = getInitials(profile.first_name, profile.last_name);
 
+  if (isViewer) {
+    return (
+      <GlassCard
+        glow
+        className={cn(
+          "w-full p-6 sm:p-8",
+          onClick && "cursor-pointer",
+          className
+        )}
+        onClick={onClick}
+        whileHover={onClick ? { scale: 1.01, y: -2 } : undefined}
+      >
+        <div className="flex flex-col lg:flex-row lg:items-stretch gap-8 lg:gap-10">
+          {/* Avatar + You */}
+          <div className="flex flex-col items-center lg:items-start shrink-0">
+            <GeneticMatchRing
+              percentage={100}
+              size={140}
+              strokeWidth={3}
+              avatarUrl={profile.avatar_url}
+              initials={initials}
+              label="You"
+              showPercentage={false}
+            />
+          </div>
+
+          {/* Name + details grid */}
+          <div className="flex-1 min-w-0 flex flex-col justify-center">
+            <div className="text-center lg:text-left">
+              <motion.h3
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.15 }}
+                className="text-2xl sm:text-3xl font-serif font-semibold app-text-primary tracking-tight"
+              >
+                {profile.first_name} {profile.last_name}
+              </motion.h3>
+              {profile.display_name && (
+                <p className="mt-1.5 text-sm text-[var(--accent-400)] font-medium">
+                  {profile.display_name}
+                </p>
+              )}
+              {!profile.is_alive && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+                    bg-[var(--foreground)]/[0.06] text-[11px] app-text-secondary font-medium uppercase tracking-wider"
+                >
+                  <Star size={11} className="text-[var(--accent-400)]" />
+                  In Memoriam
+                </motion.span>
+              )}
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.25 }}
+              className="mt-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4"
+            >
+              {profile.profession && (
+                <div
+                  className="rounded-xl border border-[var(--foreground)]/[0.08] bg-[var(--background)]/80
+                    px-4 py-3 flex items-start gap-3 shadow-sm"
+                >
+                  <div className="mt-0.5 rounded-lg bg-[var(--accent-rgb)]/12 p-2 text-[var(--accent-400)]">
+                    <Briefcase size={18} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider app-text-muted font-semibold">Profession</p>
+                    <p className="mt-0.5 text-sm sm:text-base app-text-primary font-medium leading-snug">
+                      {profile.profession}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {profile.gender && (
+                <div
+                  className="rounded-xl border border-[var(--foreground)]/[0.08] bg-[var(--background)]/80
+                    px-4 py-3 flex items-start gap-3 shadow-sm"
+                >
+                  <div className="mt-0.5 rounded-lg bg-[var(--accent-rgb)]/12 p-2 text-[var(--accent-400)]">
+                    <User size={18} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider app-text-muted font-semibold">Gender</p>
+                    <p className="mt-0.5 text-sm sm:text-base app-text-primary font-medium">
+                      {formatGenderLabel(profile.gender)}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {profile.location_city && (
+                <div
+                  className="rounded-xl border border-[var(--foreground)]/[0.08] bg-[var(--background)]/80
+                    px-4 py-3 flex items-start gap-3 shadow-sm"
+                >
+                  <div className="mt-0.5 rounded-lg bg-[var(--accent-rgb)]/12 p-2 text-[var(--accent-400)]">
+                    <MapPin size={18} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider app-text-muted font-semibold">Location</p>
+                    <p className="mt-0.5 text-sm sm:text-base app-text-primary font-medium leading-snug break-words">
+                      {profile.location_city}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {profile.date_of_birth && (
+                <div
+                  className="rounded-xl border border-[var(--foreground)]/[0.08] bg-[var(--background)]/80
+                    px-4 py-3 flex items-start gap-3 shadow-sm"
+                >
+                  <div className="mt-0.5 rounded-lg bg-[var(--accent-rgb)]/12 p-2 text-[var(--accent-400)]">
+                    <Calendar size={18} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider app-text-muted font-semibold">Birth</p>
+                    <p className="mt-0.5 text-sm sm:text-base app-text-primary font-medium">
+                      {formatDate(profile.date_of_birth)}
+                      {age !== null && (
+                        <span className="app-text-secondary font-normal"> · {age} years</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+
+            <div className="mt-6 flex justify-center lg:justify-start">
+              <SocialDock links={profile.social_links} />
+            </div>
+          </div>
+        </div>
+      </GlassCard>
+    );
+  }
+
   return (
     <GlassCard
-      glow={isViewer}
+      glow={false}
       className={cn("p-6 max-w-sm w-full", onClick && "cursor-pointer", className)}
       onClick={onClick}
       whileHover={onClick ? { scale: 1.02, y: -4 } : undefined}
@@ -66,17 +205,13 @@ export function ProfileCard({
       <div className="flex flex-col items-center text-center">
         {/* Blood Ring + Avatar */}
         <GeneticMatchRing
-          percentage={isViewer ? 100 : geneticMatch?.percentage || 0}
+          percentage={geneticMatch?.percentage || 0}
           size={130}
           strokeWidth={3}
           avatarUrl={profile.avatar_url}
           initials={initials}
-          label={
-            isViewer
-              ? "You"
-              : geneticMatch?.relationship || "Family"
-          }
-          showPercentage={!isViewer}
+          label={geneticMatch?.relationship || "Family"}
+          showPercentage
         />
 
         {/* Name */}

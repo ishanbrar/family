@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Bell, Globe, Lock, Palette, Settings, Users, Languages } from "lucide-react";
+import { Bell, Globe, Lock, Palette, Settings, Users, Languages, History } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { useFamilyData } from "@/hooks/use-family-data";
@@ -134,7 +134,7 @@ const RELATION_LANGUAGE_OPTIONS: { value: "en" | "punjabi"; label: string }[] = 
 ];
 
 export default function SettingsPage() {
-  const { viewer, family, loading, updateFamilyRelationLanguage } = useFamilyData();
+  const { viewer, family, loading, updateFamilyRelationLanguage, auditLogs } = useFamilyData();
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
     if (typeof document !== "undefined") return resolveAppliedThemeMode();
     return resolveInitialTheme();
@@ -454,6 +454,38 @@ export default function SettingsPage() {
             >
               Go To Dashboard
             </a>
+          </GlassCard>
+
+          <GlassCard className="p-5 xl:col-span-2">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-gold-400/10 border border-gold-400/20 flex items-center justify-center">
+                <History size={16} className="text-gold-300" />
+              </div>
+              <h2 className="text-sm font-semibold text-white/90">Audit Log</h2>
+            </div>
+            <p className="text-xs text-white/45 mb-3">
+              Recent family activity: member edits, relationship changes, and profile updates.
+            </p>
+            {auditLogs.length > 0 ? (
+              <div className="max-h-[320px] overflow-y-auto rounded-xl border border-white/[0.08] bg-white/[0.02] divide-y divide-white/[0.06]">
+                {auditLogs.map((log) => (
+                  <div key={log.id} className="px-3 py-2.5">
+                    <p className="text-sm text-white/85">
+                      <span className="text-gold-300/85">{log.actor_name || "Family member"}</span>{" "}
+                      <span className="text-white/70">{log.action.replace(/\./g, " ")}</span>
+                    </p>
+                    <p className="text-[11px] text-white/40 mt-0.5">
+                      {new Date(log.created_at).toLocaleString()}
+                      {log.entity_type ? ` · ${log.entity_type}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-4 text-sm text-white/40">
+                No audit entries yet.
+              </div>
+            )}
           </GlassCard>
         </div>
       </main>

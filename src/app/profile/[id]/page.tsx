@@ -134,9 +134,17 @@ export default function MemberProfilePage({
     match: calculateGeneticMatch(member.id, p.id, relationships, p.gender, family?.relation_language, members),
   }));
 
-  const handleSave = async (updates: Partial<Profile> & { avatarFile?: File }) => {
-    const { avatarFile, ...profileUpdates } = updates;
-    await updateProfile(member.id, profileUpdates, avatarFile);
+  const spouseRelation = relationships.find(
+    (rel) =>
+      rel.type === "spouse" &&
+      ((rel.user_id === member.id && rel.relative_id !== member.id) ||
+        (rel.relative_id === member.id && rel.user_id !== member.id))
+  );
+  const marriageDate = spouseRelation?.marriage_date || null;
+
+  const handleSave = async (updates: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => {
+    const { avatarFile, galleryFiles, ...profileUpdates } = updates;
+    await updateProfile(member.id, profileUpdates, avatarFile, galleryFiles);
   };
 
   return (
@@ -144,6 +152,7 @@ export default function MemberProfilePage({
       <Sidebar />
 
       <EditProfileModal
+        key={`${member.id}-${editOpen ? "open" : "closed"}-${member.updated_at}`}
         profile={member}
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
@@ -243,6 +252,17 @@ export default function MemberProfilePage({
                       : null,
                   },
                   { icon: MapPin, label: "Place of Birth", value: member.place_of_birth },
+                  {
+                    icon: Calendar,
+                    label: "Marriage / Anniversary",
+                    value: marriageDate
+                      ? new Date(marriageDate).toLocaleDateString("en-US", {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : null,
+                  },
                 ].map((field) => {
                   const Icon = field.icon;
                   return (
@@ -259,6 +279,24 @@ export default function MemberProfilePage({
 
               <div className="mt-5">
                 <SocialDock links={member.social_links} />
+              </div>
+
+              <div className="mt-5 w-full">
+                <h3 className="text-xs text-white/30 font-medium uppercase tracking-wider mb-2">Photo Gallery</h3>
+                {(member.gallery_photos || []).length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {(member.gallery_photos || []).map((photo, idx) => (
+                      <img
+                        key={`${photo}-${idx}`}
+                        src={photo}
+                        alt=""
+                        className="w-full h-20 rounded-lg object-cover border border-white/[0.08]"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-white/35">No additional photos yet.</p>
+                )}
               </div>
             </div>
           </GlassCard>

@@ -193,7 +193,38 @@ export function calculateGeneticMatch(
     return { percentage: 100, relationship: "Self", path: [viewerId] };
   }
 
+  // Explicit sibling / half-sibling edge — always wins over inferred paths (avoids "Niece" via parent→child).
+  const directSibling = relationships.find(
+    (r) =>
+      (r.type === "sibling" || r.type === "half_sibling") &&
+      ((r.user_id === viewerId && r.relative_id === targetId) ||
+        (r.user_id === targetId && r.relative_id === viewerId))
+  );
+  if (directSibling) {
+    const isHalf = directSibling.type === "half_sibling";
+    const label = isHalf ? "Half-Sibling" : "Sibling";
+    const pct = isHalf ? 25 : 50;
+    const englishRelationship = applyGenderToRelationshipLabel(label, targetGender);
+    const relationship = getRelationDisplayLabel(
+      englishRelationship,
+      targetGender ?? null,
+      relationLanguage ?? "en"
+    );
+    return {
+      percentage: pct,
+      relationship,
+      path: [viewerId, targetId],
+    };
+  }
+
   const graph = buildGraph(relationships);
+
+  /** Prefer sibling edges in BFS so 2-hop sibling paths beat 2-hop parent/child paths. */
+  const neighborSortKey = (t: RelationshipType): number => {
+    if (t === "sibling" || t === "half_sibling") return 0;
+    if (t === "spouse") return 1;
+    return 2;
+  };
 
   const visited = new Set<string>();
   const queue: { id: string; path: string[]; types: RelationshipType[] }[] = [
@@ -204,8 +235,11 @@ export function calculateGeneticMatch(
   while (queue.length > 0) {
     const current = queue.shift()!;
     const neighbors = graph.get(current.id) || [];
+    const sortedNeighbors = [...neighbors].sort(
+      (a, b) => neighborSortKey(a.type) - neighborSortKey(b.type)
+    );
 
-    for (const neighbor of neighbors) {
+    for (const neighbor of sortedNeighbors) {
       if (neighbor.id === targetId) {
         const path = [...current.path, targetId];
         const edgeTypes = [...current.types, neighbor.type];
@@ -358,6 +392,11 @@ function inferRelationship(types: RelationshipType[]): string {
     "parent→sibling→spouse": "Aunt's/Uncle's Spouse",
     // Through spouse (coefficient will be 0 anyway)
     "spouse": "Spouse",
+    // Same generation via two sibling hops (e.g. you → brother → his sister)
+    "sibling→sibling": "Sibling",
+    "half_sibling→sibling": "Half-Sibling",
+    "sibling→half_sibling": "Half-Sibling",
+    "half_sibling→half_sibling": "Half-Sibling",
   };
 
   if (patterns[chain]) return patterns[chain];

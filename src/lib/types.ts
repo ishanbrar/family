@@ -40,6 +40,7 @@ export interface Profile {
   social_links: SocialLinks;
   about_me: string | null;
   country_code: string | null;
+  gallery_photos?: string[];
   role: Role;
   is_alive: boolean;
   onboarding_completed?: boolean;
@@ -60,6 +61,19 @@ export interface Relationship {
   user_id: string;
   relative_id: string;
   type: RelationshipType;
+  marriage_date?: string | null;
+  created_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  family_id: string;
+  actor_user_id: string | null;
+  actor_name: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  details: Record<string, unknown> | null;
   created_at: string;
 }
 

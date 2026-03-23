@@ -56,3 +56,41 @@ export async function deleteAvatar(
 
   await supabase.storage.from(BUCKET).remove([match[1]]);
 }
+
+/**
+ * Upload multiple gallery images and return their public URLs.
+ */
+export async function uploadProfilePhotos(
+  supabase: SupabaseClient,
+  targetUserId: string,
+  files: File[]
+): Promise<string[]> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || files.length === 0) return [];
+
+  const uploadedUrls: string[] = [];
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) continue;
+    if (file.size > 10 * 1024 * 1024) continue; // 10MB cap per photo
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${user.id}/${targetUserId}/gallery-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type,
+      });
+    if (error) {
+      console.error("Gallery photo upload error:", error);
+      continue;
+    }
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    uploadedUrls.push(data.publicUrl);
+  }
+  return uploadedUrls;
+}

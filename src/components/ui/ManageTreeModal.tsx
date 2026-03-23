@@ -14,7 +14,12 @@ interface ManageTreeModalProps {
   members: Profile[];
   relationships: Relationship[];
   familyName?: string;
-  onConnectMembers: (fromMemberId: string, toMemberId: string, type: RelationshipType) => Promise<void>;
+  onConnectMembers: (
+    fromMemberId: string,
+    toMemberId: string,
+    type: RelationshipType,
+    marriageDate?: string | null
+  ) => Promise<void>;
   onRemoveRelationship: (relationshipId: string) => Promise<void>;
   onRemoveMember: (memberId: string) => Promise<void>;
   restrictToViewer?: boolean;
@@ -77,6 +82,7 @@ export function ManageTreeModal({
   const [sourceId, setSourceId] = useState(viewer.id);
   const [targetId, setTargetId] = useState("");
   const [relationType, setRelationType] = useState<RelationshipType>("parent");
+  const [marriageDate, setMarriageDate] = useState("");
   const [query, setQuery] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +94,7 @@ export function ManageTreeModal({
     setSourceId(viewer.id);
     setTargetId("");
     setRelationType("parent");
+    setMarriageDate("");
     setQuery("");
     setBusyAction(null);
     setError(null);
@@ -151,7 +158,12 @@ export function ManageTreeModal({
       if (editingRelationshipId) {
         await onRemoveRelationship(editingRelationshipId);
       }
-      await onConnectMembers(sourceId, targetId, relationType);
+      await onConnectMembers(
+        sourceId,
+        targetId,
+        relationType,
+        relationType === "spouse" && marriageDate ? String(marriageDate).slice(0, 10) : null
+      );
       const source = memberById.get(sourceId);
       const target = memberById.get(targetId);
       setSuccess(
@@ -180,6 +192,7 @@ export function ManageTreeModal({
     setSourceId(source);
     setTargetId(target);
     setRelationType(nextType);
+    setMarriageDate(rel.marriage_date || "");
     setEditingRelationshipId(rel.id);
     setError(null);
     setSuccess(null);
@@ -317,6 +330,19 @@ export function ManageTreeModal({
                     ))}
                   </select>
                 </div>
+                {relationType === "spouse" && (
+                  <div className="mt-3">
+                    <label className="block text-[10px] text-white/35 font-medium uppercase tracking-wider mb-1">
+                      Marriage date / anniversary
+                    </label>
+                    <input
+                      type="date"
+                      value={marriageDate}
+                      onChange={(e) => setMarriageDate(e.target.value)}
+                      className="h-10 w-full rounded-xl app-input px-3 text-sm outline-none"
+                    />
+                  </div>
+                )}
 
                 {sourceId && targetId && (
                   <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">

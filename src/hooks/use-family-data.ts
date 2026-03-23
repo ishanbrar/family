@@ -29,12 +29,14 @@ import {
   addFamilyMember as dbAddFamilyMember,
   deleteFamilyMember as dbDeleteFamilyMember,
   addUserCondition as dbAddUserCondition,
+  createAuditLog as dbCreateAuditLog,
+  getFamilyAuditLogs as dbGetFamilyAuditLogs,
   type FamilyRecord,
   type InviteCodeRecord,
 } from "@/lib/supabase/db";
-import { uploadAvatar, deleteAvatar } from "@/lib/supabase/storage";
+import { uploadAvatar, deleteAvatar, uploadProfilePhotos } from "@/lib/supabase/storage";
 import { useFamilyStore } from "@/store/family-store";
-import type { Profile, Relationship, MedicalCondition, UserCondition, RelationshipType } from "@/lib/types";
+import type { Profile, Relationship, MedicalCondition, UserCondition, RelationshipType, AuditLog } from "@/lib/types";
 import { isConfigured as isSupabaseConfigured } from "@/lib/supabase/config";
 import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
 import {
@@ -48,6 +50,7 @@ interface FamilyData {
   viewer: Profile | null;
   family: FamilyRecord | null;
   inviteCodes: InviteCodeRecord[];
+  auditLogs: AuditLog[];
   members: Profile[];
   relationships: Relationship[];
   conditions: MedicalCondition[];
@@ -55,13 +58,23 @@ interface FamilyData {
   loading: boolean;
   isOnline: boolean; // true = Supabase, false = mock data
   // Actions
-  updateProfile: (userId: string, updates: Partial<Profile>, avatarFile?: File) => Promise<void>;
+  updateProfile: (
+    userId: string,
+    updates: Partial<Profile>,
+    avatarFile?: File,
+    galleryFiles?: File[]
+  ) => Promise<void>;
   addMember: (
     member: Omit<Profile, "id" | "created_at" | "updated_at">,
-    rel: { relativeId: string; type: RelationshipType },
+    rel: { relativeId: string; type: RelationshipType; marriageDate?: string | null },
     avatarFile?: File
   ) => Promise<void>;
-  linkMembers: (fromMemberId: string, toMemberId: string, type: RelationshipType) => Promise<void>;
+  linkMembers: (
+    fromMemberId: string,
+    toMemberId: string,
+    type: RelationshipType,
+    marriageDate?: string | null
+  ) => Promise<void>;
   unlinkRelationship: (relationshipId: string) => Promise<void>;
   removeMember: (memberId: string) => Promise<void>;
   addCondition: (userId: string, conditionId: string) => Promise<void>;
@@ -241,6 +254,7 @@ export function useFamilyData(): FamilyData {
   const [isOnline, setIsOnline] = useState(false);
   const [family, setFamily] = useState<FamilyRecord | null>(null);
   const [inviteCodes, setInviteCodes] = useState<InviteCodeRecord[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [conditions, setConditions] = useState<MedicalCondition[]>([]);
   const [userConds, setUserConds] = useState<UserCondition[]>([]);
   const [familyId, setFamilyId] = useState<string | null>(null);
@@ -272,6 +286,29 @@ export function useFamilyData(): FamilyData {
       // ignore
     }
   };
+
+  const logAudit = useCallback(
+    async (
+      action: string,
+      entityType: string,
+      entityId?: string | null,
+      details?: Record<string, unknown>
+    ) => {
+      if (!isOnline || !familyId || !store.viewer) return;
+      const actor = store.viewer;
+      const created = await dbCreateAuditLog(supabase, {
+        family_id: familyId,
+        actor_user_id: actor.id,
+        actor_name: `${actor.first_name} ${actor.last_name}`.trim(),
+        action,
+        entity_type: entityType,
+        entity_id: entityId || null,
+        details: details || null,
+      });
+      if (created) setAuditLogs((prev) => [created, ...prev].slice(0, 200));
+    },
+    [isOnline, familyId, store.viewer, supabase]
+  );
 
   const makeLocalInviteCode = (familyName?: string) => {
     const tokens = (familyName || "Family")
@@ -314,6 +351,7 @@ export function useFamilyData(): FamilyData {
               setUserConds(MOCK_USER_CONDITIONS);
               setFamily({ id: "mock-family", name: "Montague Family", invite_code: "MONTAGUE1234" });
               setInviteCodes([{ id: "mock-invite-1", family_id: "mock-family", code: "MONTAGUE1234", label: "Primary", is_active: true, created_at: new Date().toISOString() }]);
+              setAuditLogs([]);
               setIsOnline(false);
               setLoading(false);
               return;
@@ -343,6 +381,7 @@ export function useFamilyData(): FamilyData {
           created_at: new Date().toISOString(),
         },
       ]);
+      setAuditLogs([]);
       setIsOnline(false);
       setLoading(false);
       return;
@@ -361,6 +400,7 @@ export function useFamilyData(): FamilyData {
         setUserConds([]);
         setFamily(null);
         setInviteCodes([]);
+        setAuditLogs([]);
         setIsOnline(false);
         setLoading(false);
         return;
@@ -377,6 +417,7 @@ export function useFamilyData(): FamilyData {
         setUserConds([]);
         setFamily(null);
         setInviteCodes([]);
+        setAuditLogs([]);
         setIsOnline(false);
         setLoading(false);
         return;
@@ -389,11 +430,12 @@ export function useFamilyData(): FamilyData {
       if (viewerProfile.family_id) {
         setFamilyId(viewerProfile.family_id);
 
-        const [profiles, rels, conds, codes] = await Promise.all([
+        const [profiles, rels, conds, codes, logs] = await Promise.all([
           getFamilyProfiles(supabase, viewerProfile.family_id),
           getFamilyRelationships(supabase, viewerProfile.family_id),
           getAllConditions(supabase),
           dbGetFamilyInviteCodes(supabase, viewerProfile.family_id),
+          dbGetFamilyAuditLogs(supabase, viewerProfile.family_id, 200),
         ]);
         const fam = await getFamily(supabase, viewerProfile.family_id);
 
@@ -402,6 +444,7 @@ export function useFamilyData(): FamilyData {
         setConditions(conds);
         setFamily(fam);
         setInviteCodes(codes);
+        setAuditLogs(logs);
 
         // Persist inferred parent relationships for full siblings (union inference)
         let currentRels = [...rels];
@@ -459,6 +502,7 @@ export function useFamilyData(): FamilyData {
         store.setRelationships([]);
         setFamily(null);
         setInviteCodes([]);
+        setAuditLogs([]);
       }
     } catch (err) {
       setFamilyId(null);
@@ -470,6 +514,7 @@ export function useFamilyData(): FamilyData {
       setUserConds([]);
       setFamily(null);
       setInviteCodes([]);
+      setAuditLogs([]);
       setIsOnline(false);
     }
 
@@ -484,7 +529,12 @@ export function useFamilyData(): FamilyData {
   // ── Actions ─────────────────────────────────────
 
   const updateProfile = useCallback(
-    async (userId: string, updates: Partial<Profile>, avatarFile?: File) => {
+    async (
+      userId: string,
+      updates: Partial<Profile>,
+      avatarFile?: File,
+      galleryFiles?: File[]
+    ) => {
       if (!isOnline) {
         // Mock mode — just update store
         if (userId === store.viewer?.id) {
@@ -501,6 +551,17 @@ export function useFamilyData(): FamilyData {
           if (userId === store.viewer?.id) {
             store.updateViewer({ avatar_url: localUrl });
           }
+        }
+        if (galleryFiles && galleryFiles.length > 0) {
+          const existing = store.members.find((m) => m.id === userId)?.gallery_photos || [];
+          const localUrls = galleryFiles.map((file) => URL.createObjectURL(file));
+          const merged = [...existing, ...localUrls];
+          if (userId === store.viewer?.id) {
+            store.updateViewer({ gallery_photos: merged });
+          }
+          store.setMembers(
+            store.members.map((m) => (m.id === userId ? { ...m, gallery_photos: merged } : m))
+          );
         }
         return;
       }
@@ -523,6 +584,13 @@ export function useFamilyData(): FamilyData {
         delete finalUpdates.avatar_url;
       }
       if (avatarUrl) finalUpdates.avatar_url = avatarUrl;
+      if (galleryFiles && galleryFiles.length > 0) {
+        const uploadedGallery = await uploadProfilePhotos(supabase, userId, galleryFiles);
+        if (uploadedGallery.length > 0) {
+          const existing = updates.gallery_photos || store.members.find((m) => m.id === userId)?.gallery_photos || [];
+          finalUpdates.gallery_photos = [...existing, ...uploadedGallery];
+        }
+      }
 
       const updated = await dbUpdateProfile(supabase, userId, finalUpdates);
       if (updated) {
@@ -532,16 +600,19 @@ export function useFamilyData(): FamilyData {
         store.setMembers(
           store.members.map((m) => (m.id === userId ? updated : m))
         );
+        await logAudit("profile.updated", "profile", userId, {
+          fields: Object.keys(finalUpdates),
+        });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOnline, store.viewer, store.members]
+    [isOnline, store.viewer, store.members, logAudit]
   );
 
   const addMember = useCallback(
     async (
       memberData: Omit<Profile, "id" | "created_at" | "updated_at">,
-      rel: { relativeId: string; type: RelationshipType },
+      rel: { relativeId: string; type: RelationshipType; marriageDate?: string | null },
       avatarFile?: File
     ) => {
       if (!isOnline) {
@@ -559,7 +630,9 @@ export function useFamilyData(): FamilyData {
         store.addMember(newProfile);
         const directRelationship: Relationship = {
           id: `rel-${Date.now()}`, user_id: newId, relative_id: rel.relativeId,
-          type: rel.type, created_at: now,
+          type: rel.type,
+          marriage_date: rel.type === "spouse" ? rel.marriageDate || null : null,
+          created_at: now,
         };
         addRelationshipToStoreIfMissing(directRelationship);
 
@@ -607,7 +680,8 @@ export function useFamilyData(): FamilyData {
           supabase,
           finalProfile.id,
           rel.relativeId,
-          rel.type
+          rel.type,
+          rel.marriageDate
         );
         if (newRel) {
           addRelationshipToStoreIfMissing(newRel);
@@ -631,10 +705,15 @@ export function useFamilyData(): FamilyData {
             addRelationshipToStoreIfMissing(created);
           }
         }
+        await logAudit("member.added", "profile", finalProfile.id, {
+          linked_to: rel.relativeId,
+          relation_type: rel.type,
+          marriage_date: rel.marriageDate || null,
+        });
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOnline, familyId]
+    [isOnline, familyId, logAudit]
   );
 
   const addCondition = useCallback(
@@ -659,7 +738,12 @@ export function useFamilyData(): FamilyData {
   );
 
   const linkMembers = useCallback(
-    async (fromMemberId: string, toMemberId: string, type: RelationshipType) => {
+    async (
+      fromMemberId: string,
+      toMemberId: string,
+      type: RelationshipType,
+      marriageDate?: string | null
+    ) => {
       if (fromMemberId === toMemberId) return;
 
       if (!isOnline) {
@@ -675,6 +759,7 @@ export function useFamilyData(): FamilyData {
           user_id: fromMemberId,
           relative_id: toMemberId,
           type,
+          marriage_date: type === "spouse" ? marriageDate || null : null,
           created_at: new Date().toISOString(),
         };
         addRelationshipToStoreIfMissing(directRelationship);
@@ -727,11 +812,17 @@ export function useFamilyData(): FamilyData {
         return;
       }
 
-      const newRel = await dbAddRelationship(supabase, fromMemberId, toMemberId, type);
+      const newRel = await dbAddRelationship(supabase, fromMemberId, toMemberId, type, marriageDate);
       if (!newRel) {
         throw new Error("Could not create relationship.");
       }
       addRelationshipToStoreIfMissing(newRel);
+      await logAudit("relationship.added", "relationship", newRel.id, {
+        from: fromMemberId,
+        to: toMemberId,
+        type,
+        marriage_date: marriageDate || null,
+      });
 
       let withDirect = useFamilyStore.getState().relationships;
       // If one spouse has kids, infer the other spouse(s) as shared parents
@@ -792,7 +883,7 @@ export function useFamilyData(): FamilyData {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOnline, store.relationships]
+    [isOnline, store.relationships, logAudit]
   );
 
   const unlinkRelationship = useCallback(
@@ -809,11 +900,12 @@ export function useFamilyData(): FamilyData {
       if (!ok) {
         throw new Error("Could not remove that relationship. You may need admin rights.");
       }
+      await logAudit("relationship.removed", "relationship", relationshipId);
       store.setRelationships(store.relationships.filter((rel) => rel.id !== relationshipId));
       await loadData();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOnline, store.relationships]
+    [isOnline, store.relationships, logAudit]
   );
 
   const removeMember = useCallback(
@@ -835,6 +927,7 @@ export function useFamilyData(): FamilyData {
       if (!ok) {
         throw new Error("Could not remove this member. You may need to be a family admin.");
       }
+      await logAudit("member.removed", "profile", memberId);
 
       store.setMembers(store.members.filter((member) => member.id !== memberId));
       store.setRelationships(
@@ -845,7 +938,7 @@ export function useFamilyData(): FamilyData {
       await loadData();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOnline, store.viewer, store.members, store.relationships]
+    [isOnline, store.viewer, store.members, store.relationships, logAudit]
   );
 
   const regenerateInviteCode = useCallback(async () => {
@@ -991,6 +1084,7 @@ export function useFamilyData(): FamilyData {
     viewer: store.viewer,
     family,
     inviteCodes,
+    auditLogs,
     members: store.members,
     relationships: store.relationships,
     conditions,

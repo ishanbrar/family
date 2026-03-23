@@ -38,6 +38,7 @@ CREATE TABLE profiles (
   location_lng    DOUBLE PRECISION,
   pets            TEXT[] DEFAULT '{}'::TEXT[],
   social_links    JSONB DEFAULT '{}'::JSONB,
+  gallery_photos  TEXT[] DEFAULT '{}'::TEXT[],
   about_me        TEXT,
   country_code    TEXT,
   role            TEXT NOT NULL DEFAULT 'MEMBER' CHECK (role IN ('ADMIN', 'MEMBER')),
@@ -100,6 +101,7 @@ CREATE TABLE relationships (
     'aunt_uncle', 'maternal_aunt', 'paternal_aunt', 'maternal_uncle', 'paternal_uncle',
     'niece_nephew', 'cousin'
   )),
+  marriage_date DATE,
   created_at  TIMESTAMPTZ DEFAULT NOW(),
 
   UNIQUE(user_id, relative_id, type),
@@ -109,6 +111,23 @@ CREATE TABLE relationships (
 CREATE INDEX idx_relationships_user ON relationships(user_id);
 CREATE INDEX idx_relationships_relative ON relationships(relative_id);
 CREATE INDEX idx_relationships_type ON relationships(type);
+
+-- ──────────────────────────────────────────────
+-- 4.5 AUDIT LOGS
+-- ──────────────────────────────────────────────
+CREATE TABLE audit_logs (
+  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  family_id     UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  actor_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  actor_name    TEXT,
+  action        TEXT NOT NULL,
+  entity_type   TEXT NOT NULL,
+  entity_id     TEXT,
+  details       JSONB DEFAULT '{}'::JSONB,
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_audit_logs_family_created ON audit_logs(family_id, created_at DESC);
 
 -- ──────────────────────────────────────────────
 -- 4. MEDICAL CONDITIONS (Reference Table)
@@ -176,6 +195,7 @@ ALTER TABLE relationships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_conditions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE medical_conditions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE families ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Users can read all profiles in their family, edit own or as admin
 CREATE POLICY "Users can view family profiles"
@@ -190,33 +210,36 @@ CREATE POLICY "Users can update own profile"
   ON profiles FOR UPDATE
   USING (auth_user_id = auth.uid());
 
-CREATE POLICY "Admins can update any family profile"
+-- Any family member can update any profile in their family (e.g. edit relatives)
+CREATE POLICY "Family members can update family profiles"
   ON profiles FOR UPDATE
   USING (
     family_id IN (
-      SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+      SELECT family_id FROM profiles WHERE auth_user_id = auth.uid()
     )
   );
 
+-- Any family member can add profiles (e.g. relatives) to their family; or insert own profile (auth_user_id = auth.uid())
 CREATE POLICY "Admins can insert family members"
   ON profiles FOR INSERT
   WITH CHECK (
     family_id IN (
-      SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+      SELECT family_id FROM profiles WHERE auth_user_id = auth.uid()
     )
     OR auth_user_id = auth.uid()
   );
 
-CREATE POLICY "Admins can delete unclaimed family members"
+-- Any family member can delete unclaimed profiles (no auth account) in their family
+CREATE POLICY "Family members can delete unclaimed family members"
   ON profiles FOR DELETE
   USING (
     auth_user_id IS NULL
     AND family_id IN (
-      SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+      SELECT family_id FROM profiles WHERE auth_user_id = auth.uid()
     )
   );
 
--- Relationships: Viewable by family members, manageable by admins
+-- Relationships: Any family member can view and manage (insert/update/delete) relationships within their family
 CREATE POLICY "Family members can view relationships"
   ON relationships FOR SELECT
   USING (
@@ -227,19 +250,19 @@ CREATE POLICY "Family members can view relationships"
     )
   );
 
-CREATE POLICY "Admins can manage relationships"
+CREATE POLICY "Family members can manage relationships"
   ON relationships FOR ALL
   USING (
     user_id IN (
       SELECT p.id FROM profiles p
       WHERE p.family_id IN (
-        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid()
       )
     )
     AND relative_id IN (
       SELECT p.id FROM profiles p
       WHERE p.family_id IN (
-        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid()
       )
     )
   )
@@ -247,13 +270,13 @@ CREATE POLICY "Admins can manage relationships"
     user_id IN (
       SELECT p.id FROM profiles p
       WHERE p.family_id IN (
-        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid()
       )
     )
     AND relative_id IN (
       SELECT p.id FROM profiles p
       WHERE p.family_id IN (
-        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid() AND role = 'ADMIN'
+        SELECT family_id FROM profiles WHERE auth_user_id = auth.uid()
       )
     )
   );
@@ -295,6 +318,19 @@ CREATE POLICY "Admins can update family"
 CREATE POLICY "Authenticated users can create families"
   ON families FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Audit logs: family members can read, authenticated members can insert in their family
+CREATE POLICY "Family can view audit logs"
+  ON audit_logs FOR SELECT
+  USING (
+    family_id IN (SELECT family_id FROM profiles WHERE auth_user_id = auth.uid())
+  );
+
+CREATE POLICY "Family members can insert audit logs"
+  ON audit_logs FOR INSERT
+  WITH CHECK (
+    family_id IN (SELECT family_id FROM profiles WHERE auth_user_id = auth.uid())
+  );
 
 -- ──────────────────────────────────────────────
 -- 8. STORAGE – Avatar Uploads

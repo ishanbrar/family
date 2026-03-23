@@ -10,6 +10,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import {
   X,
   Camera,
+  ImagePlus,
   Save,
   Instagram,
   Linkedin,
@@ -36,7 +37,7 @@ interface EditProfileModalProps {
   profile: Profile;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updated: Partial<Profile> & { avatarFile?: File }) => void;
+  onSave: (updated: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => void;
 }
 
 export function EditProfileModal({
@@ -50,9 +51,13 @@ export function EditProfileModal({
     onClose,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const avatarObjectUrlRef = useRef<string | null>(null);
+  const galleryObjectUrlsRef = useRef<string[]>([]);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(profile.avatar_url);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [galleryPhotos, setGalleryPhotos] = useState<string[]>(profile.gallery_photos || []);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [firstName, setFirstName] = useState(profile.first_name);
   const [lastName, setLastName] = useState(profile.last_name);
   const [displayName, setDisplayName] = useState(profile.display_name || "");
@@ -80,9 +85,27 @@ export function EditProfileModal({
     setAvatarPreview(url);
   }, []);
 
+  const handleGalleryFiles = useCallback((files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const accepted: File[] = [];
+    const previews: string[] = [];
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) continue;
+      accepted.push(file);
+      const previewUrl = URL.createObjectURL(file);
+      previews.push(previewUrl);
+      galleryObjectUrlsRef.current.push(previewUrl);
+    }
+    if (accepted.length === 0) return;
+    setGalleryFiles((prev) => [...prev, ...accepted]);
+    setGalleryPhotos((prev) => [...prev, ...previews]);
+  }, []);
+
   useEffect(() => {
+    const galleryObjectUrls = galleryObjectUrlsRef.current;
     return () => {
       if (avatarObjectUrlRef.current) URL.revokeObjectURL(avatarObjectUrlRef.current);
+      galleryObjectUrls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
 
@@ -116,7 +139,9 @@ export function EditProfileModal({
       country_code: inferCountryCodeFromCity(locationCity),
       social_links: cleanSocial,
       avatar_url: avatarPreview,
+      gallery_photos: galleryPhotos.filter((photo) => /^https?:\/\//.test(photo)),
       ...(avatarFile ? { avatarFile } : {}),
+      ...(galleryFiles.length > 0 ? { galleryFiles } : {}),
     });
     onClose();
   };
@@ -201,6 +226,50 @@ export function EditProfileModal({
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
                 </div>
                 <p className="text-[10px] text-white/20 mt-2">Click or drag a photo</p>
+              </div>
+
+              {/* Gallery Photos */}
+              <div>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider">
+                    Profile gallery
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => galleryInputRef.current?.click()}
+                    className="h-8 px-2.5 rounded-lg border border-white/[0.12] bg-white/[0.03] text-xs text-white/70 hover:text-white/90 hover:bg-white/[0.06] transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <ImagePlus size={12} />
+                    Add photos
+                  </button>
+                  <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => handleGalleryFiles(e.target.files)}
+                  />
+                </div>
+                {galleryPhotos.length > 0 ? (
+                  <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                    {galleryPhotos.map((url, idx) => (
+                      <div key={`${url}-${idx}`} className="relative">
+                        <img src={url} alt="" className="h-16 w-full rounded-lg object-cover border border-white/[0.08]" />
+                        <button
+                          type="button"
+                          onClick={() => setGalleryPhotos((prev) => prev.filter((_, i) => i !== idx))}
+                          className="absolute top-1 right-1 h-5 w-5 rounded-md bg-black/55 text-white/80 hover:bg-black/75 flex items-center justify-center"
+                          aria-label="Remove photo"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-white/35">No gallery photos yet.</p>
+                )}
               </div>
 
               {/* Name */}

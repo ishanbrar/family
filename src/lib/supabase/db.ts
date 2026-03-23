@@ -11,6 +11,7 @@ import type {
   MedicalCondition,
   UserCondition,
   RelationshipType,
+  AuditLog,
 } from "@/lib/types";
 
 export interface FamilyRecord {
@@ -27,6 +28,16 @@ export interface InviteCodeRecord {
   label: string | null;
   is_active: boolean;
   created_at: string;
+}
+
+export interface CreateAuditLogInput {
+  family_id: string;
+  actor_user_id?: string | null;
+  actor_name?: string | null;
+  action: string;
+  entity_type: string;
+  entity_id?: string | null;
+  details?: Record<string, unknown> | null;
 }
 
 export interface JoinPreviewMember {
@@ -130,6 +141,7 @@ export async function updateProfile(
   if (updates.social_links !== undefined) dbUpdates.social_links = updates.social_links;
   if (updates.about_me !== undefined) dbUpdates.about_me = updates.about_me;
   if (updates.country_code !== undefined) dbUpdates.country_code = updates.country_code;
+  if (updates.gallery_photos !== undefined) dbUpdates.gallery_photos = updates.gallery_photos;
   if (updates.is_alive !== undefined) dbUpdates.is_alive = updates.is_alive;
   if (updates.onboarding_completed !== undefined) {
     dbUpdates.onboarding_completed = updates.onboarding_completed;
@@ -213,11 +225,21 @@ export async function addRelationship(
   supabase: SupabaseClient,
   userId: string,
   relativeId: string,
-  type: RelationshipType
+  type: RelationshipType,
+  marriageDate?: string | null
 ): Promise<Relationship | null> {
+  const payload: {
+    user_id: string;
+    relative_id: string;
+    type: RelationshipType;
+    marriage_date?: string | null;
+  } = { user_id: userId, relative_id: relativeId, type };
+  if (type === "spouse") {
+    payload.marriage_date = marriageDate ? String(marriageDate).slice(0, 10) : null;
+  }
   const { data, error } = await supabase
     .from("relationships")
-    .insert({ user_id: userId, relative_id: relativeId, type })
+    .insert(payload)
     .select("*")
     .single();
 
@@ -557,6 +579,7 @@ export async function addFamilyMember(
       social_links: profile.social_links || {},
       about_me: profile.about_me,
       country_code: profile.country_code,
+      gallery_photos: profile.gallery_photos || [],
       role: profile.role || "MEMBER",
       is_alive: profile.is_alive ?? true,
       family_id: profile.family_id,
@@ -565,8 +588,17 @@ export async function addFamilyMember(
     .single();
 
   if (error || !data) {
-    console.error("Add family member error:", error);
-    return null;
+    const err = error as { message?: string; code?: string; details?: string; hint?: string } | null;
+    const message = err?.message ?? "Unknown error";
+    const code = err?.code;
+    console.error("Add family member error:", {
+      message,
+      code,
+      details: err?.details,
+      hint: err?.hint,
+      stringified: error != null ? JSON.stringify(error) : null,
+    });
+    throw new Error(code ? `${message} (${code})` : message);
   }
   return mapProfile(data);
 }
@@ -583,6 +615,44 @@ export async function deleteFamilyMember(
 
   // RLS can block deletes silently (204 with 0 rows); verify we actually deleted
   return !error && Array.isArray(data) && data.length > 0;
+}
+
+// ── Audit logs ──────────────────────────────────
+
+export async function createAuditLog(
+  supabase: SupabaseClient,
+  input: CreateAuditLogInput
+): Promise<AuditLog | null> {
+  const { data, error } = await supabase
+    .from("audit_logs")
+    .insert({
+      family_id: input.family_id,
+      actor_user_id: input.actor_user_id || null,
+      actor_name: input.actor_name || null,
+      action: input.action,
+      entity_type: input.entity_type,
+      entity_id: input.entity_id || null,
+      details: input.details || null,
+    })
+    .select("*")
+    .single();
+  if (error || !data) return null;
+  return mapAuditLog(data);
+}
+
+export async function getFamilyAuditLogs(
+  supabase: SupabaseClient,
+  familyId: string,
+  limit = 100
+): Promise<AuditLog[]> {
+  const { data, error } = await supabase
+    .from("audit_logs")
+    .select("*")
+    .eq("family_id", familyId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map(mapAuditLog);
 }
 
 // ── Mappers (DB row → TypeScript type) ──────────
@@ -606,6 +676,7 @@ function mapProfile(row: any): Profile {
     social_links: row.social_links || {},
     about_me: row.about_me || null,
     country_code: row.country_code || null,
+    gallery_photos: Array.isArray(row.gallery_photos) ? row.gallery_photos : [],
     role: row.role || "MEMBER",
     is_alive: row.is_alive ?? true,
     onboarding_completed: row.onboarding_completed ?? false,
@@ -622,6 +693,22 @@ function mapRelationship(row: any): Relationship {
     user_id: row.user_id,
     relative_id: row.relative_id,
     type: row.type,
+    marriage_date: row.marriage_date ? String(row.marriage_date).slice(0, 10) : null,
+    created_at: row.created_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapAuditLog(row: any): AuditLog {
+  return {
+    id: row.id,
+    family_id: row.family_id,
+    actor_user_id: row.actor_user_id || null,
+    actor_name: row.actor_name || null,
+    action: row.action,
+    entity_type: row.entity_type,
+    entity_id: row.entity_id || null,
+    details: row.details || null,
     created_at: row.created_at,
   };
 }

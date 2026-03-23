@@ -13,9 +13,7 @@ import {
   GitBranch,
   Search,
   Filter,
-  X,
   UserPlus,
-  ChevronDown,
   MailPlus,
   Download,
   Loader2,
@@ -37,7 +35,6 @@ import { FamilyOnboardingWizard } from "@/components/onboarding/FamilyOnboarding
 import { useFamilyData } from "@/hooks/use-family-data";
 import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
-import { groupByCountry, type CountryGroup } from "@/lib/country-utils";
 import type { Profile, RelationshipType } from "@/lib/types";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
@@ -74,10 +71,8 @@ export default function DashboardPage() {
   const [relationshipModalOpen, setRelationshipModalOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [suppressAutoOnboarding, setSuppressAutoOnboarding] = useState(false);
-  const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
   const [focusedCountryCode, setFocusedCountryCode] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
-  const [countryQuery, setCountryQuery] = useState("");
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
   const [showPercentages, setShowPercentages] = useState(false);
@@ -86,6 +81,7 @@ export default function DashboardPage() {
   const [showBirthYear, setShowBirthYear] = useState(true);
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
+  const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportScope, setExportScope] = useState<"entire" | "related">("entire");
   const [exportingTree, setExportingTree] = useState(false);
@@ -202,25 +198,11 @@ export default function DashboardPage() {
       .slice(0, 8);
   }, [viewer, members, relationships, memberSearchQuery]);
 
-  // ── Country groups ──────────────────────────────
-  const countryGroups = useMemo(() => groupByCountry(members), [members]);
-  const filteredCountryGroups = useMemo(() => {
-    const q = countryQuery.trim().toLowerCase();
-    if (!q) return countryGroups;
-    return countryGroups.filter((g) => {
-      if (g.name.toLowerCase().includes(q)) return true;
-      if (g.code.toLowerCase().includes(q)) return true;
-      return g.members.some((m) =>
-        `${m.first_name} ${m.last_name}`.toLowerCase().includes(q)
-      );
-    });
-  }, [countryGroups, countryQuery]);
-
   // ── Handle Add Member ───────────────────────────
   const handleAddMember = useCallback(
     async (
       memberData: Omit<Profile, "id" | "created_at" | "updated_at">,
-      rel: { relativeId: string; type: RelationshipType },
+      rel: { relativeId: string; type: RelationshipType; marriageDate?: string | null },
       avatarFile?: File
     ) => {
       await addMemberAction(memberData, rel, avatarFile);
@@ -268,6 +250,12 @@ export default function DashboardPage() {
     );
   }, [relationships, viewer]);
 
+  /** User has been added to a real tree: other members exist and/or they have a direct family link. */
+  const isEstablishedInTree = useMemo(
+    () => members.length > 1 || viewerHasDirectRelationship,
+    [members.length, viewerHasDirectRelationship]
+  );
+
   useEffect(() => {
     if (typeof window === "undefined" || !viewer?.id) return;
     if (!postJoinLinkOnlyRequired) return;
@@ -284,7 +272,8 @@ export default function DashboardPage() {
     isOnline &&
     !viewer.onboarding_completed &&
     !suppressAutoOnboarding &&
-    !isOnboardingSnoozed;
+    !isOnboardingSnoozed &&
+    !isEstablishedInTree;
 
   const dismissOnboarding = useCallback(async () => {
     setSuppressAutoOnboarding(true);
@@ -618,6 +607,9 @@ export default function DashboardPage() {
 
           <div className="w-full lg:w-[560px] space-y-2.5 min-w-0">
             <div className="flex flex-wrap items-center lg:justify-end gap-2">
+              {viewer &&
+                !viewer.onboarding_completed &&
+                !isEstablishedInTree && (
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => {
@@ -631,6 +623,7 @@ export default function DashboardPage() {
                 <GitBranch size={14} />
                 Guided Setup
               </motion.button>
+                )}
 
               <motion.button
                 whileTap={{ scale: 0.98 }}
@@ -751,6 +744,7 @@ export default function DashboardPage() {
                   onShowDeathYearChange={setShowDeathYear}
                   showBirthCountryFlag={showBirthCountryFlag}
                   onShowBirthCountryFlagChange={setShowBirthCountryFlag}
+                  onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
                 />
               </div>
             </div>
@@ -782,6 +776,7 @@ export default function DashboardPage() {
               showBirthYear={showBirthYear}
               showDeathYear={showDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
+              viewResetSignal={treeViewResetSignal}
               onMemberClick={(id) => navigateToProfile(id)}
               canvasWidth={treeLayout.width}
               canvasHeight={treeLayout.height}
@@ -809,66 +804,22 @@ export default function DashboardPage() {
           {/* ── Right Column ─────────────────────── */}
           <div className="space-y-6">
             <GlassCard className="p-6">
-              <div className="flex flex-col lg:flex-row gap-4 items-start">
-                <div className="flex-shrink-0 flex justify-center lg:justify-start">
-                  <InteractiveGlobe
-                    members={members}
-                    focusCountryCode={focusedCountryCode}
-                    focusSignal={focusSignal}
-                    onMemberClick={(member) => navigateToProfile(member.id)}
-                    onCountryClick={handleFocusCountry}
-                  />
-                </div>
-                {countryGroups.length > 0 && (
-                  <div className="w-full lg:flex-1 flex flex-col min-w-0 max-h-[220px] lg:max-h-[300px]"
-                    style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.05) transparent" }}>
-                    <div className="px-1 pb-2">
-                      <div className="text-[10px] text-white/25 uppercase tracking-wider mb-1.5">
-                        Countries ({filteredCountryGroups.length})
-                      </div>
-                      <div className="relative">
-                        <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/20" />
-                        <input
-                          value={countryQuery}
-                          onChange={(e) => setCountryQuery(e.target.value)}
-                          placeholder="Search..."
-                          className="w-full h-8 pl-7 pr-7 rounded-lg app-input text-[11px] outline-none transition-colors"
-                        />
-                        {countryQuery && (
-                          <button
-                            onClick={() => setCountryQuery("")}
-                            className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md
-                              text-white/25 hover:text-white/45 hover:bg-white/[0.04] transition-colors"
-                            aria-label="Clear search"
-                          >
-                            <X size={11} className="mx-auto" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="overflow-y-auto pr-1 space-y-1">
-                      {filteredCountryGroups.length > 0 ? (
-                        filteredCountryGroups.map((g) => (
-                          <CountryRow key={g.code} group={g}
-                            isExpanded={expandedCountry === g.code}
-                            onToggle={() => setExpandedCountry(expandedCountry === g.code ? null : g.code)}
-                            onFocusCountry={handleFocusCountry}
-                            onMemberClick={navigateToProfile} />
-                        ))
-                      ) : (
-                        <div className="px-2 py-3 text-[11px] text-white/30 text-center">
-                          No countries match &ldquo;{countryQuery}&rdquo;
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+              <div className="flex flex-col items-center">
+                <InteractiveGlobe
+                  members={members}
+                  size={420}
+                  focusCountryCode={focusedCountryCode}
+                  focusSignal={focusSignal}
+                  onMemberClick={(member) => navigateToProfile(member.id)}
+                  onCountryClick={handleFocusCountry}
+                />
               </div>
             </GlassCard>
-            <ProfileCard profile={viewer} isViewer />
           </div>
         </div>
+
+        {/* Viewer profile — full width below tree + globe */}
+        <ProfileCard profile={viewer} isViewer className="mt-6" />
 
         {/* ── Blood Match Gallery ─────────────────── */}
         <GlassCard className="mt-6 p-6">
@@ -932,81 +883,4 @@ function relationshipSearchTokens(label: string): string[] {
   }
 
   return [...tokens];
-}
-
-// ── Country Row ──────────────────────────────────
-function CountryRow({ group, isExpanded, onToggle, onFocusCountry, onMemberClick }: {
-  group: CountryGroup;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onFocusCountry: (code: string) => void;
-  onMemberClick: (id: string) => void;
-}) {
-  const previewMembers = group.members.slice(0, 2);
-  return (
-    <div className="rounded-lg border border-transparent hover:border-white/[0.06] transition-colors">
-      <button
-        onClick={() => {
-          onToggle();
-          onFocusCountry(group.code);
-        }}
-        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/[0.04] transition-colors text-left group">
-        <span className="text-base leading-none">{group.flag}</span>
-        <span className="flex-1 min-w-0">
-          <span className="block text-[11px] text-white/75 group-hover:text-white/90 truncate transition-colors">
-            {group.name}
-          </span>
-          <span className="block text-[10px] text-white/25">{group.code}</span>
-        </span>
-        <span className="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-md
-          bg-gold-400/10 text-[10px] text-gold-300/75 font-medium tabular-nums">
-          {group.members.length}
-        </span>
-        <ChevronDown size={11} className={`text-white/30 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
-      </button>
-
-      {!isExpanded && previewMembers.length > 0 && (
-        <div className="px-2.5 pb-1.5 flex items-center gap-1.5">
-          {previewMembers.map((m) => (
-            <span key={m.id} className="max-w-[80px] truncate px-1.5 py-0.5 rounded-md bg-white/[0.03] text-[10px] text-white/35">
-              {m.first_name}
-            </span>
-          ))}
-          {group.members.length > 2 && (
-            <span className="text-[10px] text-white/25">+{group.members.length - 2}</span>
-          )}
-        </div>
-      )}
-
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-            <div className="pl-3 pr-2 pb-2 space-y-1">
-              {group.members.map((m) => (
-                <button key={m.id} onClick={() => onMemberClick(m.id)}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gold-400/[0.06] transition-colors text-left">
-                  {m.avatar_url ? (
-                    <img src={m.avatar_url} alt="" className="w-4 h-4 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-4 h-4 rounded-full bg-gold-400/10 flex items-center justify-center text-[7px] text-gold-400/60 font-medium">
-                      {m.first_name[0]}
-                    </div>
-                  )}
-                  <span className="min-w-0">
-                    <span className="block text-[10px] text-white/60 truncate">
-                      {m.first_name} {m.last_name}
-                    </span>
-                    {m.location_city && (
-                      <span className="block text-[9px] text-white/25 truncate">{m.location_city}</span>
-                    )}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
 }

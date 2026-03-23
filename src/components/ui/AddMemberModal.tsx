@@ -29,9 +29,9 @@ interface AddMemberModalProps {
   onClose: () => void;
   onAdd: (
     member: Omit<Profile, "id" | "created_at" | "updated_at">,
-    relationship: { relativeId: string; type: RelationshipType },
+    relationship: { relativeId: string; type: RelationshipType; marriageDate?: string | null },
     avatarFile?: File
-  ) => void;
+  ) => Promise<void> | void;
 }
 
 const RELATIONSHIP_OPTIONS: { value: RelationshipType; label: string }[] = [
@@ -90,7 +90,10 @@ export function AddMemberModal({
   const [isAlive, setIsAlive] = useState(true);
   const [relativeId, setRelativeId] = useState("");
   const [relType, setRelType] = useState<RelationshipType>("child");
+  const [marriageDate, setMarriageDate] = useState("");
   const [allowDuplicateAdd, setAllowDuplicateAdd] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const duplicateMatch = useMemo(() => {
     if (!firstName.trim() || !lastName.trim()) return null;
@@ -128,7 +131,14 @@ export function AddMemberModal({
     };
   }, []);
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    if (isOpen) {
+      setSubmitError(null);
+      setMarriageDate("");
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async () => {
     if (
       !firstName.trim() ||
       !lastName.trim() ||
@@ -138,6 +148,8 @@ export function AddMemberModal({
     ) {
       return;
     }
+    setSubmitError(null);
+    setSubmitting(true);
     const parsedPets = Array.from(
       new Set(
         petsText
@@ -147,49 +159,60 @@ export function AddMemberModal({
       )
     );
 
-    onAdd(
-      {
-        first_name: firstName.trim(),
-        last_name: lastName.trim(),
-        display_name: displayName.trim() || null,
-        gender: gender || null,
-        avatar_url: null,
-        date_of_birth: dob ? String(dob).slice(0, 10) : null,
-        place_of_birth: placeOfBirth || null,
-        profession: profession || null,
-        location_city: locationCity || null,
-        location_lat: null,
-        location_lng: null,
-        pets: parsedPets,
-        social_links: {},
-        about_me: aboutMe || null,
-        country_code: inferCountryCodeFromCity(locationCity),
-        role: "MEMBER",
-        is_alive: isAlive,
-      },
-      { relativeId, type: relType },
-      avatarFile || undefined
-    );
+    try {
+      await onAdd(
+        {
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          display_name: displayName.trim() || null,
+          gender: gender || null,
+          avatar_url: null,
+          date_of_birth: dob ? String(dob).slice(0, 10) : null,
+          place_of_birth: placeOfBirth || null,
+          profession: profession || null,
+          location_city: locationCity || null,
+          location_lat: null,
+          location_lng: null,
+          pets: parsedPets,
+          social_links: {},
+          about_me: aboutMe || null,
+          country_code: inferCountryCodeFromCity(locationCity),
+          role: "MEMBER",
+          is_alive: isAlive,
+        },
+        {
+          relativeId,
+          type: relType,
+          marriageDate: relType === "spouse" && marriageDate ? String(marriageDate).slice(0, 10) : null,
+        },
+        avatarFile || undefined
+      );
 
-    // Reset
-    setFirstName("");
-    setLastName("");
-    setDisplayName("");
-    setGender("");
-    setProfession("");
-    setPetsText("");
-    setLocationCity("");
-    setDob("");
-    setPlaceOfBirth("");
-    setAboutMe("");
-    if (avatarObjectUrlRef.current) {
-      URL.revokeObjectURL(avatarObjectUrlRef.current);
-      avatarObjectUrlRef.current = null;
+      // Reset
+      setFirstName("");
+      setLastName("");
+      setDisplayName("");
+      setGender("");
+      setProfession("");
+      setPetsText("");
+      setLocationCity("");
+      setDob("");
+      setPlaceOfBirth("");
+      setAboutMe("");
+      setMarriageDate("");
+      if (avatarObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarObjectUrlRef.current);
+        avatarObjectUrlRef.current = null;
+      }
+      setAvatarPreview(null);
+      setAvatarFile(null);
+      setIsAlive(true);
+      onClose();
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Failed to add family member");
+    } finally {
+      setSubmitting(false);
     }
-    setAvatarPreview(null);
-    setAvatarFile(null);
-    setIsAlive(true);
-    onClose();
   };
 
   const inputClass =
@@ -338,6 +361,19 @@ export function AddMemberModal({
                     </select>
                   </div>
                 </div>
+                {relType === "spouse" && (
+                  <div className="mt-3">
+                    <label className="text-[10px] text-white/25 font-medium uppercase tracking-wider mb-1 block">
+                      Marriage date / anniversary
+                    </label>
+                    <input
+                      type="date"
+                      value={marriageDate}
+                      onChange={(e) => setMarriageDate(e.target.value)}
+                      className={cn(inputClass, "appearance-none")}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Details */}
@@ -409,20 +445,32 @@ export function AddMemberModal({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/[0.06]">
-              <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 hover:bg-white/5 transition-colors">
-                Cancel
-              </button>
-              <motion.button
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                onClick={handleSubmit}
-                disabled={!firstName.trim() || !lastName.trim() || !gender || !relativeId || (!!duplicateMatch && !allowDuplicateAdd)}
-                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium
-                  hover:bg-gold-400/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                <UserPlus size={14} />
-                Add Member
-              </motion.button>
+            <div className="flex flex-col gap-3 px-4 sm:px-6 py-4 border-t border-white/[0.06]">
+              {submitError && (
+                <p className="text-sm text-red-400/90" role="alert">
+                  {submitError}
+                </p>
+              )}
+              <div className="flex items-center justify-end gap-3">
+                <button onClick={onClose} disabled={submitting} className="px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 hover:bg-white/5 transition-colors disabled:opacity-60">
+                  Cancel
+                </button>
+                <motion.button
+                  whileHover={submitting ? undefined : { scale: 1.02 }}
+                  whileTap={submitting ? undefined : { scale: 0.98 }}
+                  onClick={handleSubmit}
+                  disabled={!firstName.trim() || !lastName.trim() || !gender || !relativeId || (!!duplicateMatch && !allowDuplicateAdd) || submitting}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium
+                    hover:bg-gold-400/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  {submitting ? "Adding…" : (
+                    <>
+                      <UserPlus size={14} />
+                      Add Member
+                    </>
+                  )}
+                </motion.button>
+              </div>
             </div>
           </motion.div>
         </>

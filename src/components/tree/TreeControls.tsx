@@ -20,6 +20,7 @@ interface TreeControlsProps {
   onShowDeathYearChange?: (next: boolean) => void;
   showBirthCountryFlag?: boolean;
   onShowBirthCountryFlagChange?: (next: boolean) => void;
+  onResetView?: () => void;
 }
 
 export function TreeControls({
@@ -38,6 +39,7 @@ export function TreeControls({
   onShowDeathYearChange,
   showBirthCountryFlag = false,
   onShowBirthCountryFlagChange,
+  onResetView,
 }: TreeControlsProps) {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const optionsRef = useRef<HTMLDivElement | null>(null);
@@ -187,6 +189,16 @@ export function TreeControls({
           </div>
         )}
       </div>
+      {onResetView && (
+        <button
+          type="button"
+          onClick={onResetView}
+          className={controlClass}
+          title="Reset tree view"
+        >
+          Reset View
+        </button>
+      )}
     </div>
   );
 }
