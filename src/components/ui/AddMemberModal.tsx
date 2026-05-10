@@ -22,9 +22,11 @@ import { CitySearch } from "./CitySearch";
 import type { Profile, RelationshipType, Gender } from "@/lib/types";
 import { inferCountryCodeFromCity } from "@/lib/cities";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
+import { getAddMemberDisabledReason } from "@/lib/flow-readiness";
 
 interface AddMemberModalProps {
   existingMembers: Profile[];
+  defaultRelativeId?: string;
   isOpen: boolean;
   onClose: () => void;
   onAdd: (
@@ -65,6 +67,7 @@ function normalizeCity(value: string | null | undefined) {
 
 export function AddMemberModal({
   existingMembers,
+  defaultRelativeId,
   isOpen,
   onClose,
   onAdd,
@@ -94,6 +97,13 @@ export function AddMemberModal({
   const [allowDuplicateAdd, setAllowDuplicateAdd] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const preferredRelativeId = useMemo(() => {
+    if (defaultRelativeId && existingMembers.some((member) => member.id === defaultRelativeId)) {
+      return defaultRelativeId;
+    }
+    return existingMembers[0]?.id || "";
+  }, [defaultRelativeId, existingMembers]);
 
   const duplicateMatch = useMemo(() => {
     if (!firstName.trim() || !lastName.trim()) return null;
@@ -135,8 +145,25 @@ export function AddMemberModal({
     if (isOpen) {
       setSubmitError(null);
       setMarriageDate("");
+      setRelativeId((current) =>
+        current && existingMembers.some((member) => member.id === current)
+          ? current
+          : preferredRelativeId
+      );
     }
-  }, [isOpen]);
+  }, [isOpen, existingMembers, preferredRelativeId]);
+
+  const disabledReason = useMemo(
+    () =>
+      getAddMemberDisabledReason({
+        firstName,
+        lastName,
+        gender,
+        relativeId,
+        hasBlockingDuplicate: !!duplicateMatch && !allowDuplicateAdd,
+      }),
+    [firstName, lastName, gender, relativeId, duplicateMatch, allowDuplicateAdd]
+  );
 
   const handleSubmit = async () => {
     if (
@@ -459,7 +486,7 @@ export function AddMemberModal({
                   whileHover={submitting ? undefined : { scale: 1.02 }}
                   whileTap={submitting ? undefined : { scale: 0.98 }}
                   onClick={handleSubmit}
-                  disabled={!firstName.trim() || !lastName.trim() || !gender || !relativeId || (!!duplicateMatch && !allowDuplicateAdd) || submitting}
+                  disabled={!!disabledReason || submitting}
                   className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium
                     hover:bg-gold-400/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
@@ -471,6 +498,11 @@ export function AddMemberModal({
                   )}
                 </motion.button>
               </div>
+              {!submitError && disabledReason && (
+                <p className="text-xs text-white/38 text-right" role="status">
+                  {disabledReason}
+                </p>
+              )}
             </div>
           </motion.div>
         </>

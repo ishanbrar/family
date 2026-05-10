@@ -146,7 +146,6 @@ export default function DemoPage() {
 
   const totalMembers = members.length;
   const totalGenerations = generationAnalytics.totalGenerations;
-  const locations = new Set(members.map((m) => m.location_city).filter(Boolean)).size;
   const filterMember = store.relatedByFilter ? members.find((p) => p.id === store.relatedByFilter) : null;
 
   return (
@@ -192,7 +191,7 @@ export default function DemoPage() {
         </div>
       </div>
 
-      <AddMemberModal existingMembers={members} isOpen={addModalOpen}
+      <AddMemberModal existingMembers={members} defaultRelativeId={viewer.id} isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)} onAdd={handleAddMember} />
 
       <main className="ml-0 md:ml-[72px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">

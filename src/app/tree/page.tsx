@@ -66,6 +66,7 @@ export default function TreeExplorerPage() {
     updateProfile,
     addMember: addMemberAction,
     linkMembers,
+    updateRelationship,
     unlinkRelationship,
     removeMember,
   } = useFamilyData();
@@ -100,7 +101,7 @@ export default function TreeExplorerPage() {
       y: node.y,
       generation: node.generation,
     }));
-  }, [viewer, treeLayout.nodes, relationships]);
+  }, [viewer, treeLayout.nodes, relationships, family?.relation_language, members]);
 
   const highlightedIds = useMemo(() => {
     if (!relatedByFilter) return new Set<string>();
@@ -115,7 +116,7 @@ export default function TreeExplorerPage() {
   const selectedMatch = useMemo(() => {
     if (!viewer || !selectedMember) return null;
     return calculateGeneticMatch(viewer.id, selectedMember.id, relationships, selectedMember.gender, family?.relation_language, members);
-  }, [viewer, selectedMember, relationships]);
+  }, [viewer, selectedMember, relationships, family?.relation_language, members]);
 
   const selectedConditions = useMemo(() => {
     if (!selectedMember) return [];
@@ -208,6 +209,7 @@ export default function TreeExplorerPage() {
       <Sidebar />
       <AddMemberModal
         existingMembers={members}
+        defaultRelativeId={viewer.id}
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onAdd={handleAddMember}
@@ -220,6 +222,7 @@ export default function TreeExplorerPage() {
         relationships={relationships}
         familyName={family?.name}
         onConnectMembers={linkMembers}
+        onUpdateRelationship={updateRelationship}
         onRemoveRelationship={unlinkRelationship}
         onRemoveMember={removeMember}
         restrictToViewer={viewer.role !== "ADMIN"}

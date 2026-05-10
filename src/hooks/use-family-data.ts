@@ -25,6 +25,7 @@ import {
   deleteFamilyInviteCode as dbDeleteFamilyInviteCode,
   updateProfile as dbUpdateProfile,
   addRelationship as dbAddRelationship,
+  updateRelationship as dbUpdateRelationship,
   deleteRelationship as dbDeleteRelationship,
   addFamilyMember as dbAddFamilyMember,
   deleteFamilyMember as dbDeleteFamilyMember,
@@ -70,6 +71,13 @@ interface FamilyData {
     avatarFile?: File
   ) => Promise<void>;
   linkMembers: (
+    fromMemberId: string,
+    toMemberId: string,
+    type: RelationshipType,
+    marriageDate?: string | null
+  ) => Promise<void>;
+  updateRelationship: (
+    relationshipId: string,
     fromMemberId: string,
     toMemberId: string,
     type: RelationshipType,
@@ -593,17 +601,18 @@ export function useFamilyData(): FamilyData {
       }
 
       const updated = await dbUpdateProfile(supabase, userId, finalUpdates);
-      if (updated) {
-        if (userId === store.viewer?.id) {
-          store.setViewer(updated);
-        }
-        store.setMembers(
-          store.members.map((m) => (m.id === userId ? updated : m))
-        );
-        await logAudit("profile.updated", "profile", userId, {
-          fields: Object.keys(finalUpdates),
-        });
+      if (!updated) {
+        throw new Error("Could not save profile. Please try again.");
       }
+      if (userId === store.viewer?.id) {
+        store.setViewer(updated);
+      }
+      store.setMembers(
+        store.members.map((m) => (m.id === userId ? updated : m))
+      );
+      await logAudit("profile.updated", "profile", userId, {
+        fields: Object.keys(finalUpdates),
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [isOnline, store.viewer, store.members, logAudit]
@@ -657,60 +666,63 @@ export function useFamilyData(): FamilyData {
       }
 
       // Online mode
-      if (!familyId) return;
+      if (!familyId) throw new Error("Family is not ready yet. Please refresh and try again.");
 
       const newProfile = await dbAddFamilyMember(supabase, {
         ...memberData,
         family_id: familyId,
       });
 
-      if (newProfile) {
-        let finalProfile = newProfile;
-
-        if (avatarFile) {
-          const avatarUrl = await uploadAvatar(supabase, newProfile.id, avatarFile);
-          if (avatarUrl) {
-            const updated = await dbUpdateProfile(supabase, newProfile.id, { avatar_url: avatarUrl });
-            if (updated) finalProfile = updated;
-          }
-        }
-
-        store.addMember(finalProfile);
-        const newRel = await dbAddRelationship(
-          supabase,
-          finalProfile.id,
-          rel.relativeId,
-          rel.type,
-          rel.marriageDate
-        );
-        if (newRel) {
-          addRelationshipToStoreIfMissing(newRel);
-        }
-
-        const withDirect = useFamilyStore.getState().relationships;
-        const inferred = inferSiblingParentRelationships(
-          withDirect,
-          finalProfile.id,
-          rel.relativeId,
-          rel.type
-        );
-        for (const nextRel of inferred) {
-          const created = await dbAddRelationship(
-            supabase,
-            nextRel.userId,
-            nextRel.relativeId,
-            nextRel.type
-          );
-          if (created) {
-            addRelationshipToStoreIfMissing(created);
-          }
-        }
-        await logAudit("member.added", "profile", finalProfile.id, {
-          linked_to: rel.relativeId,
-          relation_type: rel.type,
-          marriage_date: rel.marriageDate || null,
-        });
+      if (!newProfile) {
+        throw new Error("Could not add this family member. Please try again.");
       }
+
+      let finalProfile = newProfile;
+
+      if (avatarFile) {
+        const avatarUrl = await uploadAvatar(supabase, newProfile.id, avatarFile);
+        if (avatarUrl) {
+          const updated = await dbUpdateProfile(supabase, newProfile.id, { avatar_url: avatarUrl });
+          if (updated) finalProfile = updated;
+        }
+      }
+
+      store.addMember(finalProfile);
+      const newRel = await dbAddRelationship(
+        supabase,
+        finalProfile.id,
+        rel.relativeId,
+        rel.type,
+        rel.marriageDate
+      );
+      if (!newRel) {
+        throw new Error("Member was added, but the relationship could not be created. Try linking them from Manage Tree.");
+      }
+      addRelationshipToStoreIfMissing(newRel);
+
+      const withDirect = useFamilyStore.getState().relationships;
+      const inferred = inferSiblingParentRelationships(
+        withDirect,
+        finalProfile.id,
+        rel.relativeId,
+        rel.type
+      );
+      for (const nextRel of inferred) {
+        const created = await dbAddRelationship(
+          supabase,
+          nextRel.userId,
+          nextRel.relativeId,
+          nextRel.type
+        );
+        if (created) {
+          addRelationshipToStoreIfMissing(created);
+        }
+      }
+      await logAudit("member.added", "profile", finalProfile.id, {
+        linked_to: rel.relativeId,
+        relation_type: rel.type,
+        marriage_date: rel.marriageDate || null,
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [isOnline, familyId, logAudit]
@@ -908,6 +920,74 @@ export function useFamilyData(): FamilyData {
     [isOnline, store.relationships, logAudit]
   );
 
+  const updateRelationship = useCallback(
+    async (
+      relationshipId: string,
+      fromMemberId: string,
+      toMemberId: string,
+      type: RelationshipType,
+      marriageDate?: string | null
+    ) => {
+      if (!relationshipId || fromMemberId === toMemberId) return;
+
+      if (!isOnline) {
+        store.setRelationships(
+          store.relationships.map((rel) =>
+            rel.id === relationshipId
+              ? {
+                  ...rel,
+                  user_id: fromMemberId,
+                  relative_id: toMemberId,
+                  type,
+                  marriage_date: type === "spouse" ? marriageDate || null : null,
+                }
+              : rel
+          )
+        );
+        persistMockState();
+        return;
+      }
+
+      let updated = await dbUpdateRelationship(
+        supabase,
+        relationshipId,
+        fromMemberId,
+        toMemberId,
+        type,
+        marriageDate
+      );
+      if (!updated) {
+        const replacement = await dbAddRelationship(
+          supabase,
+          fromMemberId,
+          toMemberId,
+          type,
+          marriageDate
+        );
+        if (!replacement || replacement.id === relationshipId) {
+          throw new Error("Could not update this relationship. You may need admin rights.");
+        }
+        const removed = await dbDeleteRelationship(supabase, relationshipId);
+        if (!removed) {
+          throw new Error("Created the new relationship, but could not remove the old one.");
+        }
+        updated = replacement;
+      }
+      await logAudit("relationship.updated", "relationship", relationshipId, {
+        from: fromMemberId,
+        to: toMemberId,
+        type,
+        marriage_date: marriageDate || null,
+      });
+      store.setRelationships(
+        store.relationships.map((rel) => (rel.id === relationshipId ? updated : rel))
+      );
+      await loadData();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isOnline, store.relationships, logAudit]
+  );
+
   const removeMember = useCallback(
     async (memberId: string) => {
       if (!memberId || memberId === store.viewer?.id) return;
@@ -957,7 +1037,7 @@ export function useFamilyData(): FamilyData {
       setFamily((prev) => (prev ? { ...prev, invite_code: code } : prev));
       return;
     }
-    if (!familyId) return;
+    if (!familyId) throw new Error("Family is not ready yet. Please refresh and try again.");
     const updated = await dbRegenerateFamilyInviteCode(supabase, familyId);
     if (updated) setFamily(updated);
     const nextCodes = await dbGetFamilyInviteCodes(supabase, familyId);
@@ -966,7 +1046,7 @@ export function useFamilyData(): FamilyData {
   }, [isOnline, familyId, family]);
 
   const createInviteCode = useCallback(async (customCode?: string, label?: string) => {
-    if (!familyId) return;
+    if (!familyId) throw new Error("Family is not ready yet. Please refresh and try again.");
     if (!isOnline) {
       const code = customCode?.trim().toUpperCase() || makeLocalInviteCode(family?.name);
       const mockCode: InviteCodeRecord = {
@@ -983,7 +1063,9 @@ export function useFamilyData(): FamilyData {
     }
 
     const created = await dbCreateFamilyInviteCode(supabase, familyId, customCode, label);
-    if (!created) return;
+    if (!created) {
+      throw new Error("Could not create invite code. Check the code format and try again.");
+    }
     const [fam, codes] = await Promise.all([
       getFamily(supabase, familyId),
       dbGetFamilyInviteCodes(supabase, familyId),
@@ -993,7 +1075,7 @@ export function useFamilyData(): FamilyData {
   }, [isOnline, familyId, family, supabase]);
 
   const updateInviteCode = useCallback(async (inviteCodeId: string, nextCode: string, label?: string) => {
-    if (!familyId) return;
+    if (!familyId) throw new Error("Family is not ready yet. Please refresh and try again.");
     if (!isOnline) {
       const normalized = nextCode.trim().toUpperCase();
       setInviteCodes((prev) =>
@@ -1008,7 +1090,9 @@ export function useFamilyData(): FamilyData {
     }
 
     const updated = await dbUpdateFamilyInviteCode(supabase, inviteCodeId, nextCode, label);
-    if (!updated) return;
+    if (!updated) {
+      throw new Error("Could not update invite code. Check the code format and try again.");
+    }
     const [fam, codes] = await Promise.all([
       getFamily(supabase, familyId),
       dbGetFamilyInviteCodes(supabase, familyId),
@@ -1018,14 +1102,16 @@ export function useFamilyData(): FamilyData {
   }, [isOnline, familyId, supabase]);
 
   const deleteInviteCode = useCallback(async (inviteCodeId: string) => {
-    if (!familyId) return;
+    if (!familyId) throw new Error("Family is not ready yet. Please refresh and try again.");
     if (!isOnline) {
       setInviteCodes((prev) => prev.filter((code) => code.id !== inviteCodeId));
       return;
     }
 
     const ok = await dbDeleteFamilyInviteCode(supabase, inviteCodeId);
-    if (!ok) return;
+    if (!ok) {
+      throw new Error("Could not delete invite code. Please try again.");
+    }
     const [fam, codes] = await Promise.all([
       getFamily(supabase, familyId),
       dbGetFamilyInviteCodes(supabase, familyId),
@@ -1094,6 +1180,7 @@ export function useFamilyData(): FamilyData {
     updateProfile,
     addMember,
     linkMembers,
+    updateRelationship,
     unlinkRelationship,
     removeMember,
     addCondition,

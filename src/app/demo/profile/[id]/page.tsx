@@ -77,14 +77,20 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
     profile: p, match: calculateGeneticMatch(member.id, p.id, relationships, p.gender),
   }));
 
-  const handleSave = (updates: Partial<Profile> & { avatarFile?: File }) => {
-    const { avatarFile, ...profileUpdates } = updates;
+  const handleSave = (updates: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => {
+    const { avatarFile, galleryFiles, ...profileUpdates } = updates;
     if (isViewer) { store.updateViewer(profileUpdates); }
     else { store.setMembers(members.map((m) => m.id === member.id ? { ...m, ...profileUpdates } : m)); }
     if (avatarFile) {
       const url = URL.createObjectURL(avatarFile);
       if (isViewer) store.updateViewer({ avatar_url: url });
       else store.setMembers(members.map((m) => m.id === member.id ? { ...m, avatar_url: url } : m));
+    }
+    if (galleryFiles?.length) {
+      const urls = galleryFiles.map((file) => URL.createObjectURL(file));
+      const gallery_photos = [...(member.gallery_photos || []), ...urls];
+      if (isViewer) store.updateViewer({ gallery_photos });
+      else store.setMembers(members.map((m) => m.id === member.id ? { ...m, gallery_photos } : m));
     }
   };
 

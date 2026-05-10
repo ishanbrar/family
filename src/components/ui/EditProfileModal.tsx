@@ -37,7 +37,7 @@ interface EditProfileModalProps {
   profile: Profile;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updated: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => void;
+  onSave: (updated: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => Promise<void> | void;
 }
 
 export function EditProfileModal({
@@ -75,6 +75,34 @@ export function EditProfileModal({
     phone_number: profile.social_links?.phone_number || "",
   });
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setAvatarPreview(profile.avatar_url);
+    setAvatarFile(null);
+    setGalleryPhotos(profile.gallery_photos || []);
+    setGalleryFiles([]);
+    setFirstName(profile.first_name);
+    setLastName(profile.last_name);
+    setDisplayName(profile.display_name || "");
+    setGender(profile.gender || "");
+    setProfession(profile.profession || "");
+    setLocationCity(profile.location_city || "");
+    setPetsText((profile.pets || []).join(", "));
+    setDob(profile.date_of_birth || "");
+    setPlaceOfBirth(profile.place_of_birth || "");
+    setAboutMe(profile.about_me || "");
+    setSocial({
+      instagram: profile.social_links?.instagram || "",
+      linkedin: profile.social_links?.linkedin || "",
+      facebook: profile.social_links?.facebook || "",
+      phone_number: profile.social_links?.phone_number || "",
+    });
+    setSaving(false);
+    setSaveError(null);
+  }, [isOpen, profile]);
 
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -109,7 +137,8 @@ export function EditProfileModal({
     };
   }, []);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (saving) return;
     const parsedPets = Array.from(
       new Set(
         petsText
@@ -125,25 +154,33 @@ export function EditProfileModal({
     if (social.facebook) cleanSocial.facebook = social.facebook;
     if (social.phone_number) cleanSocial.phone_number = social.phone_number;
 
-    onSave({
-      first_name: firstName,
-      last_name: lastName,
-      display_name: displayName.trim() || null,
-      gender: gender || null,
-      profession: profession || null,
-      location_city: locationCity || null,
-      pets: parsedPets,
-      date_of_birth: dob ? String(dob).slice(0, 10) : null,
-      place_of_birth: placeOfBirth || null,
-      about_me: aboutMe || null,
-      country_code: inferCountryCodeFromCity(locationCity),
-      social_links: cleanSocial,
-      avatar_url: avatarPreview,
-      gallery_photos: galleryPhotos.filter((photo) => /^https?:\/\//.test(photo)),
-      ...(avatarFile ? { avatarFile } : {}),
-      ...(galleryFiles.length > 0 ? { galleryFiles } : {}),
-    });
-    onClose();
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await onSave({
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        display_name: displayName.trim() || null,
+        gender: gender || null,
+        profession: profession.trim() || null,
+        location_city: locationCity.trim() || null,
+        pets: parsedPets,
+        date_of_birth: dob ? String(dob).slice(0, 10) : null,
+        place_of_birth: placeOfBirth.trim() || null,
+        about_me: aboutMe.trim() || null,
+        country_code: inferCountryCodeFromCity(locationCity),
+        social_links: cleanSocial,
+        avatar_url: avatarPreview,
+        gallery_photos: galleryPhotos.filter((photo) => /^https?:\/\//.test(photo)),
+        ...(avatarFile ? { avatarFile } : {}),
+        ...(galleryFiles.length > 0 ? { galleryFiles } : {}),
+      });
+      onClose();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Could not save profile. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const inputClass =
@@ -398,18 +435,23 @@ export function EditProfileModal({
 
             {/* Footer */}
             <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 px-4 sm:px-6 py-4 border-t border-white/[0.06]">
-              <button onClick={onClose} className="min-h-[44px] px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 hover:bg-white/5 active:scale-[0.98] transition-colors flex items-center justify-center">
+              {saveError && (
+                <p className="sm:mr-auto text-sm text-red-300/90" role="alert">
+                  {saveError}
+                </p>
+              )}
+              <button onClick={onClose} disabled={saving} className="min-h-[44px] px-4 py-2 rounded-xl text-sm text-white/40 hover:text-white/60 hover:bg-white/5 active:scale-[0.98] transition-colors flex items-center justify-center disabled:opacity-60">
                 Cancel
               </button>
               <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={saving ? undefined : { scale: 1.02 }}
+                whileTap={saving ? undefined : { scale: 0.98 }}
                 onClick={handleSubmit}
-                disabled={!firstName.trim() || !lastName.trim() || !gender}
+                disabled={!firstName.trim() || !lastName.trim() || !gender || saving}
                 className="flex items-center justify-center gap-2 min-h-[44px] px-5 py-2 rounded-xl bg-gold-400/15 text-gold-300 text-sm font-medium hover:bg-gold-400/20 active:scale-[0.98] transition-colors"
               >
-                <Save size={14} />
-                Save Changes
+                {saving ? <span className="w-3.5 h-3.5 rounded-full border border-gold-300/40 border-t-gold-300 animate-spin" /> : <Save size={14} />}
+                {saving ? "Saving..." : "Save Changes"}
               </motion.button>
             </div>
           </motion.div>

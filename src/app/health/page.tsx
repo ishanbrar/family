@@ -78,7 +78,7 @@ export default function HealthPage() {
       y: n.y,
       generation: n.generation,
     }));
-  }, [treeLayout.nodes, viewer, relationships]);
+  }, [treeLayout.nodes, viewer, relationships, family?.relation_language, members]);
 
   const generationAnalytics = useMemo(
     () => createGenerationAnalytics(treeLayout.nodes),

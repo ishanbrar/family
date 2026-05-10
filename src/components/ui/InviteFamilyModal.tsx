@@ -72,6 +72,7 @@ export function InviteFamilyModal({
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingCode, setEditingCode] = useState("");
+  const [actionError, setActionError] = useState<string | null>(null);
   const expectedPrefix = familyInviteCodeBase(family.name);
 
   const sortedCodes = useMemo(
@@ -104,28 +105,47 @@ export function InviteFamilyModal({
 
   const handleCreateAuto = async () => {
     setCreating(true);
-    await onCreateCode(undefined, label.trim() || undefined);
-    setCreating(false);
-    setLabel("");
+    setActionError(null);
+    try {
+      await onCreateCode(undefined, label.trim() || undefined);
+      setLabel("");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not create invite code.");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleCreateCustom = async () => {
     const normalized = customCode.trim().toUpperCase();
     if (!CODE_PATTERN.test(normalized) || !normalized.startsWith(expectedPrefix)) return;
     setCreating(true);
-    await onCreateCode(normalized, label.trim() || undefined);
-    setCreating(false);
-    setCustomCode("");
-    setLabel("");
+    setActionError(null);
+    try {
+      await onCreateCode(normalized, label.trim() || undefined);
+      setCustomCode("");
+      setLabel("");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not create invite code.");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
     setBusyId(id);
-    await onDeleteCode(id);
-    setBusyId(null);
+    setActionError(null);
+    try {
+      await onDeleteCode(id);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not delete invite code.");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const startEdit = (code: InviteCodeRecord) => {
+    setActionError(null);
     setEditingId(code.id);
     setEditingCode(code.code);
   };
@@ -135,10 +155,16 @@ export function InviteFamilyModal({
     const normalized = editingCode.trim().toUpperCase();
     if (!CODE_PATTERN.test(normalized) || !normalized.startsWith(expectedPrefix)) return;
     setBusyId(editingId);
-    await onUpdateCode(editingId, normalized);
-    setBusyId(null);
-    setEditingId(null);
-    setEditingCode("");
+    setActionError(null);
+    try {
+      await onUpdateCode(editingId, normalized);
+      setEditingId(null);
+      setEditingCode("");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not update invite code.");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -221,6 +247,11 @@ export function InviteFamilyModal({
                 <p className="mt-2 text-[11px] text-white/35">
                   Required format: {expectedPrefix} + up to 4 digits.
                 </p>
+                {actionError && (
+                  <div className="mt-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2 text-xs text-red-300/90">
+                    {actionError}
+                  </div>
+                )}
               </div>
 
               <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">

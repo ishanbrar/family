@@ -39,6 +39,7 @@ import type { Profile, RelationshipType } from "@/lib/types";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
 import { exportFamilyTreeAsImage } from "@/lib/tree-export";
+import { shouldPromptPostJoinLink } from "@/lib/flow-readiness";
 
 const ONBOARDING_SNOOZE_KEY = "legacy:onboarding-snoozed-until";
 const POST_JOIN_LINK_ONLY_KEY = "legacy:post-join-link-only";
@@ -57,6 +58,7 @@ export default function DashboardPage() {
     updateProfile,
     addMember: addMemberAction,
     linkMembers,
+    updateRelationship,
     unlinkRelationship,
     removeMember,
     regenerateInviteCode,
@@ -109,7 +111,7 @@ export default function DashboardPage() {
       y: n.y,
       generation: n.generation,
     }));
-  }, [viewer, treeLayout.nodes, relationships]);
+  }, [viewer, treeLayout.nodes, relationships, family?.relation_language, members]);
 
   const generationAnalytics = useMemo(
     () => createGenerationAnalytics(treeLayout.nodes),
@@ -129,7 +131,7 @@ export default function DashboardPage() {
       profile: p,
       match: calculateGeneticMatch(viewer.id, p.id, relationships, p.gender, family?.relation_language, members),
     }));
-  }, [viewer, members, relationships]);
+  }, [viewer, members, relationships, family?.relation_language]);
 
   const memberSearchResults = useMemo(() => {
     if (!viewer) return [];
@@ -196,7 +198,7 @@ export default function DashboardPage() {
           )
       )
       .slice(0, 8);
-  }, [viewer, members, relationships, memberSearchQuery]);
+  }, [viewer, members, relationships, memberSearchQuery, family?.relation_language]);
 
   // ── Handle Add Member ───────────────────────────
   const handleAddMember = useCallback(
@@ -264,6 +266,12 @@ export default function DashboardPage() {
     setPostJoinLinkOnlyRequired(false);
   }, [postJoinLinkOnlyRequired, viewerHasDirectRelationship, viewer?.id]);
 
+  useEffect(() => {
+    if (!shouldPromptPostJoinLink({ postJoinLinkOnlyRequired, viewerHasDirectRelationship })) return;
+    setSuppressAutoOnboarding(false);
+    setWizardOpen(true);
+  }, [postJoinLinkOnlyRequired, viewerHasDirectRelationship]);
+
   const isOnboardingSnoozed =
     onboardingSnoozedUntil != null && onboardingSnoozedUntil > Date.now();
 
@@ -311,9 +319,6 @@ export default function DashboardPage() {
   }, []);
 
   const canExportRelated = !!relatedByFilter && highlightedIds.size > 0;
-  const actionButtonClass =
-    "inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-gold-400/12 border border-gold-400/25 text-[10px] font-medium text-gold-300 hover:bg-gold-400/18 transition-colors";
-
   const handleOpenExportModal = useCallback(() => {
     if (!canExportRelated) setExportScope("entire");
     setExportError(null);
@@ -414,7 +419,6 @@ export default function DashboardPage() {
   // Stats
   const totalMembers = members.length;
   const totalGenerations = generationAnalytics.totalGenerations;
-  const locations = new Set(members.map((m) => m.location_city).filter(Boolean)).size;
   const filterMember = relatedByFilter ? members.find((p) => p.id === relatedByFilter) : null;
 
   return (
@@ -422,6 +426,7 @@ export default function DashboardPage() {
       <Sidebar />
       <AddMemberModal
         existingMembers={members}
+        defaultRelativeId={viewer.id}
         isOpen={addModalOpen}
         onClose={() => setAddModalOpen(false)}
         onAdd={handleAddMember}
@@ -434,6 +439,7 @@ export default function DashboardPage() {
         relationships={relationships}
         familyName={family?.name}
         onConnectMembers={linkMembers}
+        onUpdateRelationship={updateRelationship}
         onRemoveRelationship={unlinkRelationship}
         onRemoveMember={removeMember}
         restrictToViewer={viewer.role !== "ADMIN"}
@@ -720,6 +726,26 @@ export default function DashboardPage() {
             </div>
           </div>
         </motion.div>
+
+        {shouldPromptPostJoinLink({ postJoinLinkOnlyRequired, viewerHasDirectRelationship }) && (
+          <div className="mb-6 rounded-2xl border border-gold-400/25 bg-gold-400/[0.08] px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium text-gold-200">Connect yourself to the family tree</p>
+              <p className="text-xs text-white/55 mt-0.5">
+                You joined as a new node. Link yourself to one existing relative so everyone can find you in the tree.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setSuppressAutoOnboarding(false);
+                setWizardOpen(true);
+              }}
+              className="min-h-[40px] px-3.5 py-2 rounded-xl bg-gold-400/15 border border-gold-400/25 text-xs font-medium text-gold-300 hover:bg-gold-400/20 transition-colors"
+            >
+              Link My Node
+            </button>
+          </div>
+        )}
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">

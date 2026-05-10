@@ -2,7 +2,6 @@
 
 import { AddMemberModal } from "@/components/ui/AddMemberModal";
 import { MOCK_PROFILES } from "@/lib/mock-data";
-import type { Profile, RelationshipType } from "@/lib/types";
 
 export default function PreviewAddPage() {
   return (
@@ -12,11 +11,7 @@ export default function PreviewAddPage() {
           existingMembers={MOCK_PROFILES}
           isOpen={true}
           onClose={() => {}}
-          onAdd={(
-            _member: Omit<Profile, "id" | "created_at" | "updated_at">,
-            _rel: { relativeId: string; type: RelationshipType; marriageDate?: string | null },
-            _avatarFile?: File
-          ) => {}}
+          onAdd={() => {}}
         />
       </div>
     </div>

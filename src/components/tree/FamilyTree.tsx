@@ -208,7 +208,6 @@ export function FamilyTree({
     const el = containerRef.current;
     if (!el || members.length === 0) return;
     const xs = members.map((m) => m.x);
-    const ys = members.map((m) => m.y);
     const pad = 60;
     const minX = Math.min(...xs) - pad;
     const maxX = Math.max(...xs) + pad;

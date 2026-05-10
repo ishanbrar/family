@@ -396,7 +396,7 @@ export function InteractiveGlobe({
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [focusCountryCode, focusSignal, locatedMembers]);
+  }, [focusCountryCode, focusSignal, locatedMembers, baseSize]);
 
   const globeProjection = useMemo(
     () =>

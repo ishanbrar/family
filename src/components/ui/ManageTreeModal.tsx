@@ -20,6 +20,13 @@ interface ManageTreeModalProps {
     type: RelationshipType,
     marriageDate?: string | null
   ) => Promise<void>;
+  onUpdateRelationship: (
+    relationshipId: string,
+    fromMemberId: string,
+    toMemberId: string,
+    type: RelationshipType,
+    marriageDate?: string | null
+  ) => Promise<void>;
   onRemoveRelationship: (relationshipId: string) => Promise<void>;
   onRemoveMember: (memberId: string) => Promise<void>;
   restrictToViewer?: boolean;
@@ -71,6 +78,7 @@ export function ManageTreeModal({
   relationships,
   familyName = "Family",
   onConnectMembers,
+  onUpdateRelationship,
   onRemoveRelationship,
   onRemoveMember,
   restrictToViewer = false,
@@ -156,14 +164,21 @@ export function ManageTreeModal({
 
     try {
       if (editingRelationshipId) {
-        await onRemoveRelationship(editingRelationshipId);
+        await onUpdateRelationship(
+          editingRelationshipId,
+          sourceId,
+          targetId,
+          relationType,
+          relationType === "spouse" && marriageDate ? String(marriageDate).slice(0, 10) : null
+        );
+      } else {
+        await onConnectMembers(
+          sourceId,
+          targetId,
+          relationType,
+          relationType === "spouse" && marriageDate ? String(marriageDate).slice(0, 10) : null
+        );
       }
-      await onConnectMembers(
-        sourceId,
-        targetId,
-        relationType,
-        relationType === "spouse" && marriageDate ? String(marriageDate).slice(0, 10) : null
-      );
       const source = memberById.get(sourceId);
       const target = memberById.get(targetId);
       setSuccess(

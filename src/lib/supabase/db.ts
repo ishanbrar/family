@@ -272,6 +272,37 @@ export async function deleteRelationship(
   return !error && Array.isArray(data) && data.length > 0;
 }
 
+export async function updateRelationship(
+  supabase: SupabaseClient,
+  relationshipId: string,
+  userId: string,
+  relativeId: string,
+  type: RelationshipType,
+  marriageDate?: string | null
+): Promise<Relationship | null> {
+  const payload: {
+    user_id: string;
+    relative_id: string;
+    type: RelationshipType;
+    marriage_date?: string | null;
+  } = {
+    user_id: userId,
+    relative_id: relativeId,
+    type,
+    marriage_date: type === "spouse" ? (marriageDate ? String(marriageDate).slice(0, 10) : null) : null,
+  };
+
+  const { data, error } = await supabase
+    .from("relationships")
+    .update(payload)
+    .eq("id", relationshipId)
+    .select("*")
+    .single();
+
+  if (error || !data) return null;
+  return mapRelationship(data);
+}
+
 // ── Conditions ──────────────────────────────────
 
 export async function getAllConditions(

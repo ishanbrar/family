@@ -44,6 +44,35 @@ interface PendingIntentPayload {
   invite_code?: string | null;
 }
 
+const AUTH_TIMEOUT_MS = 30000;
+
+async function withTimeout<T>(
+  promise: PromiseLike<T>,
+  message = "Connection timed out. Please check your internet and try again."
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), AUTH_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+function friendlyAuthMessage(message: string): string {
+  const isTimeout = /timed\s*out|timeout/i.test(message);
+  const isLoadFailed = /load\s*failed|failed\s*to\s*fetch|network\s*error|abort/i.test(message);
+  const isRateLimit = /rate\s*limit|too\s*many\s*requests|429/i.test(message);
+  if (isTimeout) return "Supabase is taking longer than expected. Please try again.";
+  if (isLoadFailed) return "Connection failed. Please check your internet and try again.";
+  if (isRateLimit) return "Too many attempts. Please wait an hour and try again.";
+  return message;
+}
+
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,12 +94,21 @@ function LoginPageContent() {
     const supabase = createClient();
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(redirectPathBase)}`;
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo },
-    });
+    let oauthError: Error | null = null;
+    try {
+      const result = await withTimeout(
+        supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo },
+        }),
+        "Google sign-in timed out. Please try again."
+      );
+      oauthError = result.error;
+    } catch (err) {
+      oauthError = err instanceof Error ? err : new Error("Google sign-in failed.");
+    }
     if (oauthError) {
-      setError(oauthError.message);
+      setError(friendlyAuthMessage(oauthError.message));
       setGoogleLoading(false);
       return;
     }
@@ -141,22 +179,30 @@ function LoginPageContent() {
     }
 
     const supabase = createClient();
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: identifier,
-      password,
-    });
+    let authResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
+    try {
+      authResult = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email: identifier,
+          password,
+        })
+      );
+    } catch (err) {
+      setError(friendlyAuthMessage(err instanceof Error ? err.message : "Connection failed."));
+      setLoading(false);
+      return;
+    }
+
+    const { data: authData, error: authError } = authResult;
 
     if (authError) {
-      const msg = authError.message;
-      const isLoadFailed = /load\s*failed|failed\s*to\s*fetch|network\s*error/i.test(msg);
-      const isRateLimit = /rate\s*limit|too\s*many\s*requests|429/i.test(msg);
-      setError(
-        isLoadFailed
-          ? "Connection failed. Please check your internet and try again."
-          : isRateLimit
-            ? "Too many attempts. Please wait an hour and try again."
-            : msg
-      );
+      setError(friendlyAuthMessage(authError.message));
+      setLoading(false);
+      return;
+    }
+
+    if (!authData.user) {
+      setError("Login succeeded, but Supabase did not return a user. Please try again.");
       setLoading(false);
       return;
     }
@@ -164,9 +210,20 @@ function LoginPageContent() {
     let redirectPath = redirectPathBase;
 
     // Complete any deferred family setup from email-confirmation signup flow (server-side intent).
-    const { data: consumedIntent, error: consumeErr } = await supabase.rpc("consume_pending_signup_intent", {
-      p_auth_user_id: authData.user.id,
-    });
+    let consumedResult: Awaited<ReturnType<typeof supabase.rpc>>;
+    try {
+      consumedResult = await withTimeout(
+        supabase.rpc("consume_pending_signup_intent", {
+          p_auth_user_id: authData.user.id,
+        }),
+        "Login succeeded, but setup check timed out. Please try again."
+      );
+    } catch (err) {
+      setError(friendlyAuthMessage(err instanceof Error ? err.message : "Could not check account setup."));
+      setLoading(false);
+      return;
+    }
+    const { data: consumedIntent, error: consumeErr } = consumedResult;
     if (consumeErr) {
       setError(`Could not load deferred signup setup: ${consumeErr.message}`);
       setLoading(false);
@@ -180,11 +237,14 @@ function LoginPageContent() {
 
     if (parsedIntent) {
       try {
-        redirectPath = await completeDeferredSetup(
-          supabase,
-          authData.user.id,
-          parsedIntent,
-          redirectPathBase
+        redirectPath = await withTimeout(
+          completeDeferredSetup(
+            supabase,
+            authData.user.id,
+            parsedIntent,
+            redirectPathBase
+          ),
+          "Login succeeded, but family setup timed out. Please try again."
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
@@ -195,8 +255,11 @@ function LoginPageContent() {
       }
     }
 
-    router.push(redirectPath);
-    router.refresh();
+    if (typeof window !== "undefined") {
+      window.location.assign(redirectPath);
+      return;
+    }
+    router.replace(redirectPath);
   };
 
   const handleRetryDeferred = async () => {
@@ -214,15 +277,21 @@ function LoginPageContent() {
       ? `/join?code=${encodeURIComponent(inviteCodeFromUrl)}`
       : "/dashboard";
     try {
-      const redirectPath = await completeDeferredSetup(
-        supabase,
-        authData.user.id,
-        pendingIntent,
-        redirectPathBase
+      const redirectPath = await withTimeout(
+        completeDeferredSetup(
+          supabase,
+          authData.user.id,
+          pendingIntent,
+          redirectPathBase
+        ),
+        "Family setup timed out. Please try again."
       );
       setPendingIntent(null);
-      router.push(redirectPath);
-      router.refresh();
+      if (typeof window !== "undefined") {
+        window.location.assign(redirectPath);
+        return;
+      }
+      router.replace(redirectPath);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       setError(`Retry failed: ${message}`);

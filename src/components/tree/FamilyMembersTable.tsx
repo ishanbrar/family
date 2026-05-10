@@ -10,6 +10,7 @@ import { Loader2, User } from "lucide-react";
 import type { Profile } from "@/lib/types";
 import { CitySearch } from "@/components/ui/CitySearch";
 import { cn } from "@/lib/cn";
+import { shouldCommitCompositeBlur } from "@/lib/flow-readiness";
 
 function formatDob(value: string | null): string {
   if (!value) return "—";
@@ -53,6 +54,7 @@ export function FamilyMembersTable({
 }: FamilyMembersTableProps) {
   const [editingCell, setEditingCell] = useState<{ memberId: string; field: "name" | "dob" | "city" } | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState({ firstName: "", lastName: "", dob: "", city: "" });
 
   const sortedMembers = [...members].sort((a, b) => {
@@ -65,6 +67,7 @@ export function FamilyMembersTable({
   const startEdit = useCallback(
     (member: Profile, field: "name" | "dob" | "city") => {
       if (!canEdit) return;
+      setError(null);
       setEditingCell({ memberId: member.id, field });
       setDraft({
         firstName: member.first_name || "",
@@ -84,6 +87,7 @@ export function FamilyMembersTable({
     async (memberId: string) => {
       if (!editingCell || editingCell.memberId !== memberId) return;
       setSavingId(memberId);
+      setError(null);
 
       const member = members.find((m) => m.id === memberId);
       if (!member) {
@@ -111,8 +115,10 @@ export function FamilyMembersTable({
             location_city: draft.city.trim() || null,
           });
         }
-      } finally {
         setEditingCell(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not save this edit.");
+      } finally {
         setSavingId(null);
       }
     },
@@ -177,12 +183,18 @@ export function FamilyMembersTable({
                     }}
                   >
                     {isEditingName ? (
-                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                      <div
+                        className="flex gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                        onBlur={(e) => {
+                          if (!shouldCommitCompositeBlur(e.currentTarget, e.relatedTarget as Node | null)) return;
+                          void saveEdit(member.id);
+                        }}
+                      >
                         <input
                           autoFocus
                           value={draft.firstName}
                           onChange={(e) => setDraft((p) => ({ ...p, firstName: e.target.value }))}
-                          onBlur={() => saveEdit(member.id)}
                           onKeyDown={(e) => handleKeyDown(e, member.id)}
                           placeholder="First"
                           className="flex-1 min-w-0 h-8 rounded-lg px-2.5 app-input text-sm"
@@ -190,7 +202,6 @@ export function FamilyMembersTable({
                         <input
                           value={draft.lastName}
                           onChange={(e) => setDraft((p) => ({ ...p, lastName: e.target.value }))}
-                          onBlur={() => saveEdit(member.id)}
                           onKeyDown={(e) => handleKeyDown(e, member.id)}
                           placeholder="Last"
                           className="flex-1 min-w-0 h-8 rounded-lg px-2.5 app-input text-sm"
@@ -242,17 +253,24 @@ export function FamilyMembersTable({
                         className="min-w-[200px] max-w-[280px]"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <CitySearch
-                          value={draft.city}
-                          onChange={(city) => {
-                            const next = city.trim();
-                            setDraft((p) => ({ ...p, city: next }));
-                            setSavingId(member.id);
-                            void onUpdate(member.id, { location_city: next || null }).finally(() => {
-                              setEditingCell(null);
-                              setSavingId(null);
-                            });
-                          }}
+                          <CitySearch
+                            value={draft.city}
+                            onChange={(city) => {
+                              const next = city.trim();
+                              setDraft((p) => ({ ...p, city: next }));
+                              setError(null);
+                              setSavingId(member.id);
+                              void onUpdate(member.id, { location_city: next || null })
+                                .then(() => {
+                                  setEditingCell(null);
+                                })
+                                .catch((err) => {
+                                  setError(err instanceof Error ? err.message : "Could not save city.");
+                                })
+                                .finally(() => {
+                                  setSavingId(null);
+                                });
+                            }}
                           placeholder="Search a city..."
                           className="[&_input]:h-8 [&_input]:py-1.5 [&_input]:rounded-lg [&_input]:text-sm"
                         />
@@ -276,6 +294,11 @@ export function FamilyMembersTable({
         <div className="py-12 text-center">
           <User size={28} className="mx-auto text-white/25 mb-2" />
           <p className="text-sm text-white/40">No family members yet</p>
+        </div>
+      )}
+      {error && (
+        <div className="border-t border-red-400/20 bg-red-400/[0.06] px-4 py-2 text-xs text-red-300/90">
+          {error}
         </div>
       )}
     </div>

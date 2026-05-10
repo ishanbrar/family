@@ -57,8 +57,10 @@ function JoinFamilyPageContent() {
   const supabase = createClient();
 
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<"claim" | "create" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [viewer, setViewer] = useState<Profile | null>(null);
   const [preview, setPreview] = useState<JoinFamilyPreview | null>(null);
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
@@ -167,12 +169,14 @@ function JoinFamilyPageContent() {
 
   const handleCreateNewNode = async () => {
     if (!code) return;
-    setSubmitting(true);
+    setSubmittingAction("create");
     setError(null);
+    setClaimError(null);
+    setCreateError(null);
     const joinedId = await joinFamilyAsNewNode(supabase, code);
     if (!joinedId) {
-      setError("Could not join this family. Please verify the invite code.");
-      setSubmitting(false);
+      setCreateError("Could not join this family. Please verify the invite code and try again.");
+      setSubmittingAction(null);
       return;
     }
     if (typeof window !== "undefined" && viewer?.id) {
@@ -187,12 +191,14 @@ function JoinFamilyPageContent() {
 
   const handleClaimNode = async () => {
     if (!code || !selectedClaimId) return;
-    setSubmitting(true);
+    setSubmittingAction("claim");
     setError(null);
+    setClaimError(null);
+    setCreateError(null);
     const claimedId = await claimFamilyMemberNode(supabase, code, selectedClaimId);
     if (!claimedId) {
-      setError("Could not claim this node. It may already be claimed.");
-      setSubmitting(false);
+      setClaimError("Could not claim this node. It may already be claimed; refresh and try again.");
+      setSubmittingAction(null);
       return;
     }
     if (typeof window !== "undefined") {
@@ -302,14 +308,23 @@ function JoinFamilyPageContent() {
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={handleClaimNode}
-              disabled={submitting || !selectedClaimId}
+              disabled={submittingAction !== null || !selectedClaimId}
               className="mt-4 w-full h-11 rounded-xl bg-gold-400/15 border border-gold-400/25 text-sm font-medium text-gold-300 hover:bg-gold-400/20 disabled:opacity-40 transition-colors"
             >
               <span className="inline-flex items-center gap-2">
-                <UserCheck size={14} />
-                Claim Selected Node
+                {submittingAction === "claim" ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <UserCheck size={14} />
+                )}
+                {submittingAction === "claim" ? "Claiming Node..." : "Claim Selected Node"}
               </span>
             </motion.button>
+            {claimError && (
+              <div className="mt-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2 text-xs text-red-300/90">
+                {claimError}
+              </div>
+            )}
           </GlassCard>
 
           <GlassCard className="p-5">
@@ -330,14 +345,23 @@ function JoinFamilyPageContent() {
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={handleCreateNewNode}
-              disabled={submitting}
+              disabled={submittingAction !== null}
               className="mt-4 w-full h-11 rounded-xl bg-white/[0.04] border border-white/[0.12] text-sm font-medium text-white/80 hover:text-white/95 hover:border-gold-400/25 transition-colors"
             >
               <span className="inline-flex items-center gap-2">
-                <UserPlus size={14} />
-                Create My Node
+                {submittingAction === "create" ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <UserPlus size={14} />
+                )}
+                {submittingAction === "create" ? "Creating Node..." : "Create My Node"}
               </span>
             </motion.button>
+            {createError && (
+              <div className="mt-3 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-3 py-2 text-xs text-red-300/90">
+                {createError}
+              </div>
+            )}
           </GlassCard>
         </div>
 

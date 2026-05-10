@@ -46,7 +46,7 @@ export default function PreviewTreePage() {
           match: calculateGeneticMatch(viewer.id, p.id, relationships, p.gender),
           ...TREE_POSITIONS[p.id],
         })),
-    [members, relationships]
+    [members, relationships, viewer.id]
   );
 
   return (
