@@ -115,6 +115,7 @@ export function InteractiveGlobe({
   className,
 }: InteractiveGlobeProps) {
   const baseSize = size;
+  const frameWidth = `${baseSize}px`;
   const shouldReduceMotion = useReducedMotion();
   const [rotation, setRotation] = useState<[number, number]>(BASE_ROTATION);
   const [isFlatMap, setIsFlatMap] = useState(false);
@@ -571,7 +572,10 @@ export function InteractiveGlobe({
   }, []);
 
   return (
-    <div className={cn("relative flex flex-col items-center", className)}>
+    <div
+      className={cn("relative flex flex-col items-center", className)}
+      style={{ width: frameWidth, minWidth: frameWidth, maxWidth: frameWidth }}
+    >
       <div
         className={cn(
           "relative flex items-center justify-center select-none overflow-hidden rounded-2xl touch-none",

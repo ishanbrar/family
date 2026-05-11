@@ -93,14 +93,24 @@ export async function getProfile(
   supabase: SupabaseClient,
   userId: string
 ): Promise<Profile | null> {
-  const { data, error } = await supabase
+  const { data: authProfile, error: authProfileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("auth_user_id", userId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!authProfileError && authProfile) return mapProfile(authProfile);
+
+  const { data: idProfile, error: idProfileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) return null;
-  return mapProfile(data);
+  if (idProfileError || !idProfile) return null;
+  return mapProfile(idProfile);
 }
 
 export async function getFamilyProfiles(
