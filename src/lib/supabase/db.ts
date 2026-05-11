@@ -692,12 +692,14 @@ export async function getFamilyAuditLogs(
 function mapProfile(row: any): Profile {
   return {
     id: row.id,
+    auth_user_id: row.auth_user_id || null,
     first_name: row.first_name,
     last_name: row.last_name,
     display_name: row.display_name || null,
     gender: row.gender || null,
     avatar_url: row.avatar_url,
     date_of_birth: row.date_of_birth ? String(row.date_of_birth).slice(0, 10) : null,
+    date_of_death: row.date_of_death ? String(row.date_of_death).slice(0, 10) : null,
     place_of_birth: row.place_of_birth,
     profession: row.profession,
     location_city: row.location_city,

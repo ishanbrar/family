@@ -45,7 +45,7 @@ export const COLORS = {
 
 export const FONTS = {
   heading: "'Playfair Display', Georgia, serif",
-  body: "'Inter', system-ui, sans-serif",
+  body: `-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif`,
   mono: "'JetBrains Mono', monospace",
 } as const;
 

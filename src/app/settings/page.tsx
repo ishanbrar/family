@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Bell, Globe, Lock, Palette, Settings, Users, Languages, History } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { FamilyUsersAdmin } from "@/components/settings/FamilyUsersAdmin";
 import { useFamilyData } from "@/hooks/use-family-data";
 import {
   resolveAppliedThemeMode,
@@ -403,6 +404,10 @@ export default function SettingsPage() {
               </label>
             </div>
           </GlassCard>
+
+          {isFamilyAdmin && (
+            <FamilyUsersAdmin />
+          )}
 
           {isFamilyAdmin && (
             <GlassCard className="p-5">

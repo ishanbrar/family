@@ -8,16 +8,16 @@ function SignupFallback() {
     <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
       <div className="flex items-center gap-2 text-white/50 text-sm">
         <Loader2 size={16} className="animate-spin text-gold-400" />
-        Loading sign up...
+        Loading create family...
       </div>
     </div>
   );
 }
 
-export default function SignupPage() {
+export default function CreateFamilySignupPage() {
   return (
     <Suspense fallback={<SignupFallback />}>
-      <SignupFlow mode="join" />
+      <SignupFlow mode="create" />
     </Suspense>
   );
 }

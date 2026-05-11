@@ -14,6 +14,8 @@ import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
 import { countryFlag } from "@/lib/country-utils";
 import { inferCountryCodeFromCity } from "@/lib/cities";
+import { formatDisplayText, formatPersonName } from "@/lib/display-format";
+import { shouldZoomTreeOnWheel } from "@/lib/tree-interaction";
 
 export interface TreeMember {
   profile: Profile;
@@ -235,6 +237,9 @@ export function FamilyTree({
     if (!el) return;
 
     const onWheel = (e: WheelEvent) => {
+      if (!shouldZoomTreeOnWheel(e)) {
+        return;
+      }
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       const cx = e.clientX - rect.left;
@@ -701,8 +706,8 @@ export function FamilyTree({
                         : "font-medium text-white/70"
                   )}>
                     {showLastNames
-                      ? `${member.profile.first_name} ${member.profile.last_name}`
-                      : member.profile.first_name}
+                      ? formatPersonName(member.profile.first_name, member.profile.last_name)
+                      : formatDisplayText(member.profile.first_name)}
                   </p>
                   {showRelationLabels && (
                     <p className="text-[10px] text-white/30 mt-0.5">
@@ -756,7 +761,7 @@ export function FamilyTree({
             }}
           >
             <p className="text-sm font-medium text-white/92">
-              {hoveredMember.profile.first_name} {hoveredMember.profile.last_name}
+              {formatPersonName(hoveredMember.profile.first_name, hoveredMember.profile.last_name)}
             </p>
             <p className="text-[11px] text-gold-300/85 mt-0.5">{hoveredMember.match.relationship}</p>
             <p className="text-[11px] text-white/55 mt-1">

@@ -75,14 +75,18 @@ export function Sidebar() {
           paddingBottom: "env(safe-area-inset-bottom)",
         }}
       >
-        <div className="flex items-center gap-3 px-4 lg:px-6 h-16 border-b border-white/[0.06]">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-3 px-4 lg:px-6 h-16 border-b border-white/[0.06] hover:bg-white/[0.03] transition-colors"
+          aria-label="Go to dashboard"
+        >
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gold-400/10">
             <Crown size={18} className="text-gold-400" />
           </div>
           <span className="hidden lg:block font-serif text-lg font-semibold text-white/90 tracking-wide">
             Legacy
           </span>
-        </div>
+        </Link>
 
         <nav className="flex-1 px-2 lg:px-3 py-4 space-y-1 overflow-y-auto">
           {NAV_ITEMS.map((item, idx) => {

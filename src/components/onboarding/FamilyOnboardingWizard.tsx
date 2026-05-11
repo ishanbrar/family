@@ -273,7 +273,6 @@ export function FamilyOnboardingWizard({
   const inviteLink = useMemo(() => {
     if (!family || typeof window === "undefined") return "";
     const url = new URL("/signup", window.location.origin);
-    url.searchParams.set("mode", "join");
     url.searchParams.set("code", family.invite_code);
     return url.toString();
   }, [family]);

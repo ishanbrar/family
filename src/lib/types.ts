@@ -25,12 +25,14 @@ export type ConditionSeverity = "mild" | "moderate" | "severe";
 
 export interface Profile {
   id: string;
+  auth_user_id?: string | null;
   first_name: string;
   last_name: string;
   display_name: string | null;
   gender: Gender | null;
   avatar_url: string | null;
   date_of_birth: string | null;
+  date_of_death?: string | null;
   place_of_birth: string | null;
   profession: string | null;
   location_city: string | null;
@@ -54,6 +56,17 @@ export interface SocialLinks {
   linkedin?: string;
   facebook?: string;
   phone_number?: string;
+}
+
+export interface AdminFamilyUser {
+  profileId: string;
+  authUserId: string;
+  name: string;
+  role: Role;
+  email: string | null;
+  phone: string | null;
+  createdAt: string;
+  lastSignInAt: string | null;
 }
 
 export interface Relationship {

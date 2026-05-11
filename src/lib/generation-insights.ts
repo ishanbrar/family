@@ -17,6 +17,10 @@ export interface TreeGenerationAnalytics {
   generations: GenerationFact[];
 }
 
+export function getGenerationDepthLabel(totalGenerations: number): string {
+  return `${totalGenerations} generation${totalGenerations !== 1 ? "s" : ""}`;
+}
+
 function parseDate(value: string | null): number | null {
   if (!value) return null;
   const parsed = Date.parse(value);

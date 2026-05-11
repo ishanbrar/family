@@ -6,7 +6,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useMemo, useCallback, useEffect, useState } from "react";
+import { useMemo, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -15,10 +15,10 @@ import {
   Filter,
   UserPlus,
   MailPlus,
+  Clock3,
   Download,
+  MoreHorizontal,
   Loader2,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -40,6 +40,12 @@ import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
 import { exportFamilyTreeAsImage } from "@/lib/tree-export";
 import { shouldPromptPostJoinLink } from "@/lib/flow-readiness";
+import {
+  calculateAggregateYearsLived,
+  formatDisplayText,
+  formatFamilyTreeTitle,
+  formatPersonName,
+} from "@/lib/display-format";
 
 const ONBOARDING_SNOOZE_KEY = "legacy:onboarding-snoozed-until";
 const POST_JOIN_LINK_ONLY_KEY = "legacy:post-join-link-only";
@@ -84,12 +90,14 @@ export default function DashboardPage() {
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
   const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportScope, setExportScope] = useState<"entire" | "related">("entire");
   const [exportingTree, setExportingTree] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [onboardingSnoozedUntil, setOnboardingSnoozedUntil] = useState<number | null>(null);
   const [postJoinLinkOnlyRequired, setPostJoinLinkOnlyRequired] = useState(false);
+  const moreActionsRef = useRef<HTMLDivElement | null>(null);
 
   const navigateToProfile = useCallback(
     (id: string) => router.push(`/profile/${id}`),
@@ -227,6 +235,30 @@ export default function DashboardPage() {
     const parsed = raw ? Number(raw) : NaN;
     setOnboardingSnoozedUntil(Number.isFinite(parsed) ? parsed : null);
   }, []);
+
+  useEffect(() => {
+    if (!moreActionsOpen) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!moreActionsRef.current) return;
+      if (!moreActionsRef.current.contains(event.target as Node)) {
+        setMoreActionsOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMoreActionsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [moreActionsOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !viewer?.id) return;
@@ -419,6 +451,9 @@ export default function DashboardPage() {
   // Stats
   const totalMembers = members.length;
   const totalGenerations = generationAnalytics.totalGenerations;
+  const visibleViewerName = formatDisplayText(viewer.first_name);
+  const familyTreeTitle = formatFamilyTreeTitle(family?.name, viewer.last_name);
+  const yearsLivedSummary = calculateAggregateYearsLived(members);
   const filterMember = relatedByFilter ? members.find((p) => p.id === relatedByFilter) : null;
 
   return (
@@ -580,6 +615,7 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
+        <div className="mx-auto w-full max-w-[1700px]">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -594,86 +630,93 @@ export default function DashboardPage() {
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
               }}>
-                {viewer.first_name}
+                {visibleViewerName}
               </span>
             </h1>
-            <p className="text-sm text-white/35 mt-1 flex items-center gap-2">
-              Your family legacy at a glance
-              {isOnline ? (
-                <span className="inline-flex items-center gap-1 text-[10px] text-severity-mild/60">
-                  <Wifi size={10} /> Live
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] text-white/20">
-                  <WifiOff size={10} /> Demo
-                </span>
-              )}
-            </p>
           </div>
 
-          <div className="w-full lg:w-[560px] space-y-2.5 min-w-0">
+          <div className="w-full lg:w-[540px] space-y-2.5 min-w-0">
             <div className="flex flex-wrap items-center lg:justify-end gap-2">
-              {viewer &&
-                !viewer.onboarding_completed &&
-                !isEstablishedInTree && (
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  setSuppressAutoOnboarding(false);
-                  setWizardOpen(true);
-                }}
-                className="inline-flex sm:w-auto justify-center items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
-                  bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
-                  hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
-              >
-                <GitBranch size={14} />
-                Guided Setup
-              </motion.button>
-                )}
-
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setAddModalOpen(true)}
-                className="inline-flex sm:w-auto justify-center items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
-                  bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
-                  hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
-              >
-                <UserPlus size={14} />
-                Add Member
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setRelationshipModalOpen(true)}
-                className="inline-flex sm:w-auto justify-center items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
-                  bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
-                  hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
-              >
-                <Users size={14} />
-                Modify Relationships
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={handleOpenExportModal}
-                className="inline-flex sm:w-auto justify-center items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
-                  bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
-                  hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
-              >
-                <Download size={14} />
-                Export Tree
-              </motion.button>
-
               {family && viewer.role === "ADMIN" && (
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setInviteModalOpen(true)}
-                  className="inline-flex sm:w-auto justify-center items-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
-                    bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
-                    hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
+                  className="inline-flex items-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl border border-gold-400/18
+                    bg-gold-400/[0.08] text-sm text-gold-300 hover:text-gold-200 hover:bg-gold-400/[0.12]
+                    active:scale-[0.98] transition-colors touch-target-44"
                 >
                   <MailPlus size={14} />
                   Invite Family
                 </motion.button>
               )}
+
+              <div className="relative" ref={moreActionsRef}>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={() => setMoreActionsOpen((prev) => !prev)}
+                  className="inline-flex items-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl border border-white/[0.10]
+                    bg-white/[0.03] text-sm text-white/72 hover:text-white/88 hover:bg-white/[0.05]
+                    active:scale-[0.98] transition-colors touch-target-44"
+                  aria-haspopup="menu"
+                  aria-expanded={moreActionsOpen}
+                >
+                  <MoreHorizontal size={14} />
+                  More
+                </motion.button>
+
+                {moreActionsOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full mt-2 w-56 rounded-xl app-popover border border-white/[0.12] p-2 shadow-2xl z-40"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreActionsOpen(false);
+                        setAddModalOpen(true);
+                      }}
+                      className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/78 hover:text-white/92 hover:bg-white/[0.05] transition-colors inline-flex items-center gap-2"
+                    >
+                      <UserPlus size={14} />
+                      Add Member
+                    </button>
+                    {viewer && !viewer.onboarding_completed && !isEstablishedInTree && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMoreActionsOpen(false);
+                          setSuppressAutoOnboarding(false);
+                          setWizardOpen(true);
+                        }}
+                        className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/78 hover:text-white/92 hover:bg-white/[0.05] transition-colors"
+                      >
+                        Guided Setup
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreActionsOpen(false);
+                        setRelationshipModalOpen(true);
+                      }}
+                      className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/78 hover:text-white/92 hover:bg-white/[0.05] transition-colors"
+                    >
+                      Modify Relationships
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreActionsOpen(false);
+                        handleOpenExportModal();
+                      }}
+                      className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/78 hover:text-white/92 hover:bg-white/[0.05] transition-colors"
+                    >
+                      Export Tree
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="relative">
@@ -702,7 +745,7 @@ export default function DashboardPage() {
                           hover:bg-white/[0.05] active:bg-white/[0.06] transition-colors flex flex-col justify-center"
                       >
                         <p className="text-sm text-white/85">
-                          {entry.profile.first_name} {entry.profile.last_name}
+                          {formatPersonName(entry.profile.first_name, entry.profile.last_name)}
                         </p>
                         {entry.profile.display_name && (
                           <p className="text-[11px] text-gold-300/70 mt-0.5">
@@ -748,88 +791,98 @@ export default function DashboardPage() {
         )}
 
         {/* Main Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,520px)] 2xl:grid-cols-[minmax(0,1.55fr)_minmax(400px,540px)] gap-4 sm:gap-6 items-start">
           {/* ── Family Tree (2 cols) ─────────────── */}
-          <GlassCard className="xl:col-span-2 p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
-              <h2 className="font-serif text-xl font-semibold text-white/90">Family Tree</h2>
-              <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:flex-nowrap sm:justify-end">
-                <TreeControls
-                  members={members}
-                  relatedByFilter={relatedByFilter}
-                  onRelatedByFilterChange={setRelatedByFilter}
-                  showPercentages={showPercentages}
-                  onShowPercentagesChange={setShowPercentages}
-                  showRelationLabels={showRelationLabels}
-                  onShowRelationLabelsChange={setShowRelationLabels}
-                  showLastNames={showLastNames}
-                  onShowLastNamesChange={setShowLastNames}
-                  showBirthYear={showBirthYear}
-                  onShowBirthYearChange={setShowBirthYear}
-                  showDeathYear={showDeathYear}
-                  onShowDeathYearChange={setShowDeathYear}
-                  showBirthCountryFlag={showBirthCountryFlag}
-                  onShowBirthCountryFlagChange={setShowBirthCountryFlag}
-                  onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
-                />
+          <GlassCard className="p-4 sm:p-6">
+            <div className="mx-auto w-full max-w-[980px] xl:max-w-[1020px]">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-3">
+                <h2 className="font-serif text-xl font-semibold text-white/90">{familyTreeTitle}</h2>
+                <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:flex-nowrap sm:justify-end">
+                  <TreeControls
+                    members={members}
+                    relatedByFilter={relatedByFilter}
+                    onRelatedByFilterChange={setRelatedByFilter}
+                    showPercentages={showPercentages}
+                    onShowPercentagesChange={setShowPercentages}
+                    showRelationLabels={showRelationLabels}
+                    onShowRelationLabelsChange={setShowRelationLabels}
+                    showLastNames={showLastNames}
+                    onShowLastNamesChange={setShowLastNames}
+                    showBirthYear={showBirthYear}
+                    onShowBirthYearChange={setShowBirthYear}
+                    showDeathYear={showDeathYear}
+                    onShowDeathYearChange={setShowDeathYear}
+                    showBirthCountryFlag={showBirthCountryFlag}
+                    onShowBirthCountryFlagChange={setShowBirthCountryFlag}
+                    onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
+                  />
+                </div>
               </div>
-            </div>
 
-            {filterMember && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
-                className="mb-4 px-4 py-3 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex items-center gap-3"
-              >
-                <Filter size={14} className="text-gold-400/60 shrink-0" />
-                <p className="text-xs text-white/50">
-                  Showing blood relatives of{" "}
-                  <span className="text-gold-300 font-medium">{filterMember.first_name} {filterMember.last_name}</span>
-                  {" "}&mdash; {highlightedIds.size} member{highlightedIds.size !== 1 ? "s" : ""} share blood
-                </p>
-              </motion.div>
-            )}
+              {filterMember && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                  className="mb-4 px-4 py-3 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex items-center gap-3"
+                >
+                  <Filter size={14} className="text-gold-400/60 shrink-0" />
+                  <p className="text-xs text-white/50">
+                    Showing blood relatives of{" "}
+                    <span className="text-gold-300 font-medium">
+                      {formatPersonName(filterMember.first_name, filterMember.last_name)}
+                    </span>
+                    {" "}&mdash; {highlightedIds.size} member{highlightedIds.size !== 1 ? "s" : ""} share blood
+                  </p>
+                </motion.div>
+              )}
 
-            <FamilyTree
-              members={treeMembers}
-              sibships={treeLayout.sibships}
-              connections={treeLayout.connections}
-              highlightedMembers={highlightedIds}
-              dimNonHighlighted={!!relatedByFilter}
-              viewerId={viewer.id}
-              showPercentages={showPercentages}
-              showRelationLabels={showRelationLabels}
-              showLastNames={showLastNames}
-              showBirthYear={showBirthYear}
-              showDeathYear={showDeathYear}
-              showBirthCountryFlag={showBirthCountryFlag}
-              viewResetSignal={treeViewResetSignal}
-              onMemberClick={(id) => navigateToProfile(id)}
-              canvasWidth={treeLayout.width}
-              canvasHeight={treeLayout.height}
-            />
-            <div className="mt-4 mb-4 grid grid-cols-2 gap-3">
-              {[
-                { label: "Family Members", value: totalMembers, icon: Users, color: "text-gold-300" },
-                { label: "Generations", value: totalGenerations, icon: GitBranch, color: "text-severity-mild" },
-              ].map((stat) => {
-                const Icon = stat.icon;
-                return (
-                  <div key={stat.label} className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] text-white/35 font-medium uppercase tracking-wider">{stat.label}</p>
-                      <Icon size={13} className={stat.color} />
+              <FamilyTree
+                members={treeMembers}
+                sibships={treeLayout.sibships}
+                connections={treeLayout.connections}
+                highlightedMembers={highlightedIds}
+                dimNonHighlighted={!!relatedByFilter}
+                viewerId={viewer.id}
+                showPercentages={showPercentages}
+                showRelationLabels={showRelationLabels}
+                showLastNames={showLastNames}
+                showBirthYear={showBirthYear}
+                showDeathYear={showDeathYear}
+                showBirthCountryFlag={showBirthCountryFlag}
+                viewResetSignal={treeViewResetSignal}
+                onMemberClick={(id) => navigateToProfile(id)}
+                canvasWidth={treeLayout.width}
+                canvasHeight={treeLayout.height}
+              />
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {[
+                  { label: "Family Members", value: totalMembers, icon: Users, color: "text-gold-300" },
+                  { label: "Generations", value: totalGenerations, icon: GitBranch, color: "text-severity-mild" },
+                  { label: "Years Lived", value: yearsLivedSummary.totalYears, icon: Clock3, color: "text-white/60" },
+                ].map((stat) => {
+                  const Icon = stat.icon;
+                  return (
+                    <div key={stat.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] text-white/35 font-medium uppercase tracking-wider">{stat.label}</p>
+                        <Icon size={12} className={stat.color} />
+                      </div>
+                      <p className="mt-1 text-base font-serif font-semibold text-white/90">{stat.value}</p>
                     </div>
-                    <p className="mt-1.5 text-lg font-serif font-semibold text-white/90">{stat.value}</p>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              {yearsLivedSummary.excludedCount > 0 && (
+                <p className="mt-2 text-[11px] text-white/38">
+                  Known birth and death years only.
+                </p>
+              )}
+              <GenerationInsights analytics={generationAnalytics} />
             </div>
-            <GenerationInsights analytics={generationAnalytics} />
           </GlassCard>
 
           {/* ── Right Column ─────────────────────── */}
-          <div className="space-y-6">
-            <GlassCard className="p-6">
+          <div className="space-y-6 xl:justify-self-end xl:w-full xl:max-w-[540px]">
+            <GlassCard className="p-4 sm:p-5 xl:p-6">
               <div className="flex flex-col items-center">
                 <InteractiveGlobe
                   members={members}
@@ -864,11 +917,14 @@ export default function DashboardPage() {
                     avatarUrl={item.profile.avatar_url}
                     initials={`${item.profile.first_name[0]}${item.profile.last_name[0]}`}
                     label={item.match.relationship} />
-                  <p className="mt-2 text-xs text-white/60 font-medium">{item.profile.first_name}</p>
+                  <p className="mt-2 text-xs text-white/60 font-medium">
+                    {formatDisplayText(item.profile.first_name)}
+                  </p>
                 </motion.div>
-              ))}
+            ))}
           </div>
         </GlassCard>
+        </div>
       </main>
     </div>
   );

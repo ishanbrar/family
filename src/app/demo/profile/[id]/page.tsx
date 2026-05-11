@@ -102,7 +102,7 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
         {/* Demo banner */}
         <div className="mb-6 px-4 py-2.5 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex items-center justify-between">
           <p className="text-xs text-white/50">
-            Demo mode &mdash; <a href="/signup" className="text-gold-400 hover:text-gold-300 underline">Create your family</a> for the full experience.
+            Demo mode &mdash; <a href="/signup/create" className="text-gold-400 hover:text-gold-300 underline">Create your family</a> for the full experience.
           </p>
           <span className="text-[10px] text-white/20 bg-white/5 px-2 py-0.5 rounded-lg">DEMO</span>
         </div>

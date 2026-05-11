@@ -9,6 +9,18 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Crown, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import {
+  AUTH_TIMEOUT_MS,
+  SETUP_CHECK_TIMEOUT_MS,
+  friendlyAuthMessage,
+  normalizeLoginEmail,
+  resolvePostAuthRedirect,
+  withTimeout,
+  type PendingIntentPayload,
+} from "@/lib/login-flow";
+import { joinFamilySignupPath } from "@/lib/signup-flow";
+import { createClient } from "@/lib/supabase/client";
+import { DEV_SUPER_ADMIN_ENABLED, enableDevSuperAdmin } from "@/lib/dev-auth";
 
 function GoogleIcon() {
   return (
@@ -32,45 +44,17 @@ function GoogleIcon() {
     </svg>
   );
 }
-import { createClient } from "@/lib/supabase/client";
-import { DEV_SUPER_ADMIN_ENABLED, enableDevSuperAdmin } from "@/lib/dev-auth";
 
-interface PendingIntentPayload {
-  mode: "create" | "join";
-  first_name: string;
-  last_name: string;
-  gender?: "female" | "male" | null;
-  family_name?: string | null;
-  invite_code?: string | null;
-}
-
-const AUTH_TIMEOUT_MS = 30000;
-
-async function withTimeout<T>(
-  promise: PromiseLike<T>,
-  message = "Connection timed out. Please check your internet and try again."
-): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+async function traceLoginStep<T>(label: string, action: () => Promise<T>): Promise<T> {
+  const startedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
   try {
-    return await Promise.race([
-      Promise.resolve(promise),
-      new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(() => reject(new Error(message)), AUTH_TIMEOUT_MS);
-      }),
-    ]);
+    return await action();
   } finally {
-    if (timeoutId) clearTimeout(timeoutId);
+    if (process.env.NODE_ENV !== "production") {
+      const endedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+      console.info(`[Login] ${label} completed in ${Math.round(endedAt - startedAt)}ms`);
+    }
   }
-}
-
-function friendlyAuthMessage(message: string): string {
-  const isTimeout = /timed\s*out|timeout/i.test(message);
-  const isLoadFailed = /load\s*failed|failed\s*to\s*fetch|network\s*error|abort/i.test(message);
-  const isRateLimit = /rate\s*limit|too\s*many\s*requests|429/i.test(message);
-  if (isTimeout) return "Supabase is taking longer than expected. Please try again.";
-  if (isLoadFailed) return "Connection failed. Please check your internet and try again.";
-  if (isRateLimit) return "Too many attempts. Please wait an hour and try again.";
-  return message;
 }
 
 function LoginPageContent() {
@@ -119,8 +103,12 @@ function LoginPageContent() {
     supabase: ReturnType<typeof createClient>,
     userId: string,
     intent: PendingIntentPayload,
-    fallbackRedirect: string
+    fallbackRedirect: string,
+    authPhoneNumber?: string | null
   ): Promise<string> => {
+    const phoneNumber = (intent.phone_number || authPhoneNumber || "").trim();
+    const socialLinks = phoneNumber ? { phone_number: phoneNumber } : {};
+
     if (intent.mode === "create" && intent.family_name?.trim()) {
       const { data: family, error: famErr } = await supabase
         .from("families")
@@ -137,6 +125,7 @@ function LoginPageContent() {
         gender: intent.gender || null,
         role: "ADMIN",
         family_id: family.id,
+        social_links: socialLinks,
       }, { onConflict: "id" });
       if (profileErr) throw profileErr;
       return "/dashboard";
@@ -154,6 +143,7 @@ function LoginPageContent() {
         gender: intent.gender || null,
         role: "MEMBER",
         family_id: null,
+        social_links: socialLinks,
       }, { onConflict: "id" });
       if (profileErr) throw profileErr;
       return `/join?code=${encodeURIComponent(pendingCode)}`;
@@ -181,11 +171,15 @@ function LoginPageContent() {
     const supabase = createClient();
     let authResult: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>;
     try {
-      authResult = await withTimeout(
-        supabase.auth.signInWithPassword({
-          email: identifier,
-          password,
-        })
+      authResult = await traceLoginStep("signInWithPassword", () =>
+        withTimeout(
+          supabase.auth.signInWithPassword({
+            email: normalizeLoginEmail(identifier),
+            password,
+          }),
+          "Supabase Auth timed out. Please try again.",
+          AUTH_TIMEOUT_MS
+        )
       );
     } catch (err) {
       setError(friendlyAuthMessage(err instanceof Error ? err.message : "Connection failed."));
@@ -210,50 +204,51 @@ function LoginPageContent() {
     let redirectPath = redirectPathBase;
 
     // Complete any deferred family setup from email-confirmation signup flow (server-side intent).
-    let consumedResult: Awaited<ReturnType<typeof supabase.rpc>>;
-    try {
-      consumedResult = await withTimeout(
-        supabase.rpc("consume_pending_signup_intent", {
-          p_auth_user_id: authData.user.id,
-        }),
-        "Login succeeded, but setup check timed out. Please try again."
-      );
-    } catch (err) {
-      setError(friendlyAuthMessage(err instanceof Error ? err.message : "Could not check account setup."));
-      setLoading(false);
-      return;
-    }
-    const { data: consumedIntent, error: consumeErr } = consumedResult;
-    if (consumeErr) {
-      setError(`Could not load deferred signup setup: ${consumeErr.message}`);
-      setLoading(false);
-      return;
-    }
-
-    const parsedIntent =
-      consumedIntent && typeof consumedIntent === "object"
-        ? (consumedIntent as PendingIntentPayload)
-        : null;
-
-    if (parsedIntent) {
-      try {
-        redirectPath = await withTimeout(
-          completeDeferredSetup(
-            supabase,
-            authData.user.id,
-            parsedIntent,
-            redirectPathBase
-          ),
-          "Login succeeded, but family setup timed out. Please try again."
+    const postAuth = await resolvePostAuthRedirect({
+      fallbackRedirect: redirectPathBase,
+      consumePendingIntent: async () => {
+        const { data, error } = await traceLoginStep("consume_pending_signup_intent", () =>
+          withTimeout(
+            supabase.rpc("consume_pending_signup_intent", {
+              p_auth_user_id: authData.user.id,
+            }),
+            "Setup check timed out.",
+            SETUP_CHECK_TIMEOUT_MS
+          )
         );
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        setPendingIntent(parsedIntent);
-        setError(`Deferred signup completion failed: ${message}. Retry below.`);
-        setLoading(false);
-        return;
-      }
+        if (error) throw error;
+        return data;
+      },
+      completeDeferredSetup: (intent) =>
+        traceLoginStep("completeDeferredSetup", () =>
+          withTimeout(
+            completeDeferredSetup(
+              supabase,
+              authData.user.id,
+              intent,
+              redirectPathBase,
+              typeof authData.user.user_metadata?.phone_number === "string"
+                ? authData.user.user_metadata.phone_number
+                : null
+            ),
+            "Family setup timed out. Please try again.",
+            AUTH_TIMEOUT_MS
+          )
+        ),
+      onSetupCheckError: (err) => {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[Login] Deferred setup check skipped after successful auth:", err);
+        }
+      },
+    });
+
+    if (postAuth.pendingIntent && postAuth.setupError) {
+      setPendingIntent(postAuth.pendingIntent);
+      setError(`Login succeeded, but family setup needs attention: ${postAuth.setupError.message}. Retry below.`);
+      setLoading(false);
+      return;
     }
+    redirectPath = postAuth.redirectPath;
 
     if (typeof window !== "undefined") {
       window.location.assign(redirectPath);
@@ -277,14 +272,20 @@ function LoginPageContent() {
       ? `/join?code=${encodeURIComponent(inviteCodeFromUrl)}`
       : "/dashboard";
     try {
-      const redirectPath = await withTimeout(
-        completeDeferredSetup(
-          supabase,
-          authData.user.id,
-          pendingIntent,
-          redirectPathBase
-        ),
-        "Family setup timed out. Please try again."
+      const redirectPath = await traceLoginStep("completeDeferredSetup", () =>
+        withTimeout(
+          completeDeferredSetup(
+            supabase,
+            authData.user.id,
+            pendingIntent,
+            redirectPathBase,
+            typeof authData.user.user_metadata?.phone_number === "string"
+              ? authData.user.user_metadata.phone_number
+              : null
+          ),
+          "Family setup timed out. Please try again.",
+          AUTH_TIMEOUT_MS
+        )
       );
       setPendingIntent(null);
       if (typeof window !== "undefined") {
@@ -426,7 +427,7 @@ function LoginPageContent() {
 
         <p className="text-center text-sm text-white/25 mt-6">
           Don&apos;t have an account?{" "}
-          <Link href="/signup" className="text-gold-400/70 hover:text-gold-300 transition-colors font-medium">
+          <Link href={joinFamilySignupPath(inviteCodeFromUrl)} className="text-gold-400/70 hover:text-gold-300 transition-colors font-medium">
             Create one
           </Link>
         </p>

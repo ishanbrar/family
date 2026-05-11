@@ -5,6 +5,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { isConfigured } from "./config";
+import { createTimeoutFetch, SUPABASE_REQUEST_TIMEOUT_MS } from "./timeout-fetch";
 
 export async function createClient() {
   const cookieStore = await cookies();
@@ -17,6 +18,8 @@ export async function createClient() {
     : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MTYwMDAwMDAsImV4cCI6MTkzMTYwMDAwMH0.placeholder";
 
   return createServerClient(url, key, {
+    db: { timeout: SUPABASE_REQUEST_TIMEOUT_MS },
+    global: { fetch: createTimeoutFetch("Supabase server request") },
     cookies: {
       getAll() {
         return cookieStore.getAll();

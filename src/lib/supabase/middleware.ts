@@ -7,12 +7,14 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { isConfigured } from "./config";
+import { createTimeoutFetch, SUPABASE_REQUEST_TIMEOUT_MS } from "./timeout-fetch";
 import { DEV_SUPER_ADMIN_COOKIE, DEV_SUPER_ADMIN_ENABLED } from "@/lib/dev-auth";
 
 export async function updateSession(request: NextRequest) {
   const isAuthPage =
     request.nextUrl.pathname === "/login" ||
-    request.nextUrl.pathname === "/signup";
+    request.nextUrl.pathname === "/signup" ||
+    request.nextUrl.pathname === "/signup/create";
   const isPublicPage = request.nextUrl.pathname === "/";
   const isCallbackPage = request.nextUrl.pathname.startsWith("/auth/callback");
   const isDemoPage = request.nextUrl.pathname.startsWith("/demo");
@@ -34,12 +36,19 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
+  // Auth pages should render immediately; login/signup can handle client-side auth state.
+  if (isAuthPage) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      db: { timeout: SUPABASE_REQUEST_TIMEOUT_MS },
+      global: { fetch: createTimeoutFetch("Supabase middleware session refresh") },
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -57,9 +66,15 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[Supabase middleware] Session refresh failed:", error);
+    }
+  }
 
   if (!user && !isAuthPage && !isPublicPage && !isCallbackPage && !isDemoPage && !isPreviewPage) {
     const url = request.nextUrl.clone();

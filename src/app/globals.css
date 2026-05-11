@@ -56,6 +56,7 @@
   --map-marker-glow-hover: rgba(212, 165, 116, 0.5);
   --map-marker-label: rgba(255, 255, 255, 0.32);
   --map-marker-label-hover: rgba(255, 255, 255, 0.72);
+  --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
 }
 
 html,
@@ -181,7 +182,7 @@ html.light .app-popover [class*="placeholder:text-white"]::placeholder {
   --color-severity-mild: #4ade80;
   --color-severity-moderate: #fbbf24;
   --color-severity-severe: #ef4444;
-  --font-sans: "Inter", system-ui, sans-serif;
+  --font-sans: var(--font-apple);
   --font-serif: "Playfair Display", Georgia, serif;
   --font-mono: "JetBrains Mono", monospace;
 }
@@ -196,7 +197,7 @@ html.light .app-popover [class*="placeholder:text-white"]::placeholder {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: var(--font-apple);
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
   -moz-osx-font-smoothing: grayscale;
@@ -457,7 +458,7 @@ h1, h2, h3, .heading {
   font-size: 16px;
   color: var(--cmdk-text);
   outline: none;
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: var(--font-apple);
 }
 
 [cmdk-input]::placeholder {
@@ -666,6 +667,40 @@ button:active:disabled,
 .no-tap-feedback:active {
   transform: none;
   opacity: 1;
+}
+
+@keyframes globe-ticker-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(calc(-50% - (var(--ticker-gap, 0.5rem) / 2)), 0, 0);
+  }
+}
+
+.globe-ticker-marquee {
+  display: flex;
+  width: max-content;
+  max-width: none;
+  align-items: center;
+  gap: var(--ticker-gap, 0.5rem);
+  animation: globe-ticker-marquee var(--ticker-duration, 24s) linear infinite;
+  will-change: transform;
+}
+
+.globe-ticker-group {
+  display: flex;
+  min-width: max-content;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--ticker-gap, 0.5rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .globe-ticker-marquee {
+    animation: none;
+  }
 }
 
 /* Standalone PWA: hide scrollbars for cleaner native feel */

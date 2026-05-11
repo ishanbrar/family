@@ -1,17 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display, Inter, Source_Serif_4, Source_Sans_3 } from "next/font/google";
+import { Playfair_Display, Source_Serif_4, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { THEME_PALETTE_STORAGE_KEY, THEME_STORAGE_KEY } from "@/lib/theme";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const inter = Inter({
-  variable: "--font-inter",
   subsets: ["latin"],
   display: "swap",
 });
@@ -71,7 +65,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${playfair.variable} ${inter.variable} ${sourceSerif.variable} ${sourceSans.variable} antialiased app-page-bg`}
+        className={`${playfair.variable} ${sourceSerif.variable} ${sourceSans.variable} antialiased app-page-bg`}
       >
         {children}
         <ThemeToggle />

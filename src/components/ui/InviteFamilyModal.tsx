@@ -83,7 +83,6 @@ export function InviteFamilyModal({
   const codeToLink = (code: string) => {
     if (typeof window === "undefined") return "";
     const url = new URL("/signup", window.location.origin);
-    url.searchParams.set("mode", "join");
     url.searchParams.set("code", code);
     return url.toString();
   };

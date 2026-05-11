@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Filter, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, Filter, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import type { Profile } from "@/lib/types";
+import { formatPersonName } from "@/lib/display-format";
 
 interface TreeControlsProps {
   members: Profile[];
@@ -76,12 +77,12 @@ export function TreeControls({
     Number(!!onShowDeathYearChange && showDeathYear) +
     Number(!!onShowBirthCountryFlagChange && showBirthCountryFlag);
   const controlClass =
-    "h-11 min-h-[44px] sm:h-7 sm:min-h-0 touch-target-44 sm:min-w-0 rounded-lg sm:rounded-md px-3 sm:px-2 border border-gold-400/25 bg-gold-400/12 text-xs sm:text-[10px] font-medium text-gold-300 outline-none hover:bg-gold-400/18 active:scale-[0.98] transition-colors";
+    "h-10 min-h-[44px] sm:h-9 sm:min-h-0 touch-target-44 rounded-xl px-3 border border-white/[0.10] bg-white/[0.03] text-xs font-medium text-white/72 outline-none hover:bg-white/[0.05] hover:text-white/88 active:scale-[0.98] transition-colors";
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <div className="flex items-center gap-2">
-        <Filter size={10} className="text-gold-300/80" />
+        <Filter size={12} className="text-gold-300/80" />
         <select
           value={relatedByFilter || ""}
           onChange={(e) => onRelatedByFilterChange(e.target.value || null)}
@@ -90,17 +91,17 @@ export function TreeControls({
           <option value="">Related By...</option>
           {members.map((member) => (
             <option key={member.id} value={member.id}>
-              {member.first_name} {member.last_name}
+              {formatPersonName(member.first_name, member.last_name)}
             </option>
           ))}
         </select>
         {relatedByFilter && (
           <button
             onClick={() => onRelatedByFilterChange(null)}
-            className="w-11 h-11 sm:w-7 sm:h-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-gold-400/25 bg-gold-400/12 text-gold-300/75 hover:text-gold-300 hover:bg-gold-400/18 flex items-center justify-center"
+            className="w-10 h-10 touch-target-44 rounded-xl border border-white/[0.10] bg-white/[0.03] text-white/55 hover:text-white/80 hover:bg-white/[0.05] flex items-center justify-center transition-colors"
             aria-label="Clear related by"
           >
-            <X size={14} className="sm:w-2.5 sm:h-2.5" />
+            <X size={14} />
           </button>
         )}
       </div>
@@ -113,18 +114,18 @@ export function TreeControls({
           aria-haspopup="menu"
           aria-expanded={optionsOpen}
         >
-          <SlidersHorizontal size={10} />
+          <SlidersHorizontal size={12} />
           Display
-          <span className="inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-sm bg-gold-400/20 text-[9px] text-gold-300/90">
+          <span className="inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-gold-400/18 text-[10px] text-gold-300/90">
             {optionCount}
           </span>
-          <ChevronDown size={10} className={optionsOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+          <ChevronDown size={12} className={optionsOpen ? "rotate-180 transition-transform" : "transition-transform"} />
         </button>
 
         {optionsOpen && (
           <div
             role="menu"
-            className="absolute right-0 top-full mt-2 w-64 sm:w-52 rounded-xl app-popover border border-white/[0.12] p-3 sm:p-2.5 shadow-2xl z-40"
+            className="absolute right-0 top-full mt-2 w-64 sm:w-56 rounded-xl app-popover border border-white/[0.12] p-3 sm:p-2.5 shadow-2xl z-40"
           >
             <label className="flex items-center gap-3 py-2.5 sm:py-1.5 px-2 rounded-lg text-sm sm:text-xs app-text-secondary hover:bg-white/[0.04] cursor-pointer min-h-[44px] sm:min-h-0">
               <input
@@ -193,10 +194,11 @@ export function TreeControls({
         <button
           type="button"
           onClick={onResetView}
-          className={controlClass}
+          className={`${controlClass} inline-flex items-center gap-1.5`}
           title="Reset tree view"
         >
-          Reset View
+          <RotateCcw size={12} />
+          Reset
         </button>
       )}
     </div>

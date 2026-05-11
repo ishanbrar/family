@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Crown, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CREATE_FAMILY_SIGNUP_PATH, joinFamilySignupPath } from "@/lib/signup-flow";
 
 const PRODUCT_SCREENS = [
   {
@@ -58,7 +59,7 @@ export default function LandingPage() {
     e.preventDefault();
     const normalized = joinCode.trim().toUpperCase();
     if (!normalized) return;
-    router.push(`/signup?mode=join&code=${encodeURIComponent(normalized)}`);
+    router.push(joinFamilySignupPath(normalized));
   };
 
   return (
@@ -152,7 +153,7 @@ export default function LandingPage() {
             style={{ fontFamily: "var(--font-source-sans)" }}
           >
             <Link
-              href="/signup"
+              href={CREATE_FAMILY_SIGNUP_PATH}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded bg-white text-[#0a0a0a] text-sm font-semibold hover:bg-neutral-100 transition-colors"
             >
               Create your tree

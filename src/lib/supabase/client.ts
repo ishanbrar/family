@@ -6,6 +6,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isConfigured } from "./config";
+import { createTimeoutFetch, SUPABASE_REQUEST_TIMEOUT_MS } from "./timeout-fetch";
 
 export { isConfigured };
 
@@ -19,14 +20,22 @@ export function createClient(): SupabaseClient {
     // Pages will fall back to mock data
     _client = createBrowserClient(
       "https://placeholder.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MTYwMDAwMDAsImV4cCI6MTkzMTYwMDAwMH0.placeholder"
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MTYwMDAwMDAsImV4cCI6MTkzMTYwMDAwMH0.placeholder",
+      {
+        db: { timeout: SUPABASE_REQUEST_TIMEOUT_MS },
+        global: { fetch: createTimeoutFetch("Supabase browser request") },
+      }
     );
     return _client;
   }
 
   _client = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      db: { timeout: SUPABASE_REQUEST_TIMEOUT_MS },
+      global: { fetch: createTimeoutFetch("Supabase browser request") },
+    }
   );
   return _client;
 }

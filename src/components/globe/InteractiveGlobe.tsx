@@ -9,7 +9,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { useRef, useState, useEffect, useCallback, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   geoOrthographic,
   geoNaturalEarth1,
@@ -22,6 +22,7 @@ import {
 import { feature } from "topojson-client";
 import { Globe2 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { buildLocationTickerItems } from "@/lib/location-summary";
 import type { Profile } from "@/lib/types";
 import { inferCountryCodeFromCity, getCityCoordinates } from "@/lib/cities";
 import { countryName } from "@/lib/country-utils";
@@ -114,6 +115,7 @@ export function InteractiveGlobe({
   className,
 }: InteractiveGlobeProps) {
   const baseSize = size;
+  const shouldReduceMotion = useReducedMotion();
   const [rotation, setRotation] = useState<[number, number]>(BASE_ROTATION);
   const [isFlatMap, setIsFlatMap] = useState(false);
   const [mapZoom, setMapZoom] = useState(MAP_MIN_ZOOM);
@@ -485,6 +487,25 @@ export function InteractiveGlobe({
     }));
   }, [visibleMembers]);
 
+  const locationTickerItems = useMemo(() => buildLocationTickerItems(members), [members]);
+  const tickerDuration = useMemo(
+    () => `${Math.max(20, locationTickerItems.length * 4.5)}s`,
+    [locationTickerItems.length]
+  );
+  const renderTickerPill = useCallback(
+    (item: (typeof locationTickerItems)[number], key: string) => (
+      <div
+        key={key}
+        className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.03] px-3.5 py-1.5 text-[11px] text-white/72"
+      >
+        <span className="mr-1.5 text-sm leading-none align-middle">{item.flag}</span>
+        <span className="font-medium text-white/84">{item.city}</span>
+        <span className="text-white/56"> — {item.memberNames.join(", ")}</span>
+      </div>
+    ),
+    []
+  );
+
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       setAutoRotate(false);
@@ -725,7 +746,6 @@ export function InteractiveGlobe({
               className="absolute"
               style={{ left: group.x, top: group.y, zIndex: isHovered ? 20 : 10 }}
             >
-              {/* Hit area */}
               <div
                 className="absolute w-7 h-7 -translate-x-1/2 -translate-y-1/2 rounded-full cursor-pointer pointer-events-auto"
                 onClick={(e) => {
@@ -735,7 +755,6 @@ export function InteractiveGlobe({
                 onMouseEnter={() => setHoveredMember(primary)}
                 onMouseLeave={() => setHoveredMember(null)}
               />
-              {/* Dot */}
               <div
                 className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
                 style={{
@@ -746,7 +765,6 @@ export function InteractiveGlobe({
                   transition: "all 0.2s ease",
                 }}
               />
-              {/* City label (city name only) */}
               {group.city && (
                 <div
                   className="absolute pointer-events-none whitespace-nowrap"
@@ -766,7 +784,6 @@ export function InteractiveGlobe({
                   {group.members.length > 1 ? ` (${group.members.length})` : ""}
                 </div>
               )}
-              {/* Hover popover */}
               {isHovered && (
                 <motion.div
                   initial={{ opacity: 0, y: 4 }}
@@ -830,6 +847,41 @@ export function InteractiveGlobe({
       >
         <Globe2 size={14} />
       </button>
+
+      {locationTickerItems.length > 0 && (
+        <div className="mt-3 w-full overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]">
+          {shouldReduceMotion ? (
+            <div className="overflow-x-auto px-2 py-2">
+              <div className="flex w-max min-w-full gap-2">
+                {locationTickerItems.map((item) =>
+                  renderTickerPill(item, `${item.countryCode}-${item.city}`)
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="group relative overflow-hidden px-2 py-2">
+              <div
+                className="globe-ticker-marquee group-hover:[animation-play-state:paused] group-focus-within:[animation-play-state:paused]"
+                style={{
+                  ["--ticker-duration" as string]: tickerDuration,
+                  ["--ticker-gap" as string]: "0.5rem",
+                }}
+              >
+                <div className="globe-ticker-group">
+                  {locationTickerItems.map((item) =>
+                    renderTickerPill(item, `${item.countryCode}-${item.city}-a`)
+                  )}
+                </div>
+                <div className="globe-ticker-group" aria-hidden="true">
+                  {locationTickerItems.map((item) =>
+                    renderTickerPill(item, `${item.countryCode}-${item.city}-b`)
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
