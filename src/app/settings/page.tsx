@@ -129,9 +129,11 @@ function ToggleRow({
   );
 }
 
-const RELATION_LANGUAGE_OPTIONS: { value: "en" | "punjabi"; label: string }[] = [
+const RELATION_LANGUAGE_OPTIONS: { value: "en" | "punjabi" | "es" | "fr"; label: string }[] = [
   { value: "en", label: "English" },
   { value: "punjabi", label: "Punjabi" },
+  { value: "es", label: "Spanish" },
+  { value: "fr", label: "French" },
 ];
 
 export default function SettingsPage() {
@@ -146,7 +148,7 @@ export default function SettingsPage() {
   });
   const [settings, setSettings] = useState<LocalSettings>(() => readStoredSettings());
   const [relationLangSaving, setRelationLangSaving] = useState(false);
-  const relationLanguage = (family?.relation_language as "en" | "punjabi") || "en";
+  const relationLanguage = (family?.relation_language as "en" | "punjabi" | "es" | "fr") || "en";
   const isFamilyAdmin = !!viewer && viewer.role === "ADMIN" && !!family;
 
   useEffect(() => {
@@ -426,7 +428,7 @@ export default function SettingsPage() {
                   value={relationLanguage}
                   disabled={loading || relationLangSaving}
                   onChange={async (e) => {
-                    const next = e.target.value as "en" | "punjabi";
+                    const next = e.target.value as "en" | "punjabi" | "es" | "fr";
                     setRelationLangSaving(true);
                     await updateFamilyRelationLanguage(next);
                     setRelationLangSaving(false);

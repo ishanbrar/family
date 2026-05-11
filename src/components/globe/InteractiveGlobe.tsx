@@ -62,6 +62,7 @@ const MAP_OPEN_ZOOM = 1.3;
 const MAP_FOCUS_ZOOM = 2.8;
 const MAP_MAX_ZOOM = 8;
 const MAP_ZOOM_STEP = 1.92;
+const AUTO_ROTATE_STEP_DEGREES = 0.21;
 
 const COUNTRY_NAME_ALIASES: Record<string, string[]> = {
   USA: ["United States of America", "United States"],
@@ -303,7 +304,7 @@ export function InteractiveGlobe({
     if (!autoRotate || isFlatMap || isDragging) return;
 
     autoSpinRef.current = setInterval(() => {
-      setRotation(([lng, lat]) => [lng - 0.15, lat]);
+      setRotation(([lng, lat]) => [lng - AUTO_ROTATE_STEP_DEGREES, lat]);
     }, 50);
 
     return () => {
