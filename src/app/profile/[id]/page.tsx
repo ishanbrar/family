@@ -6,7 +6,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
-import { useEffect, useState, use } from "react";
+import { useEffect, useRef, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
@@ -21,6 +21,7 @@ import {
   Quote,
   Loader2,
   PawPrint,
+  ImagePlus,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -54,6 +55,9 @@ export default function MemberProfilePage({
 
   const [editOpen, setEditOpen] = useState(false);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  const [galleryUploading, setGalleryUploading] = useState(false);
+  const [galleryUploadError, setGalleryUploadError] = useState<string | null>(null);
+  const galleryInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -145,6 +149,25 @@ export default function MemberProfilePage({
   const handleSave = async (updates: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => {
     const { avatarFile, galleryFiles, ...profileUpdates } = updates;
     await updateProfile(member.id, profileUpdates, avatarFile, galleryFiles);
+  };
+
+  const handleGalleryUpload = async (files: FileList | null) => {
+    const selected = Array.from(files || []).filter((file) => file.type.startsWith("image/"));
+    if (galleryInputRef.current) galleryInputRef.current.value = "";
+    if (selected.length === 0) {
+      setGalleryUploadError("Choose one or more image files.");
+      return;
+    }
+
+    setGalleryUploading(true);
+    setGalleryUploadError(null);
+    try {
+      await updateProfile(member.id, {}, undefined, selected);
+    } catch (err) {
+      setGalleryUploadError(err instanceof Error ? err.message : "Could not upload photos. Please try again.");
+    } finally {
+      setGalleryUploading(false);
+    }
   };
 
   return (
@@ -282,7 +305,39 @@ export default function MemberProfilePage({
               </div>
 
               <div className="mt-5 w-full">
-                <h3 className="text-xs text-white/30 font-medium uppercase tracking-wider mb-2">Photo Gallery</h3>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h3 className="text-xs text-white/30 font-medium uppercase tracking-wider">Photo Gallery</h3>
+                  {canEdit && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => galleryInputRef.current?.click()}
+                        disabled={galleryUploading}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.03] px-2.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white/90 disabled:cursor-not-allowed disabled:opacity-55"
+                      >
+                        {galleryUploading ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <ImagePlus size={12} />
+                        )}
+                        <span>{galleryUploading ? "Uploading" : "Add"}</span>
+                      </button>
+                      <input
+                        ref={galleryInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => void handleGalleryUpload(e.target.files)}
+                      />
+                    </>
+                  )}
+                </div>
+                {galleryUploadError && (
+                  <p className="mb-2 rounded-lg border border-red-400/10 bg-red-400/[0.06] px-3 py-2 text-xs text-red-300/85">
+                    {galleryUploadError}
+                  </p>
+                )}
                 {(member.gallery_photos || []).length > 0 ? (
                   <div className="grid grid-cols-3 gap-2">
                     {(member.gallery_photos || []).map((photo, idx) => (
@@ -295,7 +350,14 @@ export default function MemberProfilePage({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-white/35">No additional photos yet.</p>
+                  <button
+                    type="button"
+                    disabled={!canEdit || galleryUploading}
+                    onClick={() => galleryInputRef.current?.click()}
+                    className="w-full rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] px-3 py-4 text-center text-xs text-white/38 transition-colors enabled:hover:border-gold-400/25 enabled:hover:text-white/60 disabled:cursor-default"
+                  >
+                    {canEdit ? "Add photos from your camera or photo library." : "No additional photos yet."}
+                  </button>
                 )}
               </div>
             </div>

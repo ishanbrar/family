@@ -81,6 +81,8 @@ export default function DashboardPage() {
   const [suppressAutoOnboarding, setSuppressAutoOnboarding] = useState(false);
   const [focusedCountryCode, setFocusedCountryCode] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
+  const globeHostRef = useRef<HTMLDivElement | null>(null);
+  const [globeSize, setGlobeSize] = useState(360);
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
   const [showPercentages, setShowPercentages] = useState(false);
@@ -98,6 +100,23 @@ export default function DashboardPage() {
   const [onboardingSnoozedUntil, setOnboardingSnoozedUntil] = useState<number | null>(null);
   const [postJoinLinkOnlyRequired, setPostJoinLinkOnlyRequired] = useState(false);
   const moreActionsRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const host = globeHostRef.current;
+    if (!host) return;
+
+    const updateSize = () => {
+      const width = Math.floor(host.getBoundingClientRect().width);
+      if (width <= 0) return;
+      setGlobeSize(Math.max(260, Math.min(420, width)));
+    };
+
+    updateSize();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
 
   const navigateToProfile = useCallback(
     (id: string) => router.push(`/profile/${id}`),
@@ -883,10 +902,10 @@ export default function DashboardPage() {
           {/* ── Right Column ─────────────────────── */}
           <div className="space-y-6 xl:justify-self-end xl:w-full xl:max-w-[540px]">
             <GlassCard className="p-4 sm:p-5 xl:p-6">
-              <div className="flex flex-col items-center">
+              <div ref={globeHostRef} className="flex min-w-0 max-w-full flex-col items-center overflow-hidden">
                 <InteractiveGlobe
                   members={members}
-                  size={420}
+                  size={globeSize}
                   focusCountryCode={focusedCountryCode}
                   focusSignal={focusSignal}
                   onMemberClick={(member) => navigateToProfile(member.id)}

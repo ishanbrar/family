@@ -64,9 +64,12 @@ function LoginPageContent() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pendingIntent, setPendingIntent] = useState<PendingIntentPayload | null>(null);
   const inviteCodeFromUrl = searchParams.get("code")?.trim().toUpperCase() || "";
+  const authErrorFromUrl = searchParams.get("error");
+  const [error, setError] = useState<string | null>(() =>
+    authErrorFromUrl ? friendlyAuthMessage(authErrorFromUrl.replace(/\+/g, " ")) : null
+  );
+  const [pendingIntent, setPendingIntent] = useState<PendingIntentPayload | null>(null);
 
   const redirectPathBase = inviteCodeFromUrl
     ? `/join?code=${encodeURIComponent(inviteCodeFromUrl)}`

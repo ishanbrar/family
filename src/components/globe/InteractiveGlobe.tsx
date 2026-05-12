@@ -490,9 +490,14 @@ export function InteractiveGlobe({
   }, [visibleMembers]);
 
   const locationTickerItems = useMemo(() => buildLocationTickerItems(members), [members]);
+  const tickerLoopItems = useMemo(() => {
+    if (locationTickerItems.length === 0) return [];
+    const repeatCount = Math.max(2, Math.ceil(14 / locationTickerItems.length));
+    return Array.from({ length: repeatCount }).flatMap(() => locationTickerItems);
+  }, [locationTickerItems]);
   const tickerDuration = useMemo(
-    () => `${Math.max(20, locationTickerItems.length * 4.5)}s`,
-    [locationTickerItems.length]
+    () => `${Math.max(24, tickerLoopItems.length * 3.2)}s`,
+    [tickerLoopItems.length]
   );
   const renderTickerPill = useCallback(
     (item: (typeof locationTickerItems)[number], key: string) => (
@@ -574,8 +579,8 @@ export function InteractiveGlobe({
 
   return (
     <div
-      className={cn("relative flex flex-col items-center", className)}
-      style={{ width: frameWidth, minWidth: frameWidth, maxWidth: frameWidth }}
+      className={cn("relative flex min-w-0 max-w-full flex-col items-center overflow-hidden", className)}
+      style={{ width: frameWidth, maxWidth: "100%" }}
     >
       <div
         className={cn(
@@ -854,9 +859,9 @@ export function InteractiveGlobe({
       </button>
 
       {locationTickerItems.length > 0 && (
-        <div className="mt-3 w-full overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]">
+        <div className="mt-3 w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]">
           {shouldReduceMotion ? (
-            <div className="overflow-x-auto px-2 py-2">
+            <div className="max-w-full overflow-x-auto px-2 py-2">
               <div className="flex w-max min-w-full gap-2">
                 {locationTickerItems.map((item) =>
                   renderTickerPill(item, `${item.countryCode}-${item.city}`)
@@ -864,7 +869,7 @@ export function InteractiveGlobe({
               </div>
             </div>
           ) : (
-            <div className="group relative overflow-hidden px-2 py-2">
+            <div className="group relative max-w-full overflow-hidden px-2 py-2">
               <div
                 className="globe-ticker-marquee group-hover:[animation-play-state:paused] group-focus-within:[animation-play-state:paused]"
                 style={{
@@ -873,13 +878,13 @@ export function InteractiveGlobe({
                 }}
               >
                 <div className="globe-ticker-group">
-                  {locationTickerItems.map((item) =>
-                    renderTickerPill(item, `${item.countryCode}-${item.city}-a`)
+                  {tickerLoopItems.map((item, index) =>
+                    renderTickerPill(item, `${item.countryCode}-${item.city}-a-${index}`)
                   )}
                 </div>
                 <div className="globe-ticker-group" aria-hidden="true">
-                  {locationTickerItems.map((item) =>
-                    renderTickerPill(item, `${item.countryCode}-${item.city}-b`)
+                  {tickerLoopItems.map((item, index) =>
+                    renderTickerPill(item, `${item.countryCode}-${item.city}-b-${index}`)
                   )}
                 </div>
               </div>

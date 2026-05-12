@@ -594,6 +594,9 @@ export function useFamilyData(): FamilyData {
       if (avatarUrl) finalUpdates.avatar_url = avatarUrl;
       if (galleryFiles && galleryFiles.length > 0) {
         const uploadedGallery = await uploadProfilePhotos(supabase, userId, galleryFiles);
+        if (uploadedGallery.length === 0) {
+          throw new Error("No photos could be uploaded. Please choose smaller image files and try again.");
+        }
         if (uploadedGallery.length > 0) {
           const existing = updates.gallery_photos || store.members.find((m) => m.id === userId)?.gallery_photos || [];
           finalUpdates.gallery_photos = [...existing, ...uploadedGallery];

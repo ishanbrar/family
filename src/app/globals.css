@@ -681,17 +681,19 @@ button:active:disabled,
 
 .globe-ticker-marquee {
   display: flex;
-  width: max-content;
+  width: fit-content;
   max-width: none;
   align-items: center;
   gap: var(--ticker-gap, 0.5rem);
   animation: globe-ticker-marquee var(--ticker-duration, 24s) linear infinite;
   will-change: transform;
+  transform: translate3d(0, 0, 0);
 }
 
 .globe-ticker-group {
   display: flex;
-  min-width: max-content;
+  width: max-content;
+  max-width: none;
   flex-shrink: 0;
   align-items: center;
   gap: var(--ticker-gap, 0.5rem);
