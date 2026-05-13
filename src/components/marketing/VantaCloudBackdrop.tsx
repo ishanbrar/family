@@ -138,10 +138,11 @@ export function VantaCloudBackdrop({
       ? "absolute inset-0 bg-transparent"
       : "absolute inset-0 bg-[linear-gradient(180deg,rgba(5,6,7,0.02)_0%,rgba(5,6,7,0.06)_40%,rgba(5,6,7,0.12)_100%)]";
 
-  const hostClassName =
+  const hostClassName = "absolute inset-0";
+  const hostStyle =
     variant === "landing"
-      ? "absolute inset-x-0 top-[6%] bottom-[-6%]"
-      : "absolute inset-0";
+      ? { transform: "translateY(-2%) scale(1.05)", transformOrigin: "center center" as const }
+      : undefined;
 
   return (
     <>
@@ -155,7 +156,7 @@ export function VantaCloudBackdrop({
         onReady={() => setIsVantaReady(true)}
       />
       <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
-        <div ref={hostRef} className={hostClassName} />
+        <div ref={hostRef} className={hostClassName} style={hostStyle} />
         <div className={glowOverlayClass} />
         <div className={toneOverlayClass} />
       </div>
