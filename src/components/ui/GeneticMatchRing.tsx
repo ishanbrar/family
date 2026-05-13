@@ -106,7 +106,7 @@ export function GeneticMatchRing({
         </div>
 
         {/* Percentage badge */}
-        {showPercentage && percentage > 0 && (
+        {showPercentage && percentage >= 0 && (
           <motion.div
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}

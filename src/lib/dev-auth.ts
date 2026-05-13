@@ -1,7 +1,7 @@
 export const DEV_SUPER_ADMIN_COOKIE = "dev_super_admin";
 export const DEV_SUPER_ADMIN_ENABLED =
-  process.env.NEXT_PUBLIC_ENABLE_DEV_SUPER_ADMIN === "1" ||
-  process.env.NODE_ENV !== "production";
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_ENABLE_DEV_SUPER_ADMIN !== "0";
 
 export function isDevSuperAdminClient(): boolean {
   if (!DEV_SUPER_ADMIN_ENABLED) return false;

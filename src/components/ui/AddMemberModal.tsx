@@ -19,10 +19,12 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
+import { ManualDateInput } from "./ManualDateInput";
 import type { Profile, RelationshipType, Gender } from "@/lib/types";
 import { inferCountryCodeFromCity } from "@/lib/cities";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 import { getAddMemberDisabledReason } from "@/lib/flow-readiness";
+import { formatPersonName } from "@/lib/display-format";
 
 interface AddMemberModalProps {
   existingMembers: Profile[];
@@ -341,7 +343,7 @@ export function AddMemberModal({
                   {duplicateMatch.confidence === "high"
                     ? "Likely duplicate found"
                     : "Potential duplicate found"}
-                  : {duplicateMatch.member.first_name} {duplicateMatch.member.last_name}
+                  : {formatPersonName(duplicateMatch.member.first_name, duplicateMatch.member.last_name)}
                   {duplicateMatch.confidence === "high"
                     ? " (matching name plus city/date)."
                     : " (matching name only)."}
@@ -441,14 +443,13 @@ export function AddMemberModal({
                     <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                       <Calendar size={10} /> Date of Birth
                     </label>
-                    <input
-                      type="date"
+                    <ManualDateInput
                       value={dob}
-                      onChange={(e) => {
-                        setDob(e.target.value);
+                      onChange={(nextValue) => {
+                        setDob(nextValue);
                         setAllowDuplicateAdd(false);
                       }}
-                      className={cn(inputClass, "appearance-none")}
+                      className={inputClass}
                     />
                   </div>
                   <div>

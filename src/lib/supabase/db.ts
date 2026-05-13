@@ -13,6 +13,7 @@ import type {
   RelationshipType,
   AuditLog,
 } from "@/lib/types";
+import { normalizePersonNameInput } from "../display-format";
 
 export interface FamilyRecord {
   id: string;
@@ -134,8 +135,8 @@ export async function updateProfile(
 ): Promise<Profile | null> {
   // Map our Profile type fields to DB column names
   const dbUpdates: Record<string, unknown> = {};
-  if (updates.first_name !== undefined) dbUpdates.first_name = updates.first_name;
-  if (updates.last_name !== undefined) dbUpdates.last_name = updates.last_name;
+  if (updates.first_name !== undefined) dbUpdates.first_name = normalizePersonNameInput(updates.first_name);
+  if (updates.last_name !== undefined) dbUpdates.last_name = normalizePersonNameInput(updates.last_name);
   if (updates.display_name !== undefined) dbUpdates.display_name = updates.display_name;
   if (updates.gender !== undefined) dbUpdates.gender = updates.gender;
   if (updates.avatar_url !== undefined) dbUpdates.avatar_url = updates.avatar_url;
@@ -191,8 +192,8 @@ export async function ensureProfileForAuthUser(
       {
         id: user.id,
         auth_user_id: user.id,
-        first_name: firstName,
-        last_name: lastName,
+        first_name: normalizePersonNameInput(firstName),
+        last_name: normalizePersonNameInput(lastName),
         gender: null,
         role: "MEMBER",
         family_id: null,
@@ -605,8 +606,8 @@ export async function addFamilyMember(
   const { data, error } = await supabase
     .from("profiles")
     .insert({
-      first_name: profile.first_name,
-      last_name: profile.last_name,
+      first_name: normalizePersonNameInput(profile.first_name),
+      last_name: normalizePersonNameInput(profile.last_name),
       display_name: profile.display_name,
       gender: profile.gender,
       avatar_url: profile.avatar_url,
@@ -703,8 +704,8 @@ function mapProfile(row: any): Profile {
   return {
     id: row.id,
     auth_user_id: row.auth_user_id || null,
-    first_name: row.first_name,
-    last_name: row.last_name,
+    first_name: normalizePersonNameInput(row.first_name),
+    last_name: normalizePersonNameInput(row.last_name),
     display_name: row.display_name || null,
     gender: row.gender || null,
     avatar_url: row.avatar_url,

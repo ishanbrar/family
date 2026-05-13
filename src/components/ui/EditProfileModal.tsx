@@ -24,9 +24,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
+import { ManualDateInput } from "./ManualDateInput";
 import type { Profile, SocialLinks, Gender } from "@/lib/types";
 import { inferCountryCodeFromCity } from "@/lib/cities";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
+import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
 
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: "female", label: "Female" },
@@ -77,6 +79,7 @@ export function EditProfileModal({
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const resolvedGalleryPhotos = useResolvedGalleryPhotos(galleryPhotos);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -171,7 +174,7 @@ export function EditProfileModal({
         country_code: inferCountryCodeFromCity(locationCity),
         social_links: cleanSocial,
         avatar_url: avatarPreview,
-        gallery_photos: galleryPhotos.filter((photo) => /^https?:\/\//.test(photo)),
+        gallery_photos: galleryPhotos.filter((photo) => !/^blob:|^data:/i.test(photo)),
         ...(avatarFile ? { avatarFile } : {}),
         ...(galleryFiles.length > 0 ? { galleryFiles } : {}),
       });
@@ -292,10 +295,24 @@ export function EditProfileModal({
                   <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
                     {galleryPhotos.map((url, idx) => (
                       <div key={`${url}-${idx}`} className="relative">
-                        <img src={url} alt="" className="h-16 w-full rounded-lg object-cover border border-white/[0.08]" />
+                        <img
+                          src={resolvedGalleryPhotos[idx] || url}
+                          alt=""
+                          className="h-16 w-full rounded-lg object-cover border border-white/[0.08]"
+                        />
                         <button
                           type="button"
-                          onClick={() => setGalleryPhotos((prev) => prev.filter((_, i) => i !== idx))}
+                          onClick={() => {
+                            setGalleryPhotos((prev) => prev.filter((_, i) => i !== idx));
+                            if (/^blob:/i.test(url)) {
+                              const blobIndex =
+                                galleryPhotos
+                                  .slice(0, idx + 1)
+                                  .filter((photo) => /^blob:/i.test(photo)).length - 1;
+                              setGalleryFiles((prev) => prev.filter((_, i) => i !== blobIndex));
+                              URL.revokeObjectURL(url);
+                            }
+                          }}
                           className="absolute top-1 right-1 h-5 w-5 rounded-md bg-black/55 text-white/80 hover:bg-black/75 flex items-center justify-center"
                           aria-label="Remove photo"
                         >
@@ -394,7 +411,11 @@ export function EditProfileModal({
                     <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                       <Calendar size={10} /> Date of Birth
                     </label>
-                    <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className={cn(inputClass, "appearance-none")} />
+                    <ManualDateInput
+                      value={dob}
+                      onChange={setDob}
+                      className={inputClass}
+                    />
                   </div>
                   <div>
                     <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">

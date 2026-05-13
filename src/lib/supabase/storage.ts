@@ -4,7 +4,12 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const BUCKET = "avatars";
+export const AVATAR_BUCKET = "avatars";
+export const GALLERY_BUCKET = "family-gallery";
+
+export function isDirectPhotoUrl(value: string): boolean {
+  return /^(https?:\/\/|blob:|data:)/i.test(value);
+}
 
 /**
  * Upload an avatar image to Supabase Storage.
@@ -27,7 +32,7 @@ export async function uploadAvatar(
   const path = `${user.id}/${targetUserId}/avatar-${Date.now()}.${ext}`;
 
   const { error } = await supabase.storage
-    .from(BUCKET)
+    .from(AVATAR_BUCKET)
     .upload(path, file, {
       cacheControl: "3600",
       upsert: true,
@@ -39,7 +44,7 @@ export async function uploadAvatar(
     return null;
   }
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
   return data.publicUrl;
 }
 
@@ -54,7 +59,7 @@ export async function deleteAvatar(
   const match = url.match(/\/avatars\/(.+)$/);
   if (!match) return;
 
-  await supabase.storage.from(BUCKET).remove([match[1]]);
+  await supabase.storage.from(AVATAR_BUCKET).remove([match[1]]);
 }
 
 /**
@@ -79,7 +84,7 @@ export async function uploadProfilePhotos(
       .toString(36)
       .slice(2, 8)}.${ext}`;
     const { error } = await supabase.storage
-      .from(BUCKET)
+      .from(GALLERY_BUCKET)
       .upload(path, file, {
         cacheControl: "3600",
         upsert: false,
@@ -89,8 +94,7 @@ export async function uploadProfilePhotos(
       console.error("Gallery photo upload error:", error);
       continue;
     }
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-    uploadedUrls.push(data.publicUrl);
+    uploadedUrls.push(path);
   }
   return uploadedUrls;
 }

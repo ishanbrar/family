@@ -30,8 +30,9 @@ import { SocialDock } from "@/components/ui/SocialDock";
 import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
 import { EditProfileModal } from "@/components/ui/EditProfileModal";
 import { useFamilyData } from "@/hooks/use-family-data";
+import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
 import { calculateGeneticMatch } from "@/lib/genetic-match";
-import { formatGenderLabel } from "@/lib/display-format";
+import { formatDisplayText, formatGenderLabel, formatPersonName } from "@/lib/display-format";
 import type { Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 
@@ -74,6 +75,7 @@ export default function MemberProfilePage({
   }, []);
 
   const member = members.find((m) => m.id === id);
+  const resolvedGalleryPhotos = useResolvedGalleryPhotos(member?.gallery_photos || []);
 
   if (loading) {
     return (
@@ -192,7 +194,7 @@ export default function MemberProfilePage({
             </button>
             <div>
               <h1 className="font-serif text-3xl font-bold text-white/95">
-                {member.first_name} {member.last_name}
+                {formatPersonName(member.first_name, member.last_name)}
               </h1>
               {member.display_name && (
                 <p className="text-sm text-gold-300/80 mt-0.5">
@@ -223,7 +225,7 @@ export default function MemberProfilePage({
                 showPercentage={!isViewer} label={isViewer ? "You" : geneticMatch.relationship} />
 
               <h2 className="mt-5 font-serif text-2xl font-bold text-white/95">
-                {member.first_name} {member.last_name}
+                {formatPersonName(member.first_name, member.last_name)}
               </h2>
               {member.display_name && (
                 <p className="text-xs text-gold-300/85 mt-1">{member.display_name}</p>
@@ -340,7 +342,7 @@ export default function MemberProfilePage({
                 )}
                 {(member.gallery_photos || []).length > 0 ? (
                   <div className="grid grid-cols-3 gap-2">
-                    {(member.gallery_photos || []).map((photo, idx) => (
+                    {resolvedGalleryPhotos.map((photo, idx) => (
                       <img
                         key={`${photo}-${idx}`}
                         src={photo}
@@ -386,7 +388,6 @@ export default function MemberProfilePage({
               <h3 className="font-serif text-lg font-semibold text-white/90 mb-4">Family Connections</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {connections
-                  .filter((c) => c.match.percentage > 0)
                   .sort((a, b) => b.match.percentage - a.match.percentage)
                   .map((item) => (
                     <motion.div key={item.profile.id} whileHover={{ y: -4 }}
@@ -395,7 +396,7 @@ export default function MemberProfilePage({
                       <GeneticMatchRing percentage={item.match.percentage} size={64} strokeWidth={2}
                         avatarUrl={item.profile.avatar_url}
                         initials={`${item.profile.first_name[0]}${item.profile.last_name[0]}`} />
-                      <p className="mt-2 text-xs text-white/60 font-medium">{item.profile.first_name}</p>
+                      <p className="mt-2 text-xs text-white/60 font-medium">{formatDisplayText(item.profile.first_name)}</p>
                       <p className="text-[10px] text-white/30">{item.match.relationship}</p>
                     </motion.div>
                   ))}

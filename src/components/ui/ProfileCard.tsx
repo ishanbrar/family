@@ -10,7 +10,7 @@ import { motion } from "framer-motion";
 import { MapPin, Briefcase, Calendar, Star, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
-import { formatGenderLabel } from "@/lib/display-format";
+import { formatGenderLabel, formatPersonName } from "@/lib/display-format";
 import { GeneticMatchRing } from "./GeneticMatchRing";
 import { SocialDock } from "./SocialDock";
 import { GlassCard } from "./GlassCard";
@@ -91,7 +91,7 @@ export function ProfileCard({
                 transition={{ delay: 0.15 }}
                 className="text-2xl sm:text-3xl font-serif font-semibold app-text-primary tracking-tight"
               >
-                {profile.first_name} {profile.last_name}
+                {formatPersonName(profile.first_name, profile.last_name)}
               </motion.h3>
               {profile.display_name && (
                 <p className="mt-1.5 text-sm text-[var(--accent-400)] font-medium">
@@ -221,7 +221,7 @@ export function ProfileCard({
           transition={{ delay: 0.3 }}
           className="mt-4 text-xl font-serif font-semibold text-white/95"
         >
-          {profile.first_name} {profile.last_name}
+          {formatPersonName(profile.first_name, profile.last_name)}
         </motion.h3>
         {profile.display_name && (
           <p className="mt-1 text-xs text-gold-300/85">

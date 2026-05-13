@@ -657,6 +657,7 @@ export function FamilyTree({
               }}
               onPointerDown={(event) => {
                 // Prevent container-level pan capture so node taps/clicks stay clickable.
+                didDragRef.current = false;
                 event.stopPropagation();
               }}
               onClick={(event) => {

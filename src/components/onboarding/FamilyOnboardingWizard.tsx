@@ -15,6 +15,7 @@ import {
 import type { Profile, Relationship, RelationshipType, Gender } from "@/lib/types";
 import { cn } from "@/lib/cn";
 import { CitySearch } from "@/components/ui/CitySearch";
+import { ManualDateInput } from "@/components/ui/ManualDateInput";
 import { inferCountryCodeFromCity } from "@/lib/cities";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 
@@ -566,11 +567,10 @@ export function FamilyOnboardingWizard({
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
-                    <input
-                      type="date"
+                    <ManualDateInput
                       className={inputClass}
                       value={selfProfile.dateOfBirth}
-                      onChange={(e) => setSelfProfile((s) => ({ ...s, dateOfBirth: e.target.value }))}
+                      onChange={(nextValue) => setSelfProfile((s) => ({ ...s, dateOfBirth: nextValue }))}
                     />
                     <CitySearch
                       value={selfProfile.locationCity}
@@ -804,13 +804,12 @@ export function FamilyOnboardingWizard({
                                 }}
                                 placeholder="City (optional)"
                               />
-                              <input
-                                type="date"
+                              <ManualDateInput
                                 className={inputClass}
                                 value={stepTwoDraft.dateOfBirth}
-                                onChange={(e) => {
+                                onChange={(nextValue) => {
                                   setAllowDuplicateStepTwo(false);
-                                  setStepTwoDraft((s) => ({ ...s, dateOfBirth: e.target.value }));
+                                  setStepTwoDraft((s) => ({ ...s, dateOfBirth: nextValue }));
                                 }}
                               />
                             </div>

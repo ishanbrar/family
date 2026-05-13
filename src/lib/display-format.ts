@@ -15,6 +15,10 @@ export function formatDisplayText(value: string | null | undefined): string {
     .join(" ");
 }
 
+export function normalizePersonNameInput(value: string | null | undefined): string {
+  return formatDisplayText(value);
+}
+
 export function formatPersonName(firstName: string, lastName?: string | null): string {
   const parts = [formatDisplayText(firstName), formatDisplayText(lastName || "")]
     .filter(Boolean);

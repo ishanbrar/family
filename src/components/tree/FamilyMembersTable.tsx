@@ -9,8 +9,10 @@ import { useState, useCallback } from "react";
 import { Loader2, User } from "lucide-react";
 import type { Profile } from "@/lib/types";
 import { CitySearch } from "@/components/ui/CitySearch";
+import { ManualDateInput } from "@/components/ui/ManualDateInput";
 import { cn } from "@/lib/cn";
 import { shouldCommitCompositeBlur } from "@/lib/flow-readiness";
+import { formatPersonName } from "@/lib/display-format";
 
 function formatDob(value: string | null): string {
   if (!value) return "—";
@@ -210,7 +212,7 @@ export function FamilyMembersTable({
                     ) : (
                       <span className="text-white/88">
                         {member.first_name || member.last_name
-                          ? [member.first_name, member.last_name].filter(Boolean).join(" ")
+                          ? formatPersonName(member.first_name, member.last_name)
                           : "—"}
                       </span>
                     )}
@@ -225,16 +227,18 @@ export function FamilyMembersTable({
                     }}
                   >
                     {isEditingDob ? (
-                      <input
-                        autoFocus
-                        type="date"
-                        value={draft.dob}
-                        onChange={(e) => setDraft((p) => ({ ...p, dob: e.target.value }))}
-                        onBlur={() => saveEdit(member.id)}
-                        onKeyDown={(e) => handleKeyDown(e, member.id)}
-                        className="h-8 rounded-lg px-2.5 app-input text-sm w-[140px]"
-                        onClick={(e) => e.stopPropagation()}
-                      />
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <ManualDateInput
+                          autoFocus
+                          value={draft.dob}
+                          onChange={(nextDob) => setDraft((p) => ({ ...p, dob: nextDob }))}
+                          onBlur={() => void saveEdit(member.id)}
+                          onKeyDown={(e) => handleKeyDown(e, member.id)}
+                          className="h-8 rounded-lg px-2.5 app-input text-sm w-[140px]"
+                          wrapperClassName="w-[188px]"
+                          showPickerButton={false}
+                        />
+                      </div>
                     ) : (
                       <span className="text-white/75">{formatDob(member.date_of_birth)}</span>
                     )}
