@@ -9,6 +9,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Crown, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import {
   AUTH_TIMEOUT_MS,
   SETUP_CHECK_TIMEOUT_MS,
@@ -308,13 +309,7 @@ function LoginPageContent() {
 
   return (
     <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center relative overflow-hidden">
-      {/* Ambient glow */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(212,165,116,0.04) 0%, transparent 70%)" }}
-        />
-      </div>
+      <PreAuthBackdrop />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -446,8 +441,9 @@ function LoginPageContent() {
 
 function LoginFallback() {
   return (
-    <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
-      <div className="flex items-center gap-2 text-white/50 text-sm">
+    <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center relative overflow-hidden">
+      <PreAuthBackdrop />
+      <div className="relative z-10 flex items-center gap-2 text-white/50 text-sm">
         <Loader2 size={16} className="animate-spin text-gold-400" />
         Loading sign in...
       </div>

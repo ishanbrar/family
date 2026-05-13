@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Crown, Loader2, Lock, Mail, Phone, User, Users } from "lucide-react";
 import { useState } from "react";
 
+import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import { createClient } from "@/lib/supabase/client";
 import { CREATE_FAMILY_SIGNUP_PATH, JOIN_FAMILY_SIGNUP_PATH, loginPathForInvite, normalizeInviteCode } from "@/lib/signup-flow";
 import type { Gender } from "@/lib/types";
@@ -244,11 +245,12 @@ export function SignupFlow({ mode }: SignupFlowProps) {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center relative overflow-hidden">
+        <PreAuthBackdrop />
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md mx-4 text-center"
+          className="relative z-10 max-w-md mx-4 text-center"
         >
           <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-gold-400/10 border border-gold-400/20 mx-auto mb-6">
             <Mail size={28} className="text-gold-400" />
@@ -269,12 +271,7 @@ export function SignupFlow({ mode }: SignupFlowProps) {
 
   return (
     <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center relative overflow-hidden">
-      <div className="absolute inset-0 pointer-events-none">
-        <div
-          className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(212,165,116,0.04) 0%, transparent 70%)" }}
-        />
-      </div>
+      <PreAuthBackdrop />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

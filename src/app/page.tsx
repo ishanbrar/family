@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Crown, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import { CREATE_FAMILY_SIGNUP_PATH, joinFamilySignupPath } from "@/lib/signup-flow";
 
 const PRODUCT_SCREENS = [
@@ -64,29 +65,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] relative overflow-hidden">
-      {/* Soft gradients */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div
-          className="absolute top-[-30%] left-[-20%] w-[80%] h-[80%] rounded-full opacity-[0.04]"
-          style={{
-            background: "radial-gradient(circle, rgba(212,165,116,0.4) 0%, transparent 70%)",
-          }}
-        />
-        <div
-          className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full opacity-[0.03]"
-          style={{
-            background: "radial-gradient(circle, rgba(212,165,116,0.3) 0%, transparent 70%)",
-          }}
-        />
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] opacity-[0.02]"
-          style={{
-            background: `radial-gradient(ellipse at center, rgba(255,255,255,0.08) 0%, transparent 50%),
-                        repeating-linear-gradient(0deg, transparent, transparent 80px, rgba(255,255,255,0.01) 80px, rgba(255,255,255,0.01) 81px),
-                        repeating-linear-gradient(90deg, transparent, transparent 80px, rgba(255,255,255,0.01) 80px, rgba(255,255,255,0.01) 81px)`,
-          }}
-        />
-      </div>
+      <PreAuthBackdrop />
 
       <header className="relative z-10 flex items-center justify-between px-6 lg:px-16 pr-14 lg:pr-20 py-6">
         <div className="flex items-center gap-3">
@@ -221,6 +200,33 @@ export default function LandingPage() {
             ))}
           </div>
         </section>
+
+        <footer className="mt-24 lg:mt-28 max-w-6xl mx-auto border-t border-white/10 pt-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p
+                className="text-xs uppercase tracking-[0.24em] text-white/35"
+                style={{ fontFamily: "var(--font-source-sans)" }}
+              >
+                Legacy
+              </p>
+              <p
+                className="mt-2 text-sm text-white/55 max-w-xl leading-relaxed"
+                style={{ fontFamily: "var(--font-source-sans)" }}
+              >
+                Family history, identity, and health in one private experience.
+              </p>
+            </div>
+
+            <div
+              className="text-sm text-white/45 sm:text-right"
+              style={{ fontFamily: "var(--font-source-sans)" }}
+            >
+              <p className="text-white/65">Designed and built by Ishan Brar</p>
+              <p className="mt-1">Copyright 2026. All rights reserved.</p>
+            </div>
+          </div>
+        </footer>
       </main>
     </div>
   );
