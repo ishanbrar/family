@@ -19,6 +19,7 @@ import {
   Download,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { FamilyTree } from "@/components/tree/FamilyTree";
 import { AddMemberModal } from "@/components/ui/AddMemberModal";
@@ -469,6 +470,9 @@ export default function TreeExplorerPage() {
             />
           </GlassCard>
         </div>
+        <footer className="mt-10 border-t border-white/[0.08] pt-6">
+          <SiteFooter />
+        </footer>
       </main>
     </div>
   );

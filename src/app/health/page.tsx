@@ -19,6 +19,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
 import { CommandSearch } from "@/components/ui/CommandSearch";
@@ -304,6 +305,9 @@ export default function HealthPage() {
             )}
           </div>
         </div>
+        <footer className="mt-10 border-t border-white/[0.08] pt-6">
+          <SiteFooter />
+        </footer>
       </main>
     </div>
   );

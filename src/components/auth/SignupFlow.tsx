@@ -3,9 +3,10 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Crown, Loader2, Lock, Mail, Phone, User, Users } from "lucide-react";
+import { ArrowRight, Loader2, Lock, Mail, Phone, User, Users } from "lucide-react";
 import { useState } from "react";
 
+import { LegacyBrandLink } from "@/components/branding/LegacyBrandLink";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import { createClient } from "@/lib/supabase/client";
 import { CREATE_FAMILY_SIGNUP_PATH, JOIN_FAMILY_SIGNUP_PATH, loginPathForInvite, normalizeInviteCode } from "@/lib/signup-flow";
@@ -279,11 +280,13 @@ export function SignupFlow({ mode }: SignupFlowProps) {
         transition={{ duration: 0.6 }}
         className="relative z-10 w-full max-w-md mx-4"
       >
-        <div className="flex items-center justify-center gap-3 mb-10">
-          <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gold-400/10 border border-gold-400/20">
-            <Crown size={24} className="text-gold-400" />
-          </div>
-          <span className="font-serif text-2xl font-semibold text-white/90 tracking-wide">Legacy</span>
+        <div className="flex items-center justify-center mb-10">
+          <LegacyBrandLink
+            destination="public"
+            className="text-white/90"
+            iconClassName="w-12 h-12 rounded-2xl bg-gold-400/10 border border-gold-400/20 text-gold-400"
+            textClassName="text-2xl text-white/90"
+          />
         </div>
 
         <div className="rounded-3xl p-8 app-surface">

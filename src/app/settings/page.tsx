@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Bell, Globe, Lock, Palette, Settings, Users, Languages, History } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { FamilyUsersAdmin } from "@/components/settings/FamilyUsersAdmin";
 import { useFamilyData } from "@/hooks/use-family-data";
@@ -495,6 +496,9 @@ export default function SettingsPage() {
             )}
           </GlassCard>
         </div>
+        <footer className="mt-10 border-t border-white/[0.08] pt-6">
+          <SiteFooter />
+        </footer>
       </main>
     </div>
   );

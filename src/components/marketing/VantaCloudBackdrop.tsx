@@ -11,10 +11,12 @@ import {
 type VantaCloudsOptions = {
   el: HTMLElement;
   mouseControls?: boolean;
+  mouseEase?: boolean;
   touchControls?: boolean;
   gyroControls?: boolean;
   minHeight?: number;
   minWidth?: number;
+  backgroundAlpha?: number;
   backgroundColor?: number;
   skyColor?: number;
   cloudColor?: number;
@@ -23,6 +25,8 @@ type VantaCloudsOptions = {
   sunGlareColor?: number;
   sunlightColor?: number;
   speed?: number;
+  scale?: number;
+  scaleMobile?: number;
   THREE?: unknown;
 };
 
@@ -45,6 +49,7 @@ const DARK_CLOUDS_OPTIONS: Omit<VantaCloudsOptions, "el" | "THREE"> = {
   gyroControls: false,
   minHeight: 200,
   minWidth: 200,
+  backgroundAlpha: 1,
   backgroundColor: 0x020304,
   skyColor: 0x0b1016,
   cloudColor: 0x98a0ae,
@@ -53,14 +58,19 @@ const DARK_CLOUDS_OPTIONS: Omit<VantaCloudsOptions, "el" | "THREE"> = {
   sunGlareColor: 0xff9c52,
   sunlightColor: 0xffb56b,
   speed: 0.8,
+  mouseEase: false,
+  scale: 3,
+  scaleMobile: 12,
 };
 
 const LIGHT_CLOUDS_OPTIONS: Omit<VantaCloudsOptions, "el" | "THREE"> = {
   mouseControls: false,
+  mouseEase: false,
   touchControls: false,
   gyroControls: false,
   minHeight: 200,
   minWidth: 200,
+  backgroundAlpha: 1,
   backgroundColor: 0xffffff,
   skyColor: 0x68b8d7,
   cloudColor: 0xadc1de,
@@ -69,9 +79,15 @@ const LIGHT_CLOUDS_OPTIONS: Omit<VantaCloudsOptions, "el" | "THREE"> = {
   sunGlareColor: 0xff6633,
   sunlightColor: 0xff9933,
   speed: 0.8,
+  scale: 3,
+  scaleMobile: 12,
 };
 
-export function VantaCloudBackdrop() {
+export function VantaCloudBackdrop({
+  variant = "auth",
+}: {
+  variant?: "landing" | "auth";
+}) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const effectRef = useRef<VantaCloudsInstance | null>(null);
   const [isVantaReady, setIsVantaReady] = useState(false);
@@ -114,13 +130,18 @@ export function VantaCloudBackdrop() {
 
   const glowOverlayClass =
     theme === "light"
-      ? "absolute inset-0 bg-[radial-gradient(circle_at_58%_44%,rgba(255,214,139,0.22),transparent_18%),linear-gradient(180deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0.18)_42%,rgba(255,255,255,0.3)_100%)]"
-      : "absolute inset-0 bg-[radial-gradient(circle_at_52%_44%,rgba(255,191,115,0.14),transparent_18%),linear-gradient(180deg,rgba(2,3,4,0.16)_0%,rgba(2,3,4,0.28)_38%,rgba(2,3,4,0.48)_100%)]";
+      ? "absolute inset-0 bg-[radial-gradient(circle_at_56%_47%,rgba(255,214,139,0.05),transparent_14%)]"
+      : "absolute inset-0 bg-[radial-gradient(circle_at_52%_47%,rgba(255,191,115,0.05),transparent_14%),linear-gradient(180deg,rgba(2,3,4,0.03)_0%,rgba(2,3,4,0.08)_42%,rgba(2,3,4,0.14)_100%)]";
 
   const toneOverlayClass =
     theme === "light"
-      ? "absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0.1)_36%,rgba(243,248,252,0.2)_100%)]"
-      : "absolute inset-0 bg-[linear-gradient(180deg,rgba(5,6,7,0.08)_0%,rgba(5,6,7,0.22)_45%,rgba(5,6,7,0.44)_100%)]";
+      ? "absolute inset-0 bg-transparent"
+      : "absolute inset-0 bg-[linear-gradient(180deg,rgba(5,6,7,0.02)_0%,rgba(5,6,7,0.06)_40%,rgba(5,6,7,0.12)_100%)]";
+
+  const hostClassName =
+    variant === "landing"
+      ? "absolute inset-x-0 top-[6%] bottom-[-6%]"
+      : "absolute inset-0";
 
   return (
     <>
@@ -133,8 +154,8 @@ export function VantaCloudBackdrop() {
         strategy="afterInteractive"
         onReady={() => setIsVantaReady(true)}
       />
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-        <div ref={hostRef} className="absolute inset-x-0 top-[18%] bottom-[-18%]" />
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden="true">
+        <div ref={hostRef} className={hostClassName} />
         <div className={glowOverlayClass} />
         <div className={toneOverlayClass} />
       </div>

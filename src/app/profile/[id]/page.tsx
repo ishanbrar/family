@@ -24,6 +24,7 @@ import {
   ImagePlus,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { SocialDock } from "@/components/ui/SocialDock";
@@ -404,6 +405,9 @@ export default function MemberProfilePage({
             </GlassCard>
           </div>
         </div>
+        <footer className="mt-10 border-t border-white/[0.08] pt-6">
+          <SiteFooter />
+        </footer>
       </main>
     </div>
   );

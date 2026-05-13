@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Crown, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { LegacyBrandLink } from "@/components/branding/LegacyBrandLink";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import { CREATE_FAMILY_SIGNUP_PATH, joinFamilySignupPath } from "@/lib/signup-flow";
 
@@ -65,20 +67,15 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] relative overflow-hidden">
-      <PreAuthBackdrop />
+      <PreAuthBackdrop variant="landing" />
 
       <header className="relative z-10 flex items-center justify-between px-6 lg:px-16 pr-14 lg:pr-20 py-6">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded border border-white/10 bg-white/5">
-            <Crown size={18} className="text-white/80" />
-          </div>
-          <span
-            className="text-base font-semibold text-white/95"
-            style={{ fontFamily: "var(--font-source-serif)" }}
-          >
-            Legacy
-          </span>
-        </div>
+        <LegacyBrandLink
+          destination="public"
+          className="text-white/95"
+          iconClassName="border border-white/10 bg-white/5 text-white/80"
+          textClassName="text-base text-white/95"
+        />
 
         <nav className="flex items-center gap-6">
           <Link
@@ -202,30 +199,7 @@ export default function LandingPage() {
         </section>
 
         <footer className="mt-24 lg:mt-28 max-w-6xl mx-auto border-t border-white/10 pt-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p
-                className="text-xs uppercase tracking-[0.24em] text-white/35"
-                style={{ fontFamily: "var(--font-source-sans)" }}
-              >
-                Legacy
-              </p>
-              <p
-                className="mt-2 text-sm text-white/55 max-w-xl leading-relaxed"
-                style={{ fontFamily: "var(--font-source-sans)" }}
-              >
-                Family history, identity, and health in one private experience.
-              </p>
-            </div>
-
-            <div
-              className="text-sm text-white/45 sm:text-right"
-              style={{ fontFamily: "var(--font-source-sans)" }}
-            >
-              <p className="text-white/65">Designed and built by Ishan Brar</p>
-              <p className="mt-1">Copyright 2026. All rights reserved.</p>
-            </div>
-          </div>
+          <SiteFooter variant="public" />
         </footer>
       </main>
     </div>
