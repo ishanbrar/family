@@ -50,6 +50,39 @@ const STATIC_MATCH: GeneticMatchResult = {
 };
 const POST_JOIN_LINK_ONLY_KEY = "legacy:post-join-link-only";
 
+function pickInitialPreviewRootId(
+  profiles: Profile[],
+  relationships: Relationship[],
+  selectedClaimId: string | null,
+  claimableMemberIds: Set<string>
+): string | null {
+  if (selectedClaimId && profiles.some((profile) => profile.id === selectedClaimId)) {
+    return selectedClaimId;
+  }
+
+  if (profiles.length === 0) return null;
+
+  const degreeById = new Map<string, number>();
+  profiles.forEach((profile) => degreeById.set(profile.id, 0));
+  relationships.forEach((relationship) => {
+    degreeById.set(relationship.user_id, (degreeById.get(relationship.user_id) || 0) + 1);
+    degreeById.set(relationship.relative_id, (degreeById.get(relationship.relative_id) || 0) + 1);
+  });
+
+  const rankedIds = [...profiles]
+    .sort((a, b) => {
+      const degreeDiff = (degreeById.get(b.id) || 0) - (degreeById.get(a.id) || 0);
+      if (degreeDiff !== 0) return degreeDiff;
+      const claimableDiff = Number(claimableMemberIds.has(b.id)) - Number(claimableMemberIds.has(a.id));
+      if (claimableDiff !== 0) return claimableDiff;
+      if (a.created_at !== b.created_at) return a.created_at.localeCompare(b.created_at);
+      return a.id.localeCompare(b.id);
+    })
+    .map((profile) => profile.id);
+
+  return rankedIds[0] || null;
+}
+
 function JoinFamilyPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -136,16 +169,24 @@ function JoinFamilyPageContent() {
     [preview]
   );
 
+  const claimableMemberIds = useMemo(
+    () => new Set((preview?.members || []).filter((member) => member.is_claimable).map((member) => member.id)),
+    [preview]
+  );
+
   const treeLayout = useMemo(() => {
     if (previewProfiles.length === 0) {
       return { nodes: [], connections: [], sibships: [], width: 900, height: 560 };
     }
     const preferredRootId =
-      (selectedClaimId && previewProfiles.some((profile) => profile.id === selectedClaimId)
-        ? selectedClaimId
-        : null) || previewProfiles[0].id;
+      pickInitialPreviewRootId(
+        previewProfiles,
+        previewRelationships,
+        selectedClaimId,
+        claimableMemberIds
+      ) || previewProfiles[0].id;
     return createFamilyTreeLayout(previewProfiles, previewRelationships, preferredRootId);
-  }, [previewProfiles, previewRelationships, selectedClaimId]);
+  }, [claimableMemberIds, previewProfiles, previewRelationships, selectedClaimId]);
 
   const treeMembers = useMemo(
     () =>
@@ -245,7 +286,7 @@ function JoinFamilyPageContent() {
           </p>
           {preview?.preview_limited && (
             <div className="mb-4 rounded-xl border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-xs text-white/60">
-              Privacy mode is enabled before join. You can see claimable nodes, while the full family graph is revealed after you join.
+              Privacy mode is enabled before join. The tree structure is visible now, while claimed account names stay hidden until you join.
             </div>
           )}
           {treeMembers.length > 0 ? (
