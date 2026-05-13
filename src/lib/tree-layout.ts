@@ -282,6 +282,47 @@ export function createFamilyTreeLayout(
       }
     }
   }
+
+  // Spouses must remain on the same generation row even when birth-year refinement
+  // moves only one partner. Otherwise the spouse edge disappears because spouse
+  // connectors render only for same-row couples.
+  const spouseRefineAdj = new Map<string, Set<string>>();
+  const addSpouseRefineLink = (a: string, b: string) => {
+    if (!spouseRefineAdj.has(a)) spouseRefineAdj.set(a, new Set());
+    spouseRefineAdj.get(a)!.add(b);
+  };
+  for (const rel of relationships) {
+    if (rel.type !== "spouse") continue;
+    if (!memberById.has(rel.user_id) || !memberById.has(rel.relative_id)) continue;
+    addSpouseRefineLink(rel.user_id, rel.relative_id);
+    addSpouseRefineLink(rel.relative_id, rel.user_id);
+  }
+  const spouseVisited = new Set<string>();
+  for (const member of members) {
+    if (spouseVisited.has(member.id)) continue;
+    const stack = [member.id];
+    const component: string[] = [];
+    spouseVisited.add(member.id);
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      component.push(current);
+      const neighbors = spouseRefineAdj.get(current);
+      if (!neighbors) continue;
+      for (const next of neighbors) {
+        if (spouseVisited.has(next)) continue;
+        spouseVisited.add(next);
+        stack.push(next);
+      }
+    }
+    if (component.length < 2) continue;
+    const targetGen = Math.max(
+      ...component.map((id) => refinedGeneration.get(id) ?? generation.get(id) ?? 0)
+    );
+    component.forEach((id) => {
+      refinedGeneration.set(id, targetGen);
+    });
+  }
+
   // Rebuild byGen from refined generations
   const byGenRefined = new Map<number, Profile[]>();
   for (const member of members) {

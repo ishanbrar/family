@@ -132,4 +132,44 @@ describe("pedigree layout constraints", () => {
       expect(s.x1 === s.x2 || s.y1 === s.y2).toBe(true);
     }
   });
+
+  it("keeps spouses on the same row after birth-year refinement changes one partner", () => {
+    const members: Profile[] = [
+      {
+        ...profile("viewer", "Viewer", "Person", "male"),
+        role: "ADMIN",
+        date_of_birth: "2002-01-01",
+      },
+      {
+        ...profile("ian", "Ian", "Shields", "male"),
+        date_of_birth: "1959-01-01",
+      },
+      profile("jasmine", "Jasmine", "Mann", "female"),
+    ];
+
+    const relationships: Relationship[] = [
+      rel("r1", "viewer", "ian", "sibling"),
+      rel("r2", "ian", "jasmine", "spouse"),
+    ];
+
+    const tree = createFamilyTreeLayout(members, relationships, "viewer");
+    const byId = new Map(tree.nodes.map((n) => [n.profile.id, n]));
+    const ian = byId.get("ian");
+    const jasmine = byId.get("jasmine");
+
+    expect(ian).toBeTruthy();
+    expect(jasmine).toBeTruthy();
+    if (!ian || !jasmine) return;
+
+    expect(ian.generation).toBe(jasmine.generation);
+    expect(ian.y).toBe(jasmine.y);
+    expect(
+      tree.connections.some(
+        (conn) =>
+          conn.type === "spouse" &&
+          ((conn.from === "ian" && conn.to === "jasmine") ||
+            (conn.from === "jasmine" && conn.to === "ian"))
+      )
+    ).toBe(true);
+  });
 });
