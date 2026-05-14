@@ -1,6 +1,7 @@
 import { findCityByInput, inferCountryCodeFromCity } from "./cities";
 import { countryFlag } from "./country-utils";
 import { formatDisplayText } from "./display-format";
+import { getProfileLocationPoints } from "./profile-locations";
 import type { Profile } from "./types";
 
 export interface LocationTickerItem {
@@ -36,26 +37,30 @@ export function buildLocationTickerItems(members: Profile[]): LocationTickerItem
   >();
 
   for (const member of members) {
-    const city = canonicalCityName(member.location_city);
-    const countryCode = (member.country_code || inferCountryCodeFromCity(member.location_city || "") || "")
-      .toUpperCase()
-      .trim();
+    for (const point of getProfileLocationPoints(member, { includeSecondary: true })) {
+      const city = canonicalCityName(point.city);
+      const countryCode = (point.countryCode || inferCountryCodeFromCity(point.city) || "")
+        .toUpperCase()
+        .trim();
 
-    if (!city || !countryCode) continue;
+      if (!city || !countryCode) continue;
 
-    const key = `${city.toLowerCase()}::${countryCode}`;
-    const existing = groups.get(key);
+      const key = `${city.toLowerCase()}::${countryCode}`;
+      const existing = groups.get(key);
 
-    if (existing) {
-      existing.memberNames.push(memberTickerName(member));
-      continue;
+      if (existing) {
+        if (!existing.memberNames.includes(memberTickerName(member))) {
+          existing.memberNames.push(memberTickerName(member));
+        }
+        continue;
+      }
+
+      groups.set(key, {
+        city,
+        countryCode,
+        memberNames: [memberTickerName(member)],
+      });
     }
-
-    groups.set(key, {
-      city,
-      countryCode,
-      memberNames: [memberTickerName(member)],
-    });
   }
 
   return [...groups.values()]

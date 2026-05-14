@@ -29,6 +29,7 @@ function previewMemberToProfile(member: JoinFamilyPreview["members"][number]): P
     place_of_birth: null,
     profession: null,
     location_city: null,
+    secondary_location_city: null,
     location_lat: null,
     location_lng: null,
     pets: [],

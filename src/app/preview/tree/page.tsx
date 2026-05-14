@@ -2,64 +2,46 @@
 
 import { useMemo } from "react";
 import { FamilyTree } from "@/components/tree/FamilyTree";
-import type { TreeConnection } from "@/components/tree/FamilyTree";
 import { MOCK_PROFILES, MOCK_RELATIONSHIPS } from "@/lib/mock-data";
 import { calculateGeneticMatch } from "@/lib/genetic-match";
 import type { Relationship } from "@/lib/types";
-
-const TREE_POSITIONS: Record<string, { x: number; y: number }> = {
-  "grandparent-001": { x: 330, y: 80 },
-  "grandparent-002": { x: 470, y: 80 },
-  "parent-001": { x: 240, y: 270 },
-  "parent-002": { x: 380, y: 270 },
-  "uncle-001": { x: 600, y: 270 },
-  "viewer-001": { x: 240, y: 460 },
-  "sibling-001": { x: 380, y: 460 },
-  "cousin-001": { x: 600, y: 460 },
-};
-
-const TREE_CONNECTIONS: TreeConnection[] = [
-  { from: "grandparent-001", to: "grandparent-002", type: "spouse" },
-  { from: "parent-001", to: "parent-002", type: "spouse" },
-  { from: "grandparent-001", to: "parent-001", type: "parent" },
-  { from: "grandparent-002", to: "parent-001", type: "parent" },
-  { from: "grandparent-001", to: "uncle-001", type: "parent" },
-  { from: "grandparent-002", to: "uncle-001", type: "parent" },
-  { from: "parent-001", to: "viewer-001", type: "parent" },
-  { from: "parent-002", to: "viewer-001", type: "parent" },
-  { from: "parent-001", to: "sibling-001", type: "parent" },
-  { from: "parent-002", to: "sibling-001", type: "parent" },
-  { from: "uncle-001", to: "cousin-001", type: "parent" },
-];
+import { createFamilyTreeLayout } from "@/lib/tree-layout";
+import { usePreviewTheme } from "../usePreviewTheme";
 
 export default function PreviewTreePage() {
+  usePreviewTheme();
   const viewer = MOCK_PROFILES[0];
   const members = MOCK_PROFILES;
   const relationships = MOCK_RELATIONSHIPS as Relationship[];
-
-  const treeMembers = useMemo(
-    () =>
-      members
-        .filter((p) => TREE_POSITIONS[p.id])
-        .map((p) => ({
-          profile: p,
-          match: calculateGeneticMatch(viewer.id, p.id, relationships, p.gender),
-          ...TREE_POSITIONS[p.id],
-        })),
+  const treeLayout = useMemo(
+    () => createFamilyTreeLayout(members, relationships, viewer.id),
     [members, relationships, viewer.id]
   );
 
+  const treeMembers = useMemo(
+    () =>
+      treeLayout.nodes.map((node) => ({
+        profile: node.profile,
+        match: calculateGeneticMatch(viewer.id, node.profile.id, relationships, node.profile.gender),
+        x: node.x,
+        y: node.y,
+        generation: node.generation,
+      })),
+    [relationships, treeLayout.nodes, viewer.id]
+  );
+
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0a] flex items-center justify-center p-6">
+    <div className="app-surface min-h-screen w-full bg-[color:var(--background)] flex items-center justify-center p-6">
       <FamilyTree
         members={treeMembers}
-        connections={TREE_CONNECTIONS}
+        connections={treeLayout.connections}
+        sibships={treeLayout.sibships}
         viewerId={viewer.id}
         showPercentages
         showRelationLabels
         showLastNames
-        canvasWidth={900}
-        canvasHeight={520}
+        canvasWidth={treeLayout.width}
+        canvasHeight={treeLayout.height}
       />
     </div>
   );

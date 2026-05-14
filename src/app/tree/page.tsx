@@ -32,7 +32,8 @@ import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { exportFamilyTreeAsImage } from "@/lib/tree-export";
 import type { Profile, RelationshipType } from "@/lib/types";
-import { formatGenderLabel } from "@/lib/display-format";
+import { formatGenderLabel, formatPersonName } from "@/lib/display-format";
+import { distanceMilesBetweenCoordinates, getProfileLocationPoints } from "@/lib/profile-locations";
 import { cn } from "@/lib/cn";
 
 function formatBirthDate(value: string | null): string {
@@ -51,6 +52,14 @@ function getAge(value: string | null): number | null {
   const monthOffset = now.getMonth() - dob.getMonth();
   if (monthOffset < 0 || (monthOffset === 0 && now.getDate() < dob.getDate())) years -= 1;
   return years;
+}
+
+interface FarAndWideRow {
+  id: string;
+  name: string;
+  birthCity: string;
+  currentCity: string;
+  miles: number;
 }
 
 export default function TreeExplorerPage() {
@@ -204,6 +213,40 @@ export default function TreeExplorerPage() {
 
   const selectedAge = getAge(selectedMember?.date_of_birth || null);
   const filterMember = relatedByFilter ? members.find((m) => m.id === relatedByFilter) : null;
+  const farAndWideRows = useMemo<FarAndWideRow[]>(() => {
+    return members
+      .map((member) => {
+        const birthPoint = getProfileLocationPoints(member, {
+          includeBirthplace: true,
+          includeCurrent: false,
+          includeSecondary: false,
+        })[0];
+        const currentPoint = getProfileLocationPoints(member, {
+          includeBirthplace: false,
+          includeCurrent: true,
+          includeSecondary: false,
+        })[0];
+
+        if (!birthPoint || !currentPoint) return null;
+        if (birthPoint.lat == null || birthPoint.lng == null) return null;
+        if (currentPoint.lat == null || currentPoint.lng == null) return null;
+
+        return {
+          id: member.id,
+          name: formatPersonName(member.first_name, member.last_name),
+          birthCity: birthPoint.city,
+          currentCity: currentPoint.city,
+          miles: Math.round(
+            distanceMilesBetweenCoordinates(
+              [birthPoint.lat, birthPoint.lng],
+              [currentPoint.lat, currentPoint.lng]
+            )
+          ),
+        };
+      })
+      .filter((row): row is FarAndWideRow => row !== null)
+      .sort((a, b) => b.miles - a.miles || a.name.localeCompare(b.name));
+  }, [members]);
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">
@@ -452,6 +495,49 @@ export default function TreeExplorerPage() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          <GlassCard className={cn("p-4 sm:p-5", selectedMember && "lg:col-span-2")}>
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between mb-4">
+              <div>
+                <h2 className="font-serif text-lg text-white/92">Far and Wide</h2>
+                <p className="text-xs text-white/35">
+                  Distance traveled from birthplace to current city, sorted from highest to lowest.
+                </p>
+              </div>
+              <span className="text-[11px] text-white/40">
+                {farAndWideRows.length} member{farAndWideRows.length === 1 ? "" : "s"} with complete location data
+              </span>
+            </div>
+
+            {farAndWideRows.length === 0 ? (
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-6 text-sm text-white/40 text-center">
+                Add birth cities and current cities to start comparing how far your family has spread.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-white/[0.08] bg-white/[0.02]">
+                <table className="min-w-full text-left">
+                  <thead className="border-b border-white/[0.08] bg-white/[0.02]">
+                    <tr className="text-[11px] uppercase tracking-wider text-white/42">
+                      <th className="px-4 py-3 font-medium">Person</th>
+                      <th className="px-4 py-3 font-medium">Birth City</th>
+                      <th className="px-4 py-3 font-medium">Current City</th>
+                      <th className="px-4 py-3 font-medium text-right">Miles</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {farAndWideRows.map((row) => (
+                      <tr key={row.id} className="border-b border-white/[0.06] last:border-b-0">
+                        <td className="px-4 py-3 text-sm text-white/82">{row.name}</td>
+                        <td className="px-4 py-3 text-sm text-white/62">{row.birthCity}</td>
+                        <td className="px-4 py-3 text-sm text-white/62">{row.currentCity}</td>
+                        <td className="px-4 py-3 text-sm text-gold-300 text-right">{row.miles.toLocaleString()} mi</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </GlassCard>
 
           <GlassCard className={cn("p-4 sm:p-5", selectedMember && "lg:col-span-2 mt-5")}>
             <h2 className="font-serif text-lg text-white/92 mb-3">Members Table</h2>

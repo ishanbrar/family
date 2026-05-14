@@ -191,7 +191,7 @@ export function FamilyTree({
     if (!el || members.length === 0) return;
     const xs = members.map((m) => m.x);
     const ys = members.map((m) => m.y);
-    const pad = 60;
+    const pad = 84;
     const minX = Math.min(...xs) - pad;
     const maxX = Math.max(...xs) + pad;
     const minY = Math.min(...ys) - pad;
@@ -210,7 +210,7 @@ export function FamilyTree({
     const el = containerRef.current;
     if (!el || members.length === 0) return;
     const xs = members.map((m) => m.x);
-    const pad = 60;
+    const pad = 84;
     const minX = Math.min(...xs) - pad;
     const maxX = Math.max(...xs) + pad;
     const treeW = maxX - minX;
@@ -476,8 +476,8 @@ export function FamilyTree({
             const dropStartY = hasCouple ? parentY : parentY + NODE_R;
             const childTopEdge = childY - NODE_R;
             const railY = Math.min(
-              childTopEdge - 8,
-              Math.max(dropStartY + 8, dropStartY + (childTopEdge - dropStartY) * 0.5)
+              childTopEdge - 24,
+              Math.max(dropStartY + 24, dropStartY + (childTopEdge - dropStartY) * 0.72)
             );
 
             const allIds = [...sib.parents, ...sib.children];
@@ -547,7 +547,7 @@ export function FamilyTree({
 
               const parentBottom = parent.y + NODE_R;
               const childTop = child.y - NODE_R;
-              const midY = parentBottom + (childTop - parentBottom) * 0.5;
+              const midY = parentBottom + (childTop - parentBottom) * 0.72;
 
               const d = Math.abs(parent.x - child.x) < 4
                 ? `M ${parent.x} ${parentBottom} L ${child.x} ${childTop}`
@@ -696,7 +696,7 @@ export function FamilyTree({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: isDimmed ? 0.3 : 1 }}
                   transition={{ delay: 0.6 + i * 0.06 }}
-                  className="mt-2 text-center"
+                  className="mt-3 text-center"
                 >
                   <p className={cn(
                     "text-xs",

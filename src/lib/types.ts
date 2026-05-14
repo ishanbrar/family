@@ -36,6 +36,8 @@ export interface Profile {
   place_of_birth: string | null;
   profession: string | null;
   location_city: string | null;
+  secondary_location_city?: string | null;
+  address?: string | null;
   location_lat: number | null;
   location_lng: number | null;
   pets: string[];

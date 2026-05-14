@@ -154,8 +154,11 @@ function applyGenderToRelationshipLabel(
 
   const map: Record<string, { female: string; male: string }> = {
     Parent: { female: "Mother", male: "Father" },
+    "Parent-in-Law": { female: "Mother-in-Law", male: "Father-in-Law" },
     Child: { female: "Daughter", male: "Son" },
+    "Child-in-Law": { female: "Daughter-in-Law", male: "Son-in-Law" },
     Sibling: { female: "Sister", male: "Brother" },
+    "Sibling-in-Law": { female: "Sister-in-Law", male: "Brother-in-Law" },
     Spouse: { female: "Wife", male: "Husband" },
     Grandparent: { female: "Grandmother", male: "Grandfather" },
     "Maternal Grandparent": { female: "Maternal Grandmother", male: "Maternal Grandfather" },
@@ -385,11 +388,22 @@ function inferRelationship(types: RelationshipType[]): string {
     "parent→sibling→child": "First Cousin",
     "parent→parent→sibling": "Great Aunt/Uncle",
     "parent→parent→sibling→child": "First Cousin Once Removed",
+    // Inferred sibling / niece-nephew via shared parents only
+    "parent→child": "Sibling",
+    "parent→child→child": "Niece/Nephew",
     // Via grandparents only (no explicit sibling links) - common when adding new members
     "parent→parent→child": "Aunt/Uncle",
     "parent→parent→child→child": "First Cousin",
     // Aunt/uncle's spouse (in-law)
     "parent→sibling→spouse": "Aunt's/Uncle's Spouse",
+    "parent→parent→child→spouse": "Aunt's/Uncle's Spouse",
+    // In-laws
+    "spouse→parent": "Parent-in-Law",
+    "child→spouse": "Child-in-Law",
+    "sibling→spouse": "Sibling-in-Law",
+    "spouse→sibling": "Sibling-in-Law",
+    "parent→child→spouse": "Sibling-in-Law",
+    "spouse→parent→child": "Sibling-in-Law",
     // Through spouse (coefficient will be 0 anyway)
     "spouse": "Spouse",
     // Same generation via two sibling hops (e.g. you → brother → his sister)

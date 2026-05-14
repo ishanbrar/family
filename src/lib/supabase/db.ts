@@ -146,6 +146,10 @@ export async function updateProfile(
   if (updates.place_of_birth !== undefined) dbUpdates.place_of_birth = updates.place_of_birth;
   if (updates.profession !== undefined) dbUpdates.profession = updates.profession;
   if (updates.location_city !== undefined) dbUpdates.location_city = updates.location_city;
+  if (updates.secondary_location_city !== undefined) {
+    dbUpdates.secondary_location_city = updates.secondary_location_city;
+  }
+  if (updates.address !== undefined) dbUpdates.address = updates.address;
   if (updates.location_lat !== undefined) dbUpdates.location_lat = updates.location_lat;
   if (updates.location_lng !== undefined) dbUpdates.location_lng = updates.location_lng;
   if (updates.pets !== undefined) dbUpdates.pets = updates.pets;
@@ -615,6 +619,8 @@ export async function addFamilyMember(
       place_of_birth: profile.place_of_birth,
       profession: profile.profession,
       location_city: profile.location_city,
+      secondary_location_city: profile.secondary_location_city,
+      address: profile.address,
       location_lat: profile.location_lat,
       location_lng: profile.location_lng,
       pets: profile.pets || [],
@@ -714,6 +720,8 @@ function mapProfile(row: any): Profile {
     place_of_birth: row.place_of_birth,
     profession: row.profession,
     location_city: row.location_city,
+    secondary_location_city: row.secondary_location_city || null,
+    address: row.address || null,
     location_lat: row.location_lat,
     location_lng: row.location_lng,
     pets: Array.isArray(row.pets) ? row.pets : [],

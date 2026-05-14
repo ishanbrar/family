@@ -30,10 +30,12 @@ import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { SocialDock } from "@/components/ui/SocialDock";
 import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
 import { EditProfileModal } from "@/components/ui/EditProfileModal";
+import { ProfilePlacesCard } from "@/components/profile/ProfilePlacesCard";
 import { useFamilyData } from "@/hooks/use-family-data";
 import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
 import { calculateGeneticMatch } from "@/lib/genetic-match";
 import { formatDisplayText, formatGenderLabel, formatPersonName } from "@/lib/display-format";
+import { buildGoogleMapsSearchUrl } from "@/lib/maps";
 import type { Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 
@@ -148,6 +150,7 @@ export default function MemberProfilePage({
         (rel.relative_id === member.id && rel.user_id !== member.id))
   );
   const marriageDate = spouseRelation?.marriage_date || null;
+  const addressUrl = member.address ? buildGoogleMapsSearchUrl(member.address) : null;
 
   const handleSave = async (updates: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => {
     const { avatarFile, galleryFiles, ...profileUpdates } = updates;
@@ -271,6 +274,8 @@ export default function MemberProfilePage({
                   { icon: Briefcase, label: "Profession", value: member.profession },
                   { icon: PawPrint, label: "Pets", value: member.pets.length > 0 ? member.pets.join(", ") : null },
                   { icon: MapPin, label: "Location", value: member.location_city },
+                  { icon: MapPin, label: "Secondary Home", value: member.secondary_location_city || null },
+                  { icon: MapPin, label: "Address", value: member.address, href: addressUrl },
                   {
                     icon: Calendar, label: "Date of Birth",
                     value: member.date_of_birth
@@ -296,7 +301,18 @@ export default function MemberProfilePage({
                       <Icon size={14} className="text-white/20 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] text-white/25 font-medium uppercase tracking-wider">{field.label}</p>
-                        <p className="text-sm text-white/70 mt-0.5">{field.value || "Not set"}</p>
+                        {field.href && field.value ? (
+                          <a
+                            href={field.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-0.5 block break-words text-sm text-gold-300 transition-colors hover:text-gold-200"
+                          >
+                            {field.value}
+                          </a>
+                        ) : (
+                          <p className="mt-0.5 break-words text-sm text-white/70">{field.value || "Not set"}</p>
+                        )}
                       </div>
                     </div>
                   );
@@ -367,6 +383,8 @@ export default function MemberProfilePage({
           </GlassCard>
 
           <div className="xl:col-span-2 space-y-6">
+            <ProfilePlacesCard profile={member} />
+
             <GlassCard className="p-6">
               <h3 className="font-serif text-lg font-semibold text-white/90 mb-4">Health Conditions</h3>
               <div className="space-y-3">

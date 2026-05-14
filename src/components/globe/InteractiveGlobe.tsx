@@ -23,6 +23,7 @@ import { feature } from "topojson-client";
 import { Globe2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { buildLocationTickerItems } from "@/lib/location-summary";
+import { getProfileLocationPoints, type ProfileLocationPoint } from "@/lib/profile-locations";
 import type { Profile } from "@/lib/types";
 import { inferCountryCodeFromCity, getCityCoordinates } from "@/lib/cities";
 import { countryName } from "@/lib/country-utils";
@@ -35,6 +36,7 @@ interface InteractiveGlobeProps {
   focusSignal?: number;
   /** Globe diameter in pixels. Default 300. */
   size?: number;
+  showTicker?: boolean;
   className?: string;
 }
 
@@ -46,7 +48,10 @@ interface CountryFeature {
 }
 
 interface ResolvedMemberLocation {
+  key: string;
   member: Profile;
+  city: string;
+  point: ProfileLocationPoint;
   lat: number;
   lng: number;
   countryCode: string | null;
@@ -113,6 +118,7 @@ export function InteractiveGlobe({
   focusCountryCode,
   focusSignal,
   size = 420,
+  showTicker = true,
   className,
 }: InteractiveGlobeProps) {
   const baseSize = size;
@@ -242,10 +248,12 @@ export function InteractiveGlobe({
 
     const candidateCodes = new Set<string>();
     for (const member of members) {
-      const code = (member.country_code || inferCountryCodeFromCity(member.location_city || "") || "")
-        .toUpperCase()
-        .trim();
-      if (code) candidateCodes.add(code);
+      for (const point of getProfileLocationPoints(member, { includeSecondary: true })) {
+        const code = (point.countryCode || inferCountryCodeFromCity(point.city || "") || "")
+          .toUpperCase()
+          .trim();
+        if (code) candidateCodes.add(code);
+      }
     }
 
     for (const code of candidateCodes) {
@@ -260,41 +268,55 @@ export function InteractiveGlobe({
     const resolved: ResolvedMemberLocation[] = [];
 
     for (const member of members) {
-      const inferredCode = (member.country_code || inferCountryCodeFromCity(member.location_city || "") || "")
-        .toUpperCase()
-        .trim();
-      const countryCode = inferredCode || null;
+      for (const point of getProfileLocationPoints(member, { includeSecondary: true })) {
+        const countryCode =
+          (point.countryCode || inferCountryCodeFromCity(point.city || "") || "").toUpperCase().trim() || null;
 
-      if (member.location_lat != null && member.location_lng != null) {
+        if (point.lat != null && point.lng != null) {
+          resolved.push({
+            key: point.key,
+            member,
+            city: point.city,
+            point,
+            lat: point.lat,
+            lng: point.lng,
+            countryCode,
+          });
+          continue;
+        }
+
+        const cityCoords = point.city ? getCityCoordinates(point.city) : null;
+        if (cityCoords) {
+          const [lat, lng] = cityCoords;
+          resolved.push({
+            key: point.key,
+            member,
+            city: point.city,
+            point,
+            lat,
+            lng,
+            countryCode,
+          });
+          continue;
+        }
+
+        if (!countryCode) continue;
+        const country = countryFeatureByCode.get(countryCode);
+        if (!country) continue;
+        const [lng, lat] = geoCentroid(country as unknown as GeoPermissibleObjects);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
         resolved.push({
+          key: point.key,
           member,
-          lat: member.location_lat,
-          lng: member.location_lng,
+          city: point.city,
+          point,
+          lat,
+          lng,
           countryCode,
+          countryId: country.id,
         });
-        continue;
       }
-
-      const cityCoords = member.location_city ? getCityCoordinates(member.location_city) : null;
-      if (cityCoords) {
-        const [lat, lng] = cityCoords;
-        resolved.push({ member, lat, lng, countryCode });
-        continue;
-      }
-
-      if (!countryCode) continue;
-      const country = countryFeatureByCode.get(countryCode);
-      if (!country) continue;
-      const [lng, lat] = geoCentroid(country as unknown as GeoPermissibleObjects);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-
-      resolved.push({
-        member,
-        lat,
-        lng,
-        countryCode,
-        countryId: country.id,
-      });
     }
 
     return resolved;
@@ -313,16 +335,16 @@ export function InteractiveGlobe({
   }, [autoRotate, isFlatMap, isDragging]);
 
   const countryMembership = useMemo(() => {
-    const memberCountryByMemberId = new Map<string, string>();
+    const memberCountryByLocationKey = new Map<string, string>();
     const memberCountryIds = new Set<string>();
 
     if (countries.length === 0) {
-      return { memberCountryByMemberId, memberCountryIds };
+      return { memberCountryByLocationKey, memberCountryIds };
     }
 
     for (const member of locatedMembers) {
       if (member.countryId) {
-        memberCountryByMemberId.set(member.member.id, member.countryId);
+        memberCountryByLocationKey.set(member.key, member.countryId);
         memberCountryIds.add(member.countryId);
         continue;
       }
@@ -334,7 +356,7 @@ export function InteractiveGlobe({
               member.lat,
             ])
           ) {
-            memberCountryByMemberId.set(member.member.id, country.id);
+            memberCountryByLocationKey.set(member.key, country.id);
             memberCountryIds.add(country.id);
             break;
           }
@@ -344,14 +366,14 @@ export function InteractiveGlobe({
       }
     }
 
-    return { memberCountryByMemberId, memberCountryIds };
+    return { memberCountryByLocationKey, memberCountryIds };
   }, [countries, locatedMembers]);
 
   const countryCodeByFeatureId = useMemo(() => {
     const map = new Map<string, string>();
     for (const m of locatedMembers) {
       if (!m.countryCode) continue;
-      const fid = countryMembership.memberCountryByMemberId.get(m.member.id);
+      const fid = countryMembership.memberCountryByLocationKey.get(m.key);
       if (fid && !map.has(fid)) map.set(fid, m.countryCode);
     }
     return map;
@@ -364,7 +386,7 @@ export function InteractiveGlobe({
 
     for (const member of locatedMembers) {
       if (member.countryCode?.toUpperCase() !== code) continue;
-      const countryId = countryMembership.memberCountryByMemberId.get(member.member.id);
+      const countryId = countryMembership.memberCountryByLocationKey.get(member.key);
       if (countryId) ids.add(countryId);
     }
 
@@ -436,13 +458,15 @@ export function InteractiveGlobe({
         const visible = Math.sqrt(lngDiff * lngDiff + latDiff * latDiff) < 90;
 
         return {
+          key: m.key,
           member: m.member,
+          city: m.city,
           x: coords[0],
           y: coords[1],
           visible,
         };
       })
-      .filter((p): p is { member: Profile; x: number; y: number; visible: boolean } => p !== null);
+      .filter((p): p is { key: string; member: Profile; city: string; x: number; y: number; visible: boolean } => p !== null);
   }, [locatedMembers, globeProjection]);
 
   const mapMembers = useMemo(() => {
@@ -451,7 +475,9 @@ export function InteractiveGlobe({
         const coords = mapProjection([m.lng, m.lat]);
         if (!coords) return null;
         return {
+          key: m.key,
           member: m.member,
+          city: m.city,
           x: coords[0],
           y: coords[1],
           visible:
@@ -461,16 +487,15 @@ export function InteractiveGlobe({
             coords[1] <= baseSize + 20,
         };
       })
-      .filter((p): p is { member: Profile; x: number; y: number; visible: boolean } => p !== null);
+      .filter((p): p is { key: string; member: Profile; city: string; x: number; y: number; visible: boolean } => p !== null);
   }, [locatedMembers, mapProjection, baseSize]);
 
   const visibleMembers = isFlatMap ? mapMembers : globeMembers;
 
   const memberMarkers = useMemo(() => {
     const cityMap = new Map<string, { members: Profile[]; xs: number[]; ys: number[]; city: string }>();
-    for (const { member, x, y, visible } of visibleMembers) {
+    for (const { member, city, x, y, visible } of visibleMembers) {
       if (!visible) continue;
-      const city = (member.location_city || "").trim();
       const key = city.toLowerCase() || `_${member.id}`;
       const existing = cityMap.get(key);
       if (existing) {
@@ -858,7 +883,7 @@ export function InteractiveGlobe({
         <Globe2 size={14} />
       </button>
 
-      {locationTickerItems.length > 0 && (
+      {showTicker && locationTickerItems.length > 0 && (
         <div className="mt-3 w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]">
           {shouldReduceMotion ? (
             <div className="max-w-full overflow-x-auto px-2 py-2">

@@ -256,7 +256,7 @@ export function createFamilyTreeLayout(
   }
 
   const sortedGens = [...byGen.keys()].sort((a, b) => a - b);
-  const levelGap = 220;
+  const levelGap = 272;
   const nodeYStart = 90;
 
   // Birth-year refinement: split generations that span >35 years (uncle/nephew wrongly same row)
@@ -352,7 +352,7 @@ export function createFamilyTreeLayout(
     ? [...sortedGensRefined].sort((a, b) => a - b)
     : [...sortedGensRefined].sort((a, b) => b - a);
   const maxCols = Math.max(...orderedRows.map((g) => byGenRefined.get(g)?.length || 0), 1);
-  const width = Math.max(1300, maxCols * 280 + 420);
+  const width = Math.max(1380, maxCols * 320 + 480);
   const height = Math.max(560, orderedRows.length * levelGap + 120);
 
   const spouseAdj = new Map<string, Set<string>>();
@@ -509,7 +509,7 @@ export function createFamilyTreeLayout(
       neutral: unitMeta.filter((u) => u.side === "neutral"),
       maternal: unitMeta.filter((u) => u.side === "maternal"),
     };
-    const rowGap = 150 + row * 12;
+    const rowGap = 178 + row * 14;
     const sideCenters: Record<Side, number> = {
       paternal: width * 0.36,
       neutral: width * 0.5,
@@ -536,7 +536,7 @@ export function createFamilyTreeLayout(
         if (ag === "female" && bg === "male") return 1;
         return a.localeCompare(b);
       });
-      const unitSpacing = 110;
+      const unitSpacing = 132;
       const unitStart = cx - ((orderedUnit.length - 1) * unitSpacing) / 2;
       const y = nodeYStart + row * levelGap;
       orderedUnit.forEach((id, idx) => {
@@ -583,7 +583,7 @@ export function createFamilyTreeLayout(
           .map((id) => ({ id, x: positions.get(id)?.x ?? 0 }))
           .sort((a, b) => a.x - b.x);
         const center = cluster.reduce((s, n) => s + n.x, 0) / cluster.length;
-        const spacing = 150;
+    const spacing = 172;
         const start = center - ((cluster.length - 1) * spacing) / 2;
         const y = positions.get(motherParent.id)?.y ?? nodeYStart + motherRow * levelGap;
         cluster.forEach((n, i) => {
@@ -602,7 +602,7 @@ export function createFamilyTreeLayout(
     if (!a || !b) continue;
     if (Math.abs(a.y - b.y) > 1) continue;
     const dx = Math.abs(a.x - b.x);
-    const minSpouseGap = 110;
+  const minSpouseGap = 132;
     if (dx >= minSpouseGap) continue;
     const mid = (a.x + b.x) / 2;
     const leftId = a.x <= b.x ? rel.user_id : rel.relative_id;
@@ -613,7 +613,7 @@ export function createFamilyTreeLayout(
   }
 
   // 2) Ensure minimum horizontal gap across each generation row.
-  const minNodeGap = 96;
+  const minNodeGap = 118;
   for (const gen of orderedRows) {
     const rowMembers = byGenRefined.get(gen) || [];
     const ordered = rowMembers

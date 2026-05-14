@@ -19,6 +19,7 @@ interface ProfileCardProps {
   profile: Profile;
   geneticMatch?: GeneticMatchResult;
   isViewer?: boolean;
+  compactViewer?: boolean;
   onClick?: () => void;
   className?: string;
 }
@@ -50,6 +51,7 @@ export function ProfileCard({
   profile,
   geneticMatch,
   isViewer = false,
+  compactViewer = false,
   onClick,
   className,
 }: ProfileCardProps) {
@@ -68,9 +70,14 @@ export function ProfileCard({
         onClick={onClick}
         whileHover={onClick ? { scale: 1.01, y: -2 } : undefined}
       >
-        <div className="flex flex-col lg:flex-row lg:items-stretch gap-8 lg:gap-10">
+        <div
+          className={cn(
+            "flex flex-col gap-8",
+            compactViewer ? "items-center" : "2xl:flex-row 2xl:items-stretch 2xl:gap-10"
+          )}
+        >
           {/* Avatar + You */}
-          <div className="flex flex-col items-center lg:items-start shrink-0">
+          <div className={cn("flex flex-col items-center shrink-0", !compactViewer && "2xl:items-start")}>
             <GeneticMatchRing
               percentage={100}
               size={140}
@@ -84,7 +91,7 @@ export function ProfileCard({
 
           {/* Name + details grid */}
           <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <div className="text-center lg:text-left">
+            <div className={cn("text-center", !compactViewer && "2xl:text-left")}>
               <motion.h3
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -115,7 +122,10 @@ export function ProfileCard({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.25 }}
-              className="mt-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4"
+              className={cn(
+                "mt-6 grid grid-cols-1 gap-3 sm:gap-4",
+                !compactViewer && "md:grid-cols-2"
+              )}
             >
               {profile.profession && (
                 <div
@@ -165,6 +175,22 @@ export function ProfileCard({
                   </div>
                 </div>
               )}
+              {profile.secondary_location_city && (
+                <div
+                  className="rounded-xl border border-[var(--foreground)]/[0.08] bg-[var(--background)]/80
+                    px-4 py-3 flex items-start gap-3 shadow-sm"
+                >
+                  <div className="mt-0.5 rounded-lg bg-[var(--accent-rgb)]/12 p-2 text-[var(--accent-400)]">
+                    <MapPin size={18} strokeWidth={2} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider app-text-muted font-semibold">Secondary Home</p>
+                    <p className="mt-0.5 text-sm sm:text-base app-text-primary font-medium leading-snug break-words">
+                      {profile.secondary_location_city}
+                    </p>
+                  </div>
+                </div>
+              )}
               {profile.date_of_birth && (
                 <div
                   className="rounded-xl border border-[var(--foreground)]/[0.08] bg-[var(--background)]/80
@@ -186,7 +212,7 @@ export function ProfileCard({
               )}
             </motion.div>
 
-            <div className="mt-6 flex justify-center lg:justify-start">
+            <div className={cn("mt-6 flex justify-center", !compactViewer && "2xl:justify-start")}>
               <SocialDock links={profile.social_links} />
             </div>
           </div>

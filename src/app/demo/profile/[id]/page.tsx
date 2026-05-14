@@ -5,18 +5,19 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
-import { useEffect, useState, use } from "react";
+import { useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import {
   MapPin, Briefcase, Calendar, User, Shield, Crown,
-  ArrowLeft, Heart, Quote, Edit3, PawPrint,
+  ArrowLeft, Heart, Quote, PawPrint,
 } from "lucide-react";
+import { DemoSidebar } from "@/components/demo/DemoSidebar";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { SocialDock } from "@/components/ui/SocialDock";
 import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
-import { EditProfileModal } from "@/components/ui/EditProfileModal";
+import { ProfilePlacesCard } from "@/components/profile/ProfilePlacesCard";
 import { useFamilyStore } from "@/store/family-store";
 import {
   MOCK_PROFILES,
@@ -27,13 +28,13 @@ import {
 import { calculateGeneticMatch } from "@/lib/genetic-match";
 import { formatGenderLabel } from "@/lib/display-format";
 import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
+import { buildGoogleMapsSearchUrl } from "@/lib/maps";
 import type { Profile } from "@/lib/types";
 
 export default function DemoProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const store = useFamilyStore();
-  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     if (!store.viewer) {
@@ -86,39 +87,26 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
         (rel.relative_id === member.id && rel.user_id !== member.id))
   );
   const marriageDate = spouseRelation?.marriage_date || null;
-
-  const handleSave = (updates: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => {
-    const { avatarFile, galleryFiles, ...profileUpdates } = updates;
-    if (isViewer) { store.updateViewer(profileUpdates); }
-    else { store.setMembers(members.map((m) => m.id === member.id ? { ...m, ...profileUpdates } : m)); }
-    if (avatarFile) {
-      const url = URL.createObjectURL(avatarFile);
-      if (isViewer) store.updateViewer({ avatar_url: url });
-      else store.setMembers(members.map((m) => m.id === member.id ? { ...m, avatar_url: url } : m));
-    }
-    if (galleryFiles?.length) {
-      const urls = galleryFiles.map((file) => URL.createObjectURL(file));
-      const gallery_photos = [...(member.gallery_photos || []), ...urls];
-      if (isViewer) store.updateViewer({ gallery_photos });
-      else store.setMembers(members.map((m) => m.id === member.id ? { ...m, gallery_photos } : m));
-    }
-  };
+  const addressUrl = member.address ? buildGoogleMapsSearchUrl(member.address) : null;
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">
-      <EditProfileModal profile={member} isOpen={editOpen} onClose={() => setEditOpen(false)} onSave={handleSave} />
+      <DemoSidebar />
 
-      <main className="max-w-6xl mx-auto p-6 lg:p-8">
+      <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
         {/* Demo banner */}
         <div className="mb-6 px-4 py-2.5 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex items-center justify-between">
           <p className="text-xs text-white/50">
-            Demo mode &mdash; <a href="/signup/create" className="text-gold-400 hover:text-gold-300 underline">Create your family</a> for the full experience.
+            Demo mode &mdash; <a href="/" className="text-gold-400 hover:text-gold-300 underline">Join</a>
+            {" "}or{" "}
+            <a href="/" className="text-gold-400 hover:text-gold-300 underline">Create</a>
+            {" "}your own family for the full experience.
           </p>
           <span className="text-[10px] text-white/20 bg-white/5 px-2 py-0.5 rounded-lg">DEMO</span>
         </div>
 
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-8">
+          className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div className="flex items-center gap-4">
             <button onClick={() => router.push("/demo")}
               className="flex items-center justify-center w-10 h-10 rounded-xl glass hover:bg-white/5 transition-colors text-white/40 hover:text-white/70">
@@ -134,11 +122,9 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
               </p>
             </div>
           </div>
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            onClick={() => setEditOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gold-400/10 text-gold-300 text-sm font-medium hover:bg-gold-400/15 transition-colors">
-            <Edit3 size={14} /> Edit Profile
-          </motion.button>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-white/45">
+            Demo profile is read-only
+          </div>
         </motion.div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -183,6 +169,8 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
                   { icon: Briefcase, label: "Profession", value: member.profession },
                   { icon: PawPrint, label: "Pets", value: member.pets.length > 0 ? member.pets.join(", ") : null },
                   { icon: MapPin, label: "Location", value: member.location_city },
+                  { icon: MapPin, label: "Secondary Home", value: member.secondary_location_city || null },
+                  { icon: MapPin, label: "Address", value: member.address, href: addressUrl },
                   { icon: Calendar, label: "Date of Birth", value: member.date_of_birth
                     ? `${new Date(member.date_of_birth).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}${age !== null ? ` (${age})` : ""}` : null },
                   { icon: MapPin, label: "Place of Birth", value: member.place_of_birth },
@@ -204,7 +192,18 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
                       <Icon size={14} className="text-white/20 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] text-white/25 font-medium uppercase tracking-wider">{f.label}</p>
-                        <p className="text-sm text-white/70 mt-0.5">{f.value || "Not set"}</p>
+                        {f.href && f.value ? (
+                          <a
+                            href={f.href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-0.5 block break-words text-sm text-gold-300 transition-colors hover:text-gold-200"
+                          >
+                            {f.value}
+                          </a>
+                        ) : (
+                          <p className="mt-0.5 break-words text-sm text-white/70">{f.value || "Not set"}</p>
+                        )}
                       </div>
                     </div>
                   );
@@ -237,6 +236,8 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
           </GlassCard>
 
           <div className="xl:col-span-2 space-y-6">
+            <ProfilePlacesCard profile={member} />
+
             <GlassCard className="p-6">
               <h3 className="font-serif text-lg font-semibold text-white/90 mb-4">Health Conditions</h3>
               <div className="space-y-3">

@@ -424,19 +424,24 @@ function LoginPageContent() {
               )}
             </motion.button>
           </form>
-        </div>
 
-        <p className="text-center text-sm text-white/25 mt-6">
-          Don&apos;t have an account?{" "}
-          <Link href={joinFamilySignupPath(inviteCodeFromUrl)} className="text-gold-400/70 hover:text-gold-300 transition-colors font-medium">
-            Create one
-          </Link>
-        </p>
-          {DEV_SUPER_ADMIN_ENABLED && (
-            <p className="text-center text-[11px] text-white/20 mt-2">
-              Dev super admin: <span className="text-white/35">admin / password</span>
+          <div className="mt-6 border-t border-white/[0.08] pt-5">
+            <p className="text-center text-sm text-white/30">
+              Don&apos;t have an account?{" "}
+              <Link
+                href={joinFamilySignupPath(inviteCodeFromUrl)}
+                className="text-gold-400/80 hover:text-gold-300 transition-colors font-medium"
+              >
+                Create one
+              </Link>
             </p>
-          )}
+          </div>
+        </div>
+        {DEV_SUPER_ADMIN_ENABLED && (
+          <p className="text-center text-[11px] text-white/20 mt-3">
+            Dev super admin: <span className="text-white/35">admin / password</span>
+          </p>
+        )}
       </motion.div>
     </div>
   );

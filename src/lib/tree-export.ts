@@ -24,12 +24,25 @@ function formatBirthYear(member: Profile): string {
   return Number.isFinite(year) ? `b. ${year}` : "Year unknown";
 }
 
+function formatDeathYear(member: Profile): string | null {
+  if (member.is_alive) return null;
+  if (!member.date_of_death) return "d. unknown";
+  const year = new Date(member.date_of_death).getFullYear();
+  return Number.isFinite(year) ? `d. ${year}` : "d. unknown";
+}
+
 function sanitizeFileName(name: string): string {
   return name
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+function titleFamilyName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) return "Family";
+  return /family$/i.test(trimmed) ? trimmed : `${trimmed} Family`;
 }
 
 function drawRoundedRect(
@@ -50,6 +63,71 @@ function drawRoundedRect(
   ctx.closePath();
 }
 
+async function loadAvatarBitmap(src: string): Promise<ImageBitmap | null> {
+  try {
+    if (src.startsWith("data:") || src.startsWith("blob:")) {
+      const response = await fetch(src);
+      if (!response.ok) return null;
+      return await createImageBitmap(await response.blob());
+    }
+  } catch {
+    // Continue to other strategies.
+  }
+
+  try {
+    const response = await fetch(src, {
+      mode: "cors",
+      credentials: "omit",
+      cache: "force-cache",
+    });
+    if (response.ok) {
+      const blob = await response.blob();
+      return await createImageBitmap(blob);
+    }
+  } catch {
+    // Fall back to HTML image decode below.
+  }
+
+  try {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.referrerPolicy = "no-referrer";
+    const loaded = await new Promise<HTMLImageElement>((resolve, reject) => {
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Avatar image failed to load"));
+      image.src = src;
+    });
+    return await createImageBitmap(loaded);
+  } catch {
+    return null;
+  }
+}
+
+function wrapTextLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number
+): string[] {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+
+  const lines: string[] = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i += 1) {
+    const candidate = `${currentLine} ${words[i]}`;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      currentLine = candidate;
+    } else {
+      lines.push(currentLine);
+      currentLine = words[i];
+    }
+  }
+
+  lines.push(currentLine);
+  return lines;
+}
+
 export async function exportFamilyTreeAsImage({
   familyName,
   members,
@@ -64,12 +142,28 @@ export async function exportFamilyTreeAsImage({
   }
 
   const tree = createFamilyTreeLayout(members, relationships, rootId, {
-    preferAncestorRoot: preferAncestorRoot ?? scope === "entire",
+    // Match the on-screen tree layout by default so exported branches line up
+    // with what the user sees in the app.
+    preferAncestorRoot: preferAncestorRoot ?? false,
   });
 
+  const horizontalPadding = 200;
+  const topPadding = 245;
+  const bottomPadding = 150;
+  const maxCanvasWidth = 5600;
+  const minCanvasWidth = 4200;
+  const targetScale = 2.2;
+  const width = Math.max(
+    minCanvasWidth,
+    Math.min(maxCanvasWidth, Math.ceil(tree.width * targetScale + horizontalPadding * 2))
+  );
+  const scale = Math.min(
+    targetScale,
+    (width - horizontalPadding * 2) / Math.max(tree.width, 1)
+  );
+  const height = Math.max(2200, Math.ceil(topPadding + tree.height * scale + bottomPadding));
+
   const canvas = document.createElement("canvas");
-  const width = 5400;
-  const height = 3400;
   canvas.width = width;
   canvas.height = height;
 
@@ -111,39 +205,33 @@ export async function exportFamilyTreeAsImage({
   ctx.textAlign = "center";
   ctx.fillStyle = "#2c1810";
   ctx.font = "700 88px Georgia, 'Times New Roman', serif";
-  ctx.fillText(`The ${familyName} Family`, width / 2, hdrY + 84);
-
-  // Subtitle
-  ctx.font = "italic 400 34px Georgia, 'Times New Roman', serif";
-  ctx.fillStyle = "#6b5840";
-  ctx.fillText(scopeLabel, width / 2, hdrY + 132);
+  ctx.fillText(`The ${titleFamilyName(familyName)}`, width / 2, hdrY + 84);
 
   // Bottom ornamental line
   ctx.strokeStyle = "#c4a97d";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(width / 2 - ornW, hdrY + 155);
-  ctx.lineTo(width / 2 + ornW, hdrY + 155);
+  ctx.moveTo(width / 2 - ornW, hdrY + 118);
+  ctx.lineTo(width / 2 + ornW, hdrY + 118);
   ctx.stroke();
-
-  // Layout metrics
-  const horizontalPadding = 200;
-  const topPadding = 380;
-  const bottomPadding = 160;
-  const drawAreaWidth = width - horizontalPadding * 2;
-  const drawAreaHeight = height - topPadding - bottomPadding;
-
-  const scaleX = drawAreaWidth / Math.max(tree.width, 1);
-  const scaleY = drawAreaHeight / Math.max(tree.height, 1);
-  const scale = Math.min(scaleX, scaleY);
-  const treeOffsetX = horizontalPadding + (drawAreaWidth - tree.width * scale) / 2;
-  const treeOffsetY = topPadding + (drawAreaHeight - tree.height * scale) / 2;
+  const treeOffsetX = horizontalPadding + (width - horizontalPadding * 2 - tree.width * scale) / 2;
+  const treeOffsetY = topPadding;
 
   const nodesById = new Map(tree.nodes.map((n) => [n.profile.id, n]));
+  const avatarBitmapById = new Map<string, ImageBitmap>();
+  await Promise.all(
+    tree.nodes.map(async (node) => {
+      if (!node.profile.avatar_url) return;
+      const bitmap = await loadAvatarBitmap(node.profile.avatar_url);
+      if (bitmap) {
+        avatarBitmapById.set(node.profile.id, bitmap);
+      }
+    })
+  );
   const mapX = (x: number) => treeOffsetX + x * scale;
   const mapY = (y: number) => treeOffsetY + y * scale;
 
-  const circleR = Math.max(38, Math.min(52, 36 * scale));
+  const circleR = Math.max(40, Math.min(58, 37 * scale));
 
   // Generation color palette
   const genPalette = ["#6b4226", "#5b21b6", "#15803d", "#1d4ed8"];
@@ -171,7 +259,10 @@ export async function exportFamilyTreeAsImage({
     const ux = hasCouple ? (lx + rx) / 2 : lx;
     const dropStart = hasCouple ? pY : pY + circleR;
     const childTop = cY - circleR;
-    const railY = dropStart + (childTop - dropStart) * 0.5;
+    const railY = Math.min(
+      childTop - 28,
+      Math.max(dropStart + 28, dropStart + (childTop - dropStart) * 0.72)
+    );
 
     ctx.strokeStyle = "#b8a080";
     ctx.lineWidth = 2;
@@ -231,51 +322,64 @@ export async function exportFamilyTreeAsImage({
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // Inner fill
-    const nFill = ctx.createRadialGradient(cx - circleR * 0.15, cy - circleR * 0.15, 0, cx, cy, circleR);
-    nFill.addColorStop(0, "#ffffff");
-    nFill.addColorStop(1, "#f0ebe3");
+    // Inner fill / avatar
+    const avatarBitmap = avatarBitmapById.get(node.profile.id);
+    ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, circleR - 2, 0, Math.PI * 2);
-    ctx.fillStyle = nFill;
-    ctx.fill();
+    ctx.clip();
+    if (avatarBitmap) {
+      const size = circleR * 2 - 4;
+      ctx.drawImage(avatarBitmap, cx - size / 2, cy - size / 2, size, size);
+    } else {
+      const nFill = ctx.createRadialGradient(cx - circleR * 0.15, cy - circleR * 0.15, 0, cx, cy, circleR);
+      nFill.addColorStop(0, "#ffffff");
+      nFill.addColorStop(1, "#f0ebe3");
+      ctx.fillStyle = nFill;
+      ctx.fill();
 
-    // Initials
-    const initials = `${node.profile.first_name[0] || ""}${node.profile.last_name[0] || ""}`.toUpperCase();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = `600 ${Math.round(circleR * 0.62)}px Georgia, serif`;
-    ctx.fillStyle = "#3b2a1a";
-    ctx.fillText(initials, cx, cy + 1);
+      const initials = `${node.profile.first_name[0] || ""}${node.profile.last_name[0] || ""}`.toUpperCase();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = `600 ${Math.round(circleR * 0.62)}px Georgia, serif`;
+      ctx.fillStyle = "#3b2a1a";
+      ctx.fillText(initials, cx, cy + 1);
+    }
+    ctx.restore();
 
     // Name
     ctx.textBaseline = "top";
-    const fontSize = Math.round(Math.max(19, 17 * scale));
+    const fontSize = Math.round(Math.max(22, 18 * scale));
     ctx.font = `600 ${fontSize}px Georgia, serif`;
     ctx.fillStyle = "#2c1810";
-    const maxW = Math.max(140, circleR * 4.5);
-    let renderedName = formatFullName(node.profile);
-    while (ctx.measureText(renderedName).width > maxW && renderedName.length > 5) {
-      renderedName = `${renderedName.slice(0, -2)}…`;
-    }
-    ctx.fillText(renderedName, cx, cy + circleR + 12);
+    const maxW = Math.max(220, circleR * 5.8);
+    const nameLines = wrapTextLines(ctx, formatFullName(node.profile), maxW);
+    const nameStartY = cy + circleR + 16;
+    nameLines.forEach((line, index) => {
+      ctx.fillText(line, cx, nameStartY + index * (fontSize + 4));
+    });
 
-    let labelY = cy + circleR + 12 + fontSize + 4;
+    let labelY = nameStartY + nameLines.length * (fontSize + 4) + 2;
 
     // Display name
     if (node.profile.display_name) {
-      const aliasSize = Math.round(Math.max(15, 14 * scale));
+      const aliasSize = Math.round(Math.max(16, 14 * scale));
       ctx.font = `italic 400 ${aliasSize}px Georgia, serif`;
       ctx.fillStyle = "#6b5840";
       ctx.fillText(`"${node.profile.display_name}"`, cx, labelY);
-      labelY += aliasSize + 3;
+      labelY += aliasSize + 6;
     }
 
     // Birth year
-    const yearSize = Math.round(Math.max(15, 14 * scale));
+    const yearSize = Math.round(Math.max(16, 14 * scale));
     ctx.font = `400 ${yearSize}px Georgia, serif`;
     ctx.fillStyle = "#8a7a65";
     ctx.fillText(formatBirthYear(node.profile), cx, labelY);
+
+    const deathYear = formatDeathYear(node.profile);
+    if (deathYear) {
+      ctx.fillText(deathYear, cx, labelY + yearSize + 6);
+    }
   }
 
   // ── Footer ──
@@ -293,9 +397,13 @@ export async function exportFamilyTreeAsImage({
     width / 2,
     height - bi - 22
   );
-  ctx.font = "italic 400 18px Georgia, serif";
+  ctx.font = "400 18px Georgia, serif";
   ctx.fillStyle = "#b0a090";
-  ctx.fillText("Generated by Legacy", width / 2, height - bi - 50);
+  ctx.fillText(
+    "Produced with Legacy · Copyright © 2026 Ishan Brar. All rights reserved.",
+    width / 2,
+    height - bi - 50
+  );
 
   // ── Download ──
   const blob = await new Promise<Blob | null>((resolve) => {
@@ -314,4 +422,5 @@ export async function exportFamilyTreeAsImage({
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+  avatarBitmapById.forEach((bitmap) => bitmap.close());
 }

@@ -34,6 +34,8 @@ CREATE TABLE profiles (
   place_of_birth  TEXT,
   profession      TEXT,
   location_city   TEXT,
+  secondary_location_city TEXT,
+  address         TEXT,
   location_lat    DOUBLE PRECISION,
   location_lng    DOUBLE PRECISION,
   pets            TEXT[] DEFAULT '{}'::TEXT[],

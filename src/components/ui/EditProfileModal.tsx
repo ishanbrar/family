@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
+import { AddressSearch } from "./AddressSearch";
 import { ManualDateInput } from "./ManualDateInput";
 import type { Profile, SocialLinks, Gender } from "@/lib/types";
 import { inferCountryCodeFromCity } from "@/lib/cities";
@@ -66,6 +67,8 @@ export function EditProfileModal({
   const [gender, setGender] = useState<Gender | "">(profile.gender || "");
   const [profession, setProfession] = useState(profile.profession || "");
   const [locationCity, setLocationCity] = useState(profile.location_city || "");
+  const [secondaryLocationCity, setSecondaryLocationCity] = useState(profile.secondary_location_city || "");
+  const [address, setAddress] = useState(profile.address || "");
   const [petsText, setPetsText] = useState((profile.pets || []).join(", "));
   const [dob, setDob] = useState(profile.date_of_birth || "");
   const [placeOfBirth, setPlaceOfBirth] = useState(profile.place_of_birth || "");
@@ -93,6 +96,8 @@ export function EditProfileModal({
     setGender(profile.gender || "");
     setProfession(profile.profession || "");
     setLocationCity(profile.location_city || "");
+    setSecondaryLocationCity(profile.secondary_location_city || "");
+    setAddress(profile.address || "");
     setPetsText((profile.pets || []).join(", "));
     setDob(profile.date_of_birth || "");
     setPlaceOfBirth(profile.place_of_birth || "");
@@ -167,6 +172,8 @@ export function EditProfileModal({
         gender: gender || null,
         profession: profession.trim() || null,
         location_city: locationCity.trim() || null,
+        secondary_location_city: secondaryLocationCity.trim() || null,
+        address: address.trim() || null,
         pets: parsedPets,
         date_of_birth: dob ? String(dob).slice(0, 10) : null,
         place_of_birth: placeOfBirth.trim() || null,
@@ -404,6 +411,31 @@ export function EditProfileModal({
                     City
                   </label>
                   <CitySearch value={locationCity} onChange={setLocationCity} placeholder="Search a city..." />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">
+                    Secondary Home
+                  </label>
+                  <CitySearch
+                    value={secondaryLocationCity}
+                    onChange={setSecondaryLocationCity}
+                    placeholder="Add a second home city..."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">
+                    Address
+                  </label>
+                  <AddressSearch
+                    value={address}
+                    onChange={setAddress}
+                    placeholder="Start typing your address..."
+                  />
+                  <p className="mt-1 text-[10px] text-white/25">
+                    Selecting an address will make it easy to open this home in Google Maps.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -5,25 +5,29 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useMemo, useCallback, useState } from "react";
+import { useEffect, useMemo, useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users,
   GitBranch,
   Filter,
   X,
-  UserPlus,
   ChevronDown,
-  Crown,
+  MoreHorizontal,
+  Download,
+  Loader2,
+  UserPlus,
+  GitFork,
 } from "lucide-react";
+import { DemoSidebar } from "@/components/demo/DemoSidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ProfileCard } from "@/components/ui/ProfileCard";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { InteractiveGlobe } from "@/components/globe/InteractiveGlobe";
 import { FamilyTree } from "@/components/tree/FamilyTree";
+import { TreeControls } from "@/components/tree/TreeControls";
 import { GenerationInsights } from "@/components/tree/GenerationInsights";
-import { AddMemberModal } from "@/components/ui/AddMemberModal";
 import { useFamilyStore } from "@/store/family-store";
 import {
   MOCK_PROFILES,
@@ -33,18 +37,24 @@ import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { groupByCountry, type CountryGroup } from "@/lib/country-utils";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
-import type { Profile, RelationshipType } from "@/lib/types";
+import { exportFamilyTreeAsImage } from "@/lib/tree-export";
 
 export default function DemoPage() {
   const router = useRouter();
   const store = useFamilyStore();
-  const [addModalOpen, setAddModalOpen] = useState(false);
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
   const [focusedCountryCode, setFocusedCountryCode] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
-  const [showPercentages, setShowPercentages] = useState(true);
+  const [showPercentages, setShowPercentages] = useState(false);
   const [showRelationLabels, setShowRelationLabels] = useState(true);
-  const [showLastNames, setShowLastNames] = useState(false);
+  const [showLastNames, setShowLastNames] = useState(true);
+  const [showBirthYear, setShowBirthYear] = useState(true);
+  const [showDeathYear, setShowDeathYear] = useState(false);
+  const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
+  const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
+  const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const [exportingTree, setExportingTree] = useState(false);
+  const moreActionsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     store.setViewer(MOCK_PROFILES[0]);
@@ -98,32 +108,52 @@ export default function DemoPage() {
 
   const countryGroups = useMemo(() => groupByCountry(members), [members]);
 
-  const handleAddMember = useCallback(
-    (
-      memberData: Omit<Profile, "id" | "created_at" | "updated_at">,
-      rel: { relativeId: string; type: RelationshipType },
-      avatarFile?: File
-    ) => {
-      const newId = `member-${Date.now()}`;
-      const now = new Date().toISOString();
-      const localAvatar = avatarFile ? URL.createObjectURL(avatarFile) : memberData.avatar_url;
-      store.addMember({
-        ...memberData,
-        avatar_url: localAvatar,
-        id: newId,
-        created_at: now,
-        updated_at: now,
-      });
-      store.addRelationship({ id: `rel-${Date.now()}`, user_id: newId, relative_id: rel.relativeId, type: rel.type, created_at: now });
-    },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
   const handleFocusCountry = useCallback((code: string) => {
     setFocusedCountryCode(code);
     setFocusSignal((prev) => prev + 1);
   }, []);
+
+  const handleExportTree = useCallback(async () => {
+    if (!viewer) return;
+    setExportingTree(true);
+    try {
+      await exportFamilyTreeAsImage({
+        familyName: "Montague Family",
+        members,
+        relationships,
+        rootId: viewer.id,
+        scope: "entire",
+        scopeLabel: "Demo Family Tree",
+      });
+    } finally {
+      setExportingTree(false);
+      setMoreActionsOpen(false);
+    }
+  }, [members, relationships, viewer]);
+
+  useEffect(() => {
+    if (!moreActionsOpen) return;
+
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!moreActionsRef.current) return;
+      if (!moreActionsRef.current.contains(event.target as Node)) {
+        setMoreActionsOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMoreActionsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [moreActionsOpen]);
 
   if (!viewer) return null;
 
@@ -133,57 +163,18 @@ export default function DemoPage() {
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">
-      {/* Lightweight demo sidebar */}
-      <motion.aside
-        initial={{ x: -80, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
-        className="fixed left-0 top-0 bottom-0 w-[72px] z-40 glass border-r border-white/[0.06] hidden md:flex flex-col items-center py-4"
-      >
-        <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gold-400/10 mb-6">
-          <Crown size={18} className="text-gold-400" />
-        </div>
-        <div className="mt-auto px-2 py-2">
-          <a href="/login"
-            className="flex items-center justify-center w-10 h-10 rounded-xl bg-gold-400/10 text-gold-300 text-[10px] font-bold hover:bg-gold-400/15 transition-colors"
-            title="Sign in for full experience">
-            GO
-          </a>
-        </div>
-      </motion.aside>
+      <DemoSidebar />
 
-      <div
-        className="fixed md:hidden inset-x-0 bottom-0 z-40 app-surface border-t border-white/[0.08]"
-        style={{
-          paddingBottom: "max(env(safe-area-inset-bottom), 0.5rem)",
-          paddingLeft: "max(env(safe-area-inset-left), 0.5rem)",
-          paddingRight: "max(env(safe-area-inset-right), 0.5rem)",
-        }}
-      >
-        <div className="grid grid-cols-2 gap-2 px-2 py-2">
-          <a
-            href="/demo"
-            className="h-12 rounded-xl flex items-center justify-center text-xs font-medium bg-gold-400/12 text-gold-300"
-          >
-            Demo
-          </a>
-          <a
-            href="/login"
-            className="h-12 rounded-xl flex items-center justify-center text-xs font-medium bg-white/[0.04] border border-white/[0.12] text-white/75 hover:text-white/92 transition-colors"
-          >
-            Sign In
-          </a>
-        </div>
-      </div>
-
-      <AddMemberModal existingMembers={members} defaultRelativeId={viewer.id} isOpen={addModalOpen}
-        onClose={() => setAddModalOpen(false)} onAdd={handleAddMember} />
-
-      <main className="ml-0 md:ml-[72px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
+      <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
         {/* Demo banner */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="mb-6 px-4 py-3 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p className="text-xs text-white/50">
             You&apos;re viewing the <span className="text-gold-300 font-medium">Montague</span> sample family.{" "}
-            <a href="/signup/create" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create your own family</a> to get started.
+            <a href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Join</a>
+            {" "}or{" "}
+            <a href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create</a>
+            {" "}your own family to get started.
           </p>
           <span className="text-[10px] text-white/20 bg-white/5 px-2 py-0.5 rounded-lg">DEMO</span>
         </motion.div>
@@ -200,12 +191,8 @@ export default function DemoPage() {
             </h1>
             <p className="text-sm text-white/35 mt-1">Your family legacy at a glance</p>
           </div>
-          <div className="flex items-center gap-3">
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              onClick={() => setAddModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold-400/10 text-gold-300 text-sm font-medium hover:bg-gold-400/15 transition-colors border border-gold-400/10">
-              <UserPlus size={14} /><span className="hidden sm:inline">Add Member</span>
-            </motion.button>
+          <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-white/45">
+            Demo mode is read-only
           </div>
         </motion.div>
 
@@ -214,54 +201,78 @@ export default function DemoPage() {
           <GlassCard className="xl:col-span-2 p-6">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-3">
               <h2 className="font-serif text-xl font-semibold text-white/90">Family Tree</h2>
-              <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:justify-end">
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <Filter size={12} className="text-white/25" />
-                  <select value={store.relatedByFilter || ""}
-                    onChange={(e) => store.setRelatedByFilter(e.target.value || null)}
-                    className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-white/60 outline-none focus:border-gold-400/30 transition-colors appearance-none cursor-pointer pr-6"
-                    style={{
-                      backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='rgba(255,255,255,0.3)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-                      backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center",
-                    }}>
-                    <option value="">Related By...</option>
-                    {members.map((p) => (<option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>))}
-                  </select>
-                  {store.relatedByFilter && (
-                    <motion.button initial={{ scale: 0 }} animate={{ scale: 1 }} whileTap={{ scale: 0.9 }}
-                      onClick={() => store.setRelatedByFilter(null)}
-                      className="flex items-center justify-center w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-white/30">
-                      <X size={12} />
-                    </motion.button>
+              <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:flex-nowrap sm:justify-end">
+                <TreeControls
+                  members={members}
+                  relatedByFilter={store.relatedByFilter}
+                  onRelatedByFilterChange={store.setRelatedByFilter}
+                  showPercentages={showPercentages}
+                  onShowPercentagesChange={setShowPercentages}
+                  showRelationLabels={showRelationLabels}
+                  onShowRelationLabelsChange={setShowRelationLabels}
+                  showLastNames={showLastNames}
+                  onShowLastNamesChange={setShowLastNames}
+                  showBirthYear={showBirthYear}
+                  onShowBirthYearChange={setShowBirthYear}
+                  showDeathYear={showDeathYear}
+                  onShowDeathYearChange={setShowDeathYear}
+                  showBirthCountryFlag={showBirthCountryFlag}
+                  onShowBirthCountryFlagChange={setShowBirthCountryFlag}
+                  onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
+                />
+
+                <div className="relative" ref={moreActionsRef}>
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    type="button"
+                    onClick={() => setMoreActionsOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl border border-white/[0.10]
+                      bg-white/[0.03] text-sm text-white/72 hover:text-white/88 hover:bg-white/[0.05]
+                      active:scale-[0.98] transition-colors touch-target-44"
+                    aria-haspopup="menu"
+                    aria-expanded={moreActionsOpen}
+                  >
+                    <MoreHorizontal size={14} />
+                    More
+                  </motion.button>
+
+                  {moreActionsOpen && (
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-full mt-2 w-56 rounded-xl app-popover border border-white/[0.12] p-2 shadow-2xl z-40"
+                    >
+                      <button
+                        type="button"
+                        disabled
+                        aria-disabled="true"
+                        title="Demo mode is read-only"
+                        className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/30 bg-white/[0.02] cursor-not-allowed inline-flex items-center gap-2"
+                      >
+                        <UserPlus size={14} />
+                        Add Member
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        aria-disabled="true"
+                        title="Demo mode is read-only"
+                        className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/30 bg-white/[0.02] cursor-not-allowed inline-flex items-center gap-2"
+                      >
+                        <GitFork size={14} />
+                        Modify Relationships
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportTree}
+                        disabled={exportingTree}
+                        className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/78 hover:text-white/92 hover:bg-white/[0.05] transition-colors inline-flex items-center gap-2 disabled:opacity-50"
+                      >
+                        {exportingTree ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                        Export Tree
+                      </button>
+                    </div>
                   )}
                 </div>
-                <label className="inline-flex items-center gap-1.5 text-[11px] text-white/45 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showPercentages}
-                    onChange={(e) => setShowPercentages(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400 focus:ring-gold-400/30"
-                  />
-                  Show %
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-[11px] text-white/45 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showRelationLabels}
-                    onChange={(e) => setShowRelationLabels(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400 focus:ring-gold-400/30"
-                  />
-                  Show relations
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-[11px] text-white/45 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showLastNames}
-                    onChange={(e) => setShowLastNames(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 text-gold-400 focus:ring-gold-400/30"
-                  />
-                  Show last names
-                </label>
               </div>
             </div>
             {filterMember && (
@@ -281,6 +292,10 @@ export default function DemoPage() {
               showPercentages={showPercentages}
               showRelationLabels={showRelationLabels}
               showLastNames={showLastNames}
+              showBirthYear={showBirthYear}
+              showDeathYear={showDeathYear}
+              showBirthCountryFlag={showBirthCountryFlag}
+              viewResetSignal={treeViewResetSignal}
               onMemberClick={(id) => navigateToProfile(id)}
               canvasWidth={treeLayout?.width}
               canvasHeight={treeLayout?.height} />
@@ -328,7 +343,7 @@ export default function DemoPage() {
                 )}
               </div>
             </GlassCard>
-            <ProfileCard profile={viewer} isViewer />
+            <ProfileCard profile={viewer} isViewer compactViewer />
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import { LegacyBrandLink } from "@/components/branding/LegacyBrandLink";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import { CREATE_FAMILY_SIGNUP_PATH, joinFamilySignupPath } from "@/lib/signup-flow";
+import { resolveAppliedThemeMode, THEME_CHANGE_EVENT, type ThemeMode } from "@/lib/theme";
 
 const PRODUCT_SCREENS = [
   {
@@ -33,23 +34,41 @@ const PRODUCT_SCREENS = [
   },
 ];
 
-function ScreenshotFrame({ src, title }: { src: string; title: string }) {
+function ScreenshotFrame({
+  src,
+  title,
+  themeMode,
+}: {
+  src: string;
+  title: string;
+  themeMode: ThemeMode;
+}) {
+  const isDark = themeMode === "dark";
+
   return (
-    <div className="relative aspect-[16/10] overflow-hidden rounded border border-white/10 bg-[#050505]">
+    <div className="relative aspect-[16/10] overflow-hidden rounded border border-black/8 bg-[color:var(--background)] dark:border-white/10">
       <div className="absolute left-0 top-0 z-10 flex items-center gap-1.5 px-3 py-2">
-        <span className="w-2 h-2 rounded-full bg-white/20" />
-        <span className="w-2 h-2 rounded-full bg-white/15" />
-        <span className="w-2 h-2 rounded-full bg-white/10" />
+        <span className={`w-2 h-2 rounded-full ${isDark ? "bg-white/20" : "bg-black/15"}`} />
+        <span className={`w-2 h-2 rounded-full ${isDark ? "bg-white/15" : "bg-black/12"}`} />
+        <span className={`w-2 h-2 rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`} />
       </div>
       <div className="absolute inset-0 overflow-hidden">
         <iframe
+          key={`${src}-${themeMode}`}
           title={title}
-          src={src}
+          src={`${src}?theme=${themeMode}`}
           className="border-0 pointer-events-none absolute left-0 top-0 h-[220%] w-[220%] origin-top-left scale-[0.455]"
           loading="lazy"
         />
       </div>
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent pointer-events-none" />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: isDark
+            ? "linear-gradient(to top, rgba(10,10,10,0.78), rgba(10,10,10,0) 40%)"
+            : "linear-gradient(to top, rgba(238,245,238,0.82), rgba(238,245,238,0) 40%)",
+        }}
+      />
     </div>
   );
 }
@@ -57,6 +76,33 @@ function ScreenshotFrame({ src, title }: { src: string; title: string }) {
 export default function LandingPage() {
   const router = useRouter();
   const [joinCode, setJoinCode] = useState("");
+  const [themeMode, setThemeMode] = useState<ThemeMode>("light");
+  const inviteInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const syncTheme = () => setThemeMode(resolveAppliedThemeMode());
+    syncTheme();
+    window.addEventListener(THEME_CHANGE_EVENT, syncTheme);
+    return () => window.removeEventListener(THEME_CHANGE_EVENT, syncTheme);
+  }, []);
+
+  useEffect(() => {
+    const blurInviteField = () => {
+      if (document.activeElement === inviteInputRef.current) {
+        inviteInputRef.current?.blur();
+      }
+    };
+
+    const timeoutId = window.setTimeout(blurInviteField, 0);
+    const animationFrame = window.requestAnimationFrame(blurInviteField);
+    window.addEventListener("pageshow", blurInviteField);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("pageshow", blurInviteField);
+    };
+  }, []);
 
   const handleJoinByCode = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +115,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[var(--background)] relative overflow-hidden">
       <PreAuthBackdrop variant="landing" />
 
-      <header className="relative z-10 flex items-center justify-between px-6 lg:px-16 pr-14 lg:pr-20 py-6">
+      <header className="relative z-10 flex items-center justify-between px-6 lg:px-16 pr-20 lg:pr-24 py-6">
         <LegacyBrandLink
           destination="public"
           className="text-white/95"
@@ -77,7 +123,7 @@ export default function LandingPage() {
           textClassName="text-base text-white/95"
         />
 
-        <nav className="flex items-center gap-6">
+        <nav className="mr-10 sm:mr-12 lg:mr-14 flex items-center gap-4 sm:gap-6">
           <Link
             href="/demo"
             className="text-sm text-white/55 hover:text-white/90 transition-colors"
@@ -120,36 +166,46 @@ export default function LandingPage() {
             Legacy helps families build a shared tree, view detailed member profiles, and see where relatives live around the world. Join an existing family network or create your own.
           </motion.p>
 
-          {/* Two primary actions */}
+          {/* Invite-first actions */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25, duration: 0.5 }}
-            className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+            className="mt-10 flex flex-col items-center justify-center gap-4"
             style={{ fontFamily: "var(--font-source-sans)" }}
           >
-            <Link
-              href={CREATE_FAMILY_SIGNUP_PATH}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded bg-white text-[#0a0a0a] text-sm font-semibold hover:bg-neutral-100 transition-colors"
-            >
-              Create your tree
-              <ArrowRight size={13} strokeWidth={2.5} />
-            </Link>
-            <form onSubmit={handleJoinByCode} className="flex gap-2 w-full sm:w-auto max-w-sm sm:max-w-none">
-              <input
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="Invite code"
-                className="flex-1 min-w-0 h-10 rounded border border-white/20 bg-white/5 px-3.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 transition-colors"
-                autoCapitalize="characters"
-              />
-              <button
-                type="submit"
-                className="h-10 px-4 rounded border border-white/20 bg-transparent text-sm font-medium text-white/90 hover:bg-white/10 hover:border-white/30 transition-colors"
+            <div className="w-full max-w-md text-center">
+              <p className="mb-3 text-xs uppercase tracking-[0.18em] text-white/42">
+                Join an existing family
+              </p>
+              <form onSubmit={handleJoinByCode} className="flex gap-2 w-full">
+                <input
+                  ref={inviteInputRef}
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="Enter invite code"
+                  className="flex-1 min-w-0 h-11 rounded border border-white/20 bg-white/8 px-3.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 transition-colors"
+                  autoCapitalize="characters"
+                />
+                <button
+                  type="submit"
+                  className="h-11 px-5 rounded bg-white text-[#0a0a0a] text-sm font-semibold hover:bg-neutral-100 transition-colors"
+                >
+                  Join
+                </button>
+              </form>
+            </div>
+
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-sm text-white/42">or</p>
+              <Link
+                href={CREATE_FAMILY_SIGNUP_PATH}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded border border-white/20 bg-transparent text-white/90 text-sm font-medium hover:bg-white/10 hover:border-white/30 transition-colors"
               >
-                Join
-              </button>
-            </form>
+                Create Your Own Family
+                <ArrowRight size={13} strokeWidth={2.5} />
+              </Link>
+            </div>
           </motion.div>
         </section>
 
@@ -192,7 +248,7 @@ export default function LandingPage() {
                 >
                   {item.description}
                 </p>
-                <ScreenshotFrame src={item.screenshotPath} title={item.title} />
+                <ScreenshotFrame src={item.screenshotPath} title={item.title} themeMode={themeMode} />
               </motion.article>
             ))}
           </div>
