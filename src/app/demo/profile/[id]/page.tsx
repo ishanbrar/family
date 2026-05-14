@@ -12,6 +12,7 @@ import {
   ArrowLeft, Heart, Quote, Edit3, PawPrint,
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { SocialDock } from "@/components/ui/SocialDock";
 import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
@@ -25,6 +26,7 @@ import {
 } from "@/lib/mock-data";
 import { calculateGeneticMatch } from "@/lib/genetic-match";
 import { formatGenderLabel } from "@/lib/display-format";
+import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
 import type { Profile } from "@/lib/types";
 
 export default function DemoProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -46,6 +48,7 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
   const members = store.members.length > 0 ? store.members : MOCK_PROFILES;
   const relationships = store.relationships.length > 0 ? store.relationships : MOCK_RELATIONSHIPS;
   const member = members.find((m) => m.id === id);
+  const resolvedGalleryPhotos = useResolvedGalleryPhotos(member?.gallery_photos || []);
 
   if (!viewer || !member) {
     return <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center"><p className="text-white/40">Member not found</p></div>;
@@ -76,6 +79,13 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
   const connections = members.filter((p) => p.id !== member.id).map((p) => ({
     profile: p, match: calculateGeneticMatch(member.id, p.id, relationships, p.gender),
   }));
+  const spouseRelation = relationships.find(
+    (rel) =>
+      rel.type === "spouse" &&
+      ((rel.user_id === member.id && rel.relative_id !== member.id) ||
+        (rel.relative_id === member.id && rel.user_id !== member.id))
+  );
+  const marriageDate = spouseRelation?.marriage_date || null;
 
   const handleSave = (updates: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => {
     const { avatarFile, galleryFiles, ...profileUpdates } = updates;
@@ -176,6 +186,17 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
                   { icon: Calendar, label: "Date of Birth", value: member.date_of_birth
                     ? `${new Date(member.date_of_birth).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}${age !== null ? ` (${age})` : ""}` : null },
                   { icon: MapPin, label: "Place of Birth", value: member.place_of_birth },
+                  {
+                    icon: Calendar,
+                    label: "Marriage / Anniversary",
+                    value: marriageDate
+                      ? new Date(marriageDate).toLocaleDateString("en-US", {
+                          month: "long",
+                          day: "numeric",
+                          year: "numeric",
+                        })
+                      : null,
+                  },
                 ].map((f) => {
                   const Icon = f.icon;
                   return (
@@ -190,6 +211,28 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
                 })}
               </div>
               <div className="mt-5"><SocialDock links={member.social_links} /></div>
+
+              <div className="mt-5 w-full">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <h3 className="text-xs text-white/30 font-medium uppercase tracking-wider">Photo Gallery</h3>
+                </div>
+                {(member.gallery_photos || []).length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {resolvedGalleryPhotos.map((photo, idx) => (
+                      <img
+                        key={`${photo}-${idx}`}
+                        src={photo}
+                        alt=""
+                        className="w-full h-20 rounded-lg object-cover border border-white/[0.08]"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="w-full rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] px-3 py-4 text-center text-xs text-white/38">
+                    No additional photos yet.
+                  </div>
+                )}
+              </div>
             </div>
           </GlassCard>
 
@@ -208,7 +251,7 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
             <GlassCard className="p-6">
               <h3 className="font-serif text-lg font-semibold text-white/90 mb-4">Family Connections</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {connections.filter((c) => c.match.percentage > 0).sort((a, b) => b.match.percentage - a.match.percentage).map((item) => (
+                {connections.sort((a, b) => b.match.percentage - a.match.percentage).map((item) => (
                   <motion.div key={item.profile.id} whileHover={{ y: -4 }}
                     onClick={() => router.push(`/demo/profile/${item.profile.id}`)}
                     className="flex flex-col items-center p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:border-gold-400/20 transition-colors cursor-pointer">
@@ -222,6 +265,9 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
             </GlassCard>
           </div>
         </div>
+        <footer className="mt-10 border-t border-white/[0.08] pt-6">
+          <SiteFooter />
+        </footer>
       </main>
     </div>
   );

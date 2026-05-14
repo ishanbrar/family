@@ -16,13 +16,13 @@ import {
   ChevronDown,
   Crown,
 } from "lucide-react";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { ProfileCard } from "@/components/ui/ProfileCard";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { InteractiveGlobe } from "@/components/globe/InteractiveGlobe";
 import { FamilyTree } from "@/components/tree/FamilyTree";
 import { GenerationInsights } from "@/components/tree/GenerationInsights";
-import type { TreeConnection } from "@/components/tree/FamilyTree";
 import { AddMemberModal } from "@/components/ui/AddMemberModal";
 import { useFamilyStore } from "@/store/family-store";
 import {
@@ -32,32 +32,8 @@ import {
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { groupByCountry, type CountryGroup } from "@/lib/country-utils";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
+import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import type { Profile, RelationshipType } from "@/lib/types";
-
-const TREE_POSITIONS: Record<string, { x: number; y: number }> = {
-  "grandparent-001": { x: 330, y: 80 },
-  "grandparent-002": { x: 470, y: 80 },
-  "parent-001": { x: 240, y: 270 },
-  "parent-002": { x: 380, y: 270 },
-  "uncle-001": { x: 600, y: 270 },
-  "viewer-001": { x: 240, y: 460 },
-  "sibling-001": { x: 380, y: 460 },
-  "cousin-001": { x: 600, y: 460 },
-};
-
-const TREE_CONNECTIONS: TreeConnection[] = [
-  { from: "grandparent-001", to: "grandparent-002", type: "spouse" },
-  { from: "parent-001", to: "parent-002", type: "spouse" },
-  { from: "grandparent-001", to: "parent-001", type: "parent" },
-  { from: "grandparent-002", to: "parent-001", type: "parent" },
-  { from: "grandparent-001", to: "uncle-001", type: "parent" },
-  { from: "grandparent-002", to: "uncle-001", type: "parent" },
-  { from: "parent-001", to: "viewer-001", type: "parent" },
-  { from: "parent-002", to: "viewer-001", type: "parent" },
-  { from: "parent-001", to: "sibling-001", type: "parent" },
-  { from: "parent-002", to: "sibling-001", type: "parent" },
-  { from: "uncle-001", to: "cousin-001", type: "parent" },
-];
 
 export default function DemoPage() {
   const router = useRouter();
@@ -86,14 +62,21 @@ export default function DemoPage() {
     [router]
   );
 
+  const treeLayout = useMemo(
+    () => (viewer ? createFamilyTreeLayout(members, relationships, viewer.id) : null),
+    [viewer, members, relationships]
+  );
+
   const treeMembers = useMemo(() => {
-    if (!viewer) return [];
-    return members.filter((p) => TREE_POSITIONS[p.id]).map((p) => ({
-      profile: p,
-      match: calculateGeneticMatch(viewer.id, p.id, relationships, p.gender),
-      ...TREE_POSITIONS[p.id],
+    if (!viewer || !treeLayout) return [];
+    return treeLayout.nodes.map((node) => ({
+      profile: node.profile,
+      match: calculateGeneticMatch(viewer.id, node.profile.id, relationships, node.profile.gender),
+      x: node.x,
+      y: node.y,
+      generation: node.generation,
     }));
-  }, [viewer, members, relationships]);
+  }, [viewer, treeLayout, relationships]);
 
   const generationAnalytics = useMemo(
     () => createGenerationAnalytics(treeMembers),
@@ -291,13 +274,16 @@ export default function DemoPage() {
                 </p>
               </motion.div>
             )}
-            <FamilyTree members={treeMembers} connections={TREE_CONNECTIONS}
+            <FamilyTree members={treeMembers} connections={treeLayout?.connections || []}
+              sibships={treeLayout?.sibships || []}
               highlightedMembers={highlightedIds} dimNonHighlighted={!!store.relatedByFilter}
               viewerId={viewer.id}
               showPercentages={showPercentages}
               showRelationLabels={showRelationLabels}
               showLastNames={showLastNames}
-              onMemberClick={(id) => navigateToProfile(id)} />
+              onMemberClick={(id) => navigateToProfile(id)}
+              canvasWidth={treeLayout?.width}
+              canvasHeight={treeLayout?.height} />
             <div className="mt-4 mb-4 grid grid-cols-2 gap-3">
               {[
                 { label: "Family Members", value: totalMembers, icon: Users, color: "text-gold-300" },
@@ -364,6 +350,10 @@ export default function DemoPage() {
             ))}
           </div>
         </GlassCard>
+
+        <footer className="mt-10 border-t border-white/[0.08] pt-6">
+          <SiteFooter />
+        </footer>
       </main>
     </div>
   );
