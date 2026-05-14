@@ -29,6 +29,7 @@ const RAW: [string, string, string, string][] = [
   ["San Diego", "CA", "USA", "USA"],
   ["San Francisco", "CA", "USA", "USA"],
   ["Austin", "TX", "USA", "USA"],
+  ["El Paso", "TX", "USA", "USA"],
   ["Seattle", "WA", "USA", "USA"],
   ["Denver", "CO", "USA", "USA"],
   ["Washington", "DC", "USA", "USA"],
@@ -501,6 +502,9 @@ const CITY_COORDINATES: Record<string, [number, number]> = {
   "san diego ca usa": [32.7157, -117.1611],
   "san francisco ca usa": [37.7749, -122.4194],
   "austin tx usa": [30.2672, -97.7431],
+  "el paso tx usa": [31.7619, -106.485],
+  "el paso tx": [31.7619, -106.485],
+  "el paso": [31.7619, -106.485],
   "seattle wa usa": [47.6062, -122.3321],
   "denver co usa": [39.7392, -104.9903],
   "washington dc usa": [38.9072, -77.0369],
@@ -531,7 +535,23 @@ export function getCityCoordinates(locationCity: string): [number, number] | nul
   const exact = CITY_COORDINATES[q];
   if (exact) return exact;
   const city = findCityByInput(locationCity);
-  if (!city) return null;
-  const labelNorm = normalize(city.label);
-  return CITY_COORDINATES[labelNorm] || null;
+  if (city) {
+    const labelNorm = normalize(city.label);
+    const nameNorm = normalize(city.name);
+    return CITY_COORDINATES[labelNorm] || CITY_COORDINATES[nameNorm] || null;
+  }
+
+  // Fallback for full addresses or slightly noisier location strings:
+  // find the longest known city/label token embedded in the input.
+  let bestKey: string | null = null;
+  let bestLength = 0;
+  for (const knownKey of Object.keys(CITY_COORDINATES)) {
+    if (q.includes(knownKey) || knownKey.includes(q)) {
+      if (knownKey.length > bestLength) {
+        bestKey = knownKey;
+        bestLength = knownKey.length;
+      }
+    }
+  }
+  return bestKey ? CITY_COORDINATES[bestKey] : null;
 }

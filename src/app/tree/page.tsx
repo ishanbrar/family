@@ -136,6 +136,41 @@ export default function TreeExplorerPage() {
       .filter((c): c is NonNullable<(typeof conditions)[number]> => !!c);
   }, [selectedMember, userConditions, conditions]);
 
+  const farAndWideRows = useMemo<FarAndWideRow[]>(() => {
+    return members
+      .map((member) => {
+        const birthPoint = getProfileLocationPoints(member, {
+          includeBirthplace: true,
+          includeCurrent: false,
+          includeSecondary: false,
+        })[0];
+        const currentPoint = getProfileLocationPoints(member, {
+          includeBirthplace: false,
+          includeCurrent: true,
+          includeSecondary: false,
+        })[0];
+
+        if (!birthPoint || !currentPoint) return null;
+        if (birthPoint.lat == null || birthPoint.lng == null) return null;
+        if (currentPoint.lat == null || currentPoint.lng == null) return null;
+
+        return {
+          id: member.id,
+          name: formatPersonName(member.first_name, member.last_name),
+          birthCity: birthPoint.city,
+          currentCity: currentPoint.city,
+          miles: Math.round(
+            distanceMilesBetweenCoordinates(
+              [birthPoint.lat, birthPoint.lng],
+              [currentPoint.lat, currentPoint.lng]
+            )
+          ),
+        };
+      })
+      .filter((row): row is FarAndWideRow => row !== null)
+      .sort((a, b) => b.miles - a.miles || a.name.localeCompare(b.name));
+  }, [members]);
+
   const handleMemberClick = useCallback((memberId: string) => {
     setSelectedMemberId(memberId);
   }, []);
@@ -213,40 +248,6 @@ export default function TreeExplorerPage() {
 
   const selectedAge = getAge(selectedMember?.date_of_birth || null);
   const filterMember = relatedByFilter ? members.find((m) => m.id === relatedByFilter) : null;
-  const farAndWideRows = useMemo<FarAndWideRow[]>(() => {
-    return members
-      .map((member) => {
-        const birthPoint = getProfileLocationPoints(member, {
-          includeBirthplace: true,
-          includeCurrent: false,
-          includeSecondary: false,
-        })[0];
-        const currentPoint = getProfileLocationPoints(member, {
-          includeBirthplace: false,
-          includeCurrent: true,
-          includeSecondary: false,
-        })[0];
-
-        if (!birthPoint || !currentPoint) return null;
-        if (birthPoint.lat == null || birthPoint.lng == null) return null;
-        if (currentPoint.lat == null || currentPoint.lng == null) return null;
-
-        return {
-          id: member.id,
-          name: formatPersonName(member.first_name, member.last_name),
-          birthCity: birthPoint.city,
-          currentCity: currentPoint.city,
-          miles: Math.round(
-            distanceMilesBetweenCoordinates(
-              [birthPoint.lat, birthPoint.lng],
-              [currentPoint.lat, currentPoint.lng]
-            )
-          ),
-        };
-      })
-      .filter((row): row is FarAndWideRow => row !== null)
-      .sort((a, b) => b.miles - a.miles || a.name.localeCompare(b.name));
-  }, [members]);
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">

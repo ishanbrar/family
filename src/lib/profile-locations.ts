@@ -36,12 +36,13 @@ function createPoint(
   city: string | null | undefined,
   lat?: number | null,
   lng?: number | null,
-  countryCode?: string | null
+  countryCode?: string | null,
+  fallbackQuery?: string | null
 ): ProfileLocationPoint | null {
   const trimmedCity = city?.trim();
   if (!trimmedCity) return null;
 
-  const coords = resolveLatLng(trimmedCity, lat, lng);
+  const coords = resolveLatLng(trimmedCity, lat, lng) || (fallbackQuery ? getCityCoordinates(fallbackQuery) : null);
   return {
     key: `${member.id}:${source}:${trimmedCity.toLowerCase()}`,
     member,
@@ -81,7 +82,8 @@ export function getProfileLocationPoints(
         member.location_city,
         member.location_lat,
         member.location_lng,
-        member.country_code
+        member.country_code,
+        member.address || member.location_city
       )
     );
   }

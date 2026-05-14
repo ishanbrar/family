@@ -18,9 +18,9 @@ const PRODUCT_SCREENS = [
     screenshotPath: "/preview/tree",
   },
   {
-    title: "Member Profile",
-    description: "View detailed profiles with relationships, locations, and health insights.",
-    screenshotPath: "/preview/member",
+    title: "Expanded Profiles",
+    description: "Explore full profile views with places, health details, and richer family context.",
+    screenshotPath: "/preview/profile-expanded",
   },
   {
     title: "Add Members",
@@ -31,6 +31,16 @@ const PRODUCT_SCREENS = [
     title: "Globe View",
     description: "See where your family lives around the world.",
     screenshotPath: "/preview/globe",
+  },
+  {
+    title: "Health DNA",
+    description: "Review hereditary patterns, health snapshots, and read-only demo health insights.",
+    screenshotPath: "/preview/health",
+  },
+  {
+    title: "Tree Export",
+    description: "Export a polished family tree image for keepsakes, reunions, and sharing.",
+    screenshotPath: "/preview/export",
   },
 ];
 

@@ -1,3 +1,4 @@
+import { findCityByInput } from "@/lib/cities";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import type { Profile, Relationship } from "@/lib/types";
 
@@ -43,6 +44,37 @@ function titleFamilyName(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return "Family";
   return /family$/i.test(trimmed) ? trimmed : `${trimmed} Family`;
+}
+
+function fallbackCountryLabel(value: string): string | null {
+  const parts = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  return parts[parts.length - 1] || null;
+}
+
+function collectResidenceCountries(members: Profile[]): Array<{ country: string; count: number }> {
+  const counts = new Map<string, number>();
+
+  const addResidence = (location: string | null | undefined) => {
+    const trimmed = location?.trim();
+    if (!trimmed) return;
+    const matchedCity = findCityByInput(trimmed);
+    const country = matchedCity?.country || fallbackCountryLabel(trimmed);
+    if (!country) return;
+    counts.set(country, (counts.get(country) || 0) + 1);
+  };
+
+  for (const member of members) {
+    addResidence(member.location_city);
+    addResidence(member.secondary_location_city);
+  }
+
+  return [...counts.entries()]
+    .map(([country, count]) => ({ country, count }))
+    .sort((a, b) => b.count - a.count || a.country.localeCompare(b.country));
 }
 
 function drawRoundedRect(
@@ -147,15 +179,19 @@ export async function exportFamilyTreeAsImage({
     preferAncestorRoot: preferAncestorRoot ?? false,
   });
 
-  const horizontalPadding = 200;
+  const horizontalPadding = 180;
+  const sidebarWidth = 420;
   const topPadding = 245;
   const bottomPadding = 150;
   const maxCanvasWidth = 5600;
-  const minCanvasWidth = 4200;
+  const minCanvasWidth = 3880;
   const targetScale = 2.2;
   const width = Math.max(
     minCanvasWidth,
-    Math.min(maxCanvasWidth, Math.ceil(tree.width * targetScale + horizontalPadding * 2))
+    Math.min(
+      maxCanvasWidth,
+      Math.ceil(tree.width * targetScale + horizontalPadding * 2 + sidebarWidth)
+    )
   );
   const scale = Math.min(
     targetScale,
@@ -214,8 +250,12 @@ export async function exportFamilyTreeAsImage({
   ctx.moveTo(width / 2 - ornW, hdrY + 118);
   ctx.lineTo(width / 2 + ornW, hdrY + 118);
   ctx.stroke();
-  const treeOffsetX = horizontalPadding + (width - horizontalPadding * 2 - tree.width * scale) / 2;
+  const leftContentWidth = width - horizontalPadding * 2 - sidebarWidth;
+  const treeOffsetX = horizontalPadding + Math.max(0, (leftContentWidth - tree.width * scale) / 2);
   const treeOffsetY = topPadding;
+  const sidebarX = width - horizontalPadding - sidebarWidth + 18;
+  const sidebarY = topPadding + 8;
+  const residenceCountries = collectResidenceCountries(members);
 
   const nodesById = new Map(tree.nodes.map((n) => [n.profile.id, n]));
   const avatarBitmapById = new Map<string, ImageBitmap>();
@@ -380,6 +420,61 @@ export async function exportFamilyTreeAsImage({
     if (deathYear) {
       ctx.fillText(deathYear, cx, labelY + yearSize + 6);
     }
+  }
+
+  // ── Sidebar: family residence countries ──
+  const panelX = sidebarX;
+  const panelY = sidebarY;
+  const panelWidth = sidebarWidth - 36;
+  const panelHeight = Math.max(240, 112 + residenceCountries.length * 40);
+  drawRoundedRect(ctx, panelX, panelY, panelWidth, panelHeight, 18);
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.fill();
+  ctx.strokeStyle = "#d9c5a5";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#2c1810";
+  ctx.font = "700 30px Georgia, 'Times New Roman', serif";
+  ctx.fillText("Family Residences", panelX + 24, panelY + 22);
+  ctx.font = "400 18px Georgia, 'Times New Roman', serif";
+  ctx.fillStyle = "#7a6b58";
+  ctx.fillText("Countries where the family currently lives.", panelX + 24, panelY + 60);
+
+  const tableTop = panelY + 102;
+  ctx.strokeStyle = "#d8c4a4";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(panelX + 24, tableTop);
+  ctx.lineTo(panelX + panelWidth - 24, tableTop);
+  ctx.stroke();
+
+  ctx.font = "600 16px Georgia, 'Times New Roman', serif";
+  ctx.fillStyle = "#7a6b58";
+  ctx.fillText("Country", panelX + 24, tableTop + 12);
+  ctx.textAlign = "right";
+  ctx.fillText("Members", panelX + panelWidth - 24, tableTop + 12);
+
+  let rowY = tableTop + 38;
+  for (const entry of residenceCountries) {
+    ctx.strokeStyle = "rgba(196,169,125,0.28)";
+    ctx.beginPath();
+    ctx.moveTo(panelX + 24, rowY - 10);
+    ctx.lineTo(panelX + panelWidth - 24, rowY - 10);
+    ctx.stroke();
+
+    ctx.textAlign = "left";
+    ctx.font = "500 18px Georgia, 'Times New Roman', serif";
+    ctx.fillStyle = "#3b2a1a";
+    ctx.fillText(entry.country, panelX + 24, rowY);
+
+    ctx.textAlign = "right";
+    ctx.font = "600 18px Georgia, 'Times New Roman', serif";
+    ctx.fillStyle = "#6b5a4a";
+    ctx.fillText(String(entry.count), panelX + panelWidth - 24, rowY);
+    rowY += 40;
   }
 
   // ── Footer ──
