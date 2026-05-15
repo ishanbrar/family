@@ -45,8 +45,8 @@ const PRODUCT_SCREENS: ProductScreen[] = [
     description: "Add relatives and define relationships with guided forms.",
     mode: "static",
     staticPaths: {
-      light: "/marketing/preview-add-light.svg",
-      dark: "/marketing/preview-add-dark.svg",
+      light: "/marketing/preview-add-light.png",
+      dark: "/marketing/preview-add-dark.png",
     },
   },
   {
@@ -60,8 +60,8 @@ const PRODUCT_SCREENS: ProductScreen[] = [
     description: "Review hereditary patterns, health snapshots, and read-only demo health insights.",
     mode: "static",
     staticPaths: {
-      light: "/marketing/preview-health-light.svg",
-      dark: "/marketing/preview-health-dark.svg",
+      light: "/marketing/preview-health-light.png",
+      dark: "/marketing/preview-health-dark.png",
     },
   },
   {
@@ -69,8 +69,8 @@ const PRODUCT_SCREENS: ProductScreen[] = [
     description: "Export a polished family tree image for keepsakes, reunions, and sharing.",
     mode: "static",
     staticPaths: {
-      light: "/marketing/preview-export-light.svg",
-      dark: "/marketing/preview-export-dark.svg",
+      light: "/marketing/preview-export-light.png",
+      dark: "/marketing/preview-export-dark.png",
     },
   },
 ];
