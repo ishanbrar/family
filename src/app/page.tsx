@@ -3,48 +3,104 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LegacyBrandLink } from "@/components/branding/LegacyBrandLink";
+import { LegatreeBrandLink } from "@/components/branding/LegatreeBrandLink";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import { CREATE_FAMILY_SIGNUP_PATH, joinFamilySignupPath } from "@/lib/signup-flow";
 import { resolveAppliedThemeMode, THEME_CHANGE_EVENT, type ThemeMode } from "@/lib/theme";
 
-const PRODUCT_SCREENS = [
+type ProductScreen =
+  | {
+      title: string;
+      description: string;
+      mode: "iframe";
+      screenshotPath: string;
+    }
+  | {
+      title: string;
+      description: string;
+      mode: "static";
+      /** Theme-matched static assets (no live iframe). */
+      staticPaths: { light: string; dark: string };
+    };
+
+const PRODUCT_SCREENS: ProductScreen[] = [
   {
     title: "Family Tree",
     description: "Visualize connections across generations with an interactive tree layout.",
+    mode: "iframe",
     screenshotPath: "/preview/tree",
   },
   {
     title: "Expanded Profiles",
     description: "Explore full profile views with places, health details, and richer family context.",
+    mode: "iframe",
     screenshotPath: "/preview/profile-expanded",
   },
   {
     title: "Add Members",
     description: "Add relatives and define relationships with guided forms.",
-    screenshotPath: "/preview/add",
+    mode: "static",
+    staticPaths: {
+      light: "/marketing/preview-add-light.svg",
+      dark: "/marketing/preview-add-dark.svg",
+    },
   },
   {
     title: "Globe View",
     description: "See where your family lives around the world.",
+    mode: "iframe",
     screenshotPath: "/preview/globe",
   },
   {
     title: "Health DNA",
     description: "Review hereditary patterns, health snapshots, and read-only demo health insights.",
-    screenshotPath: "/preview/health",
+    mode: "static",
+    staticPaths: {
+      light: "/marketing/preview-health-light.svg",
+      dark: "/marketing/preview-health-dark.svg",
+    },
   },
   {
     title: "Tree Export",
     description: "Export a polished family tree image for keepsakes, reunions, and sharing.",
-    screenshotPath: "/preview/export",
+    mode: "static",
+    staticPaths: {
+      light: "/marketing/preview-export-light.svg",
+      dark: "/marketing/preview-export-dark.svg",
+    },
   },
 ];
 
-function ScreenshotFrame({
+function PreviewChrome({ themeMode }: { themeMode: ThemeMode }) {
+  const isDark = themeMode === "dark";
+  return (
+    <div className="absolute left-0 top-0 z-10 flex items-center gap-1.5 px-3 py-2">
+      <span className={`w-2 h-2 rounded-full ${isDark ? "bg-white/20" : "bg-black/15"}`} />
+      <span className={`w-2 h-2 rounded-full ${isDark ? "bg-white/15" : "bg-black/12"}`} />
+      <span className={`w-2 h-2 rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+    </div>
+  );
+}
+
+function PreviewBottomFade({ themeMode }: { themeMode: ThemeMode }) {
+  const isDark = themeMode === "dark";
+  return (
+    <div
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        background: isDark
+          ? "linear-gradient(to top, rgba(10,10,10,0.78), rgba(10,10,10,0) 40%)"
+          : "linear-gradient(to top, rgba(238,245,238,0.82), rgba(238,245,238,0) 40%)",
+      }}
+    />
+  );
+}
+
+function LivePreviewFrame({
   src,
   title,
   themeMode,
@@ -53,15 +109,9 @@ function ScreenshotFrame({
   title: string;
   themeMode: ThemeMode;
 }) {
-  const isDark = themeMode === "dark";
-
   return (
     <div className="relative aspect-[16/10] overflow-hidden rounded border border-black/8 bg-[color:var(--background)] dark:border-white/10">
-      <div className="absolute left-0 top-0 z-10 flex items-center gap-1.5 px-3 py-2">
-        <span className={`w-2 h-2 rounded-full ${isDark ? "bg-white/20" : "bg-black/15"}`} />
-        <span className={`w-2 h-2 rounded-full ${isDark ? "bg-white/15" : "bg-black/12"}`} />
-        <span className={`w-2 h-2 rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`} />
-      </div>
+      <PreviewChrome themeMode={themeMode} />
       <div className="absolute inset-0 overflow-hidden">
         <iframe
           key={`${src}-${themeMode}`}
@@ -71,16 +121,47 @@ function ScreenshotFrame({
           loading="lazy"
         />
       </div>
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: isDark
-            ? "linear-gradient(to top, rgba(10,10,10,0.78), rgba(10,10,10,0) 40%)"
-            : "linear-gradient(to top, rgba(238,245,238,0.82), rgba(238,245,238,0) 40%)",
-        }}
-      />
+      <PreviewBottomFade themeMode={themeMode} />
     </div>
   );
+}
+
+function StaticPreviewFrame({
+  title,
+  themeMode,
+  staticPaths,
+}: {
+  title: string;
+  themeMode: ThemeMode;
+  staticPaths: { light: string; dark: string };
+}) {
+  const src = themeMode === "dark" ? staticPaths.dark : staticPaths.light;
+
+  return (
+    <div className="relative aspect-[16/10] overflow-hidden rounded border border-black/8 bg-[color:var(--background)] dark:border-white/10">
+      <PreviewChrome themeMode={themeMode} />
+      <div className="absolute inset-0 overflow-hidden">
+        <Image
+          key={src}
+          src={src}
+          alt={`${title} screen preview`}
+          width={1600}
+          height={1000}
+          className="pointer-events-none h-full w-full object-cover object-top"
+          loading="lazy"
+          sizes="(max-width: 768px) 100vw, 50vw"
+        />
+      </div>
+      <PreviewBottomFade themeMode={themeMode} />
+    </div>
+  );
+}
+
+function ProductPreview({ item, themeMode }: { item: ProductScreen; themeMode: ThemeMode }) {
+  if (item.mode === "static") {
+    return <StaticPreviewFrame title={item.title} themeMode={themeMode} staticPaths={item.staticPaths} />;
+  }
+  return <LivePreviewFrame src={item.screenshotPath} title={item.title} themeMode={themeMode} />;
 }
 
 export default function LandingPage() {
@@ -126,7 +207,7 @@ export default function LandingPage() {
       <PreAuthBackdrop variant="landing" />
 
       <header className="relative z-10 flex items-center justify-between px-6 lg:px-16 pr-20 lg:pr-24 py-6">
-        <LegacyBrandLink
+        <LegatreeBrandLink
           destination="public"
           className="text-white/95"
           iconClassName="border border-white/10 bg-white/5 text-white/80"
@@ -173,7 +254,7 @@ export default function LandingPage() {
             className="mt-6 text-base lg:text-lg text-white/55 max-w-2xl mx-auto leading-relaxed"
             style={{ fontFamily: "var(--font-source-sans)" }}
           >
-            Legacy helps families build a shared tree, view detailed member profiles, and see where relatives live around the world. Join an existing family network or create your own.
+            Legatree helps families build a shared tree, view detailed member profiles, and see where relatives live around the world. Join an existing family network or create your own.
           </motion.p>
 
           {/* Invite-first actions */}
@@ -258,7 +339,7 @@ export default function LandingPage() {
                 >
                   {item.description}
                 </p>
-                <ScreenshotFrame src={item.screenshotPath} title={item.title} themeMode={themeMode} />
+                <ProductPreview item={item} themeMode={themeMode} />
               </motion.article>
             ))}
           </div>

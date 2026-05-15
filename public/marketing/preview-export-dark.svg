@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" width="1600" height="1000" role="img" aria-label="Tree export preview">
+  <defs>
+    <linearGradient id="ebgd" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0e1210"/>
+      <stop offset="100%" style="stop-color:#161f1a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#ebgd)"/>
+  <rect x="200" y="120" width="1200" height="760" rx="24" fill="#121a16" stroke="#2a3830" stroke-width="2"/>
+  <rect x="260" y="180" width="280" height="18" rx="4" fill="#8fbc8f" opacity="0.5"/>
+  <rect x="260" y="230" width="1080" height="600" rx="12" fill="#0c100e" stroke="#2a3830"/>
+  <line x1="800" y1="280" x2="800" y2="780" stroke="#c9a227" stroke-width="2" opacity="0.4"/>
+  <line x1="500" y1="420" x2="1100" y2="420" stroke="#8fbc8f" stroke-width="2" opacity="0.25"/>
+  <circle cx="800" cy="420" r="36" fill="#c9a227" opacity="0.3"/>
+  <circle cx="620" cy="560" r="28" fill="#c9a227" opacity="0.25"/>
+  <circle cx="980" cy="560" r="28" fill="#c9a227" opacity="0.25"/>
+  <circle cx="800" cy="640" r="28" fill="#8fbc8f" opacity="0.35"/>
+  <rect x="1180" y="180" width="140" height="44" rx="10" fill="#c9a227" opacity="0.55"/>
+</svg>
