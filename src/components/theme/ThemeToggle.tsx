@@ -11,7 +11,7 @@ import {
 
 export function ThemeToggle() {
   // Keep first render deterministic for SSR/CSR hydration parity.
-  const [theme, setTheme] = useState<ThemeMode>("dark");
+  const [theme, setTheme] = useState<ThemeMode>("light");
 
   useEffect(() => {
     const sync = () => setTheme(resolveAppliedThemeMode());

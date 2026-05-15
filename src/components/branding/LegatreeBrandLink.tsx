@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TreePine } from "lucide-react";
+import { TreeDeciduous } from "lucide-react";
 
 type LegatreeBrandLinkProps = {
   destination: "public" | "app";
@@ -27,7 +27,7 @@ export function LegatreeBrandLink({
       className={`inline-flex items-center gap-3 transition-colors ${className}`.trim()}
     >
       <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${iconClassName}`.trim()}>
-        <TreePine size={18} className="text-current" />
+        <TreeDeciduous size={18} className="text-current" />
       </div>
       {showText ? (
         <span className={`font-serif font-semibold tracking-wide ${textClassName}`.trim()}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
@@ -10,6 +10,7 @@ import { LegatreeBrandLink } from "@/components/branding/LegatreeBrandLink";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import { CREATE_FAMILY_SIGNUP_PATH, joinFamilySignupPath } from "@/lib/signup-flow";
+import { useKeyboardGuardedInput } from "@/hooks/use-keyboard-guarded-input";
 import { resolveAppliedThemeMode, THEME_CHANGE_EVENT, type ThemeMode } from "@/lib/theme";
 
 type ProductScreen =
@@ -179,31 +180,13 @@ export default function LandingPage() {
   const router = useRouter();
   const [joinCode, setJoinCode] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
-  const inviteInputRef = useRef<HTMLInputElement | null>(null);
+  const inviteInput = useKeyboardGuardedInput();
 
   useEffect(() => {
     const syncTheme = () => setThemeMode(resolveAppliedThemeMode());
     syncTheme();
     window.addEventListener(THEME_CHANGE_EVENT, syncTheme);
     return () => window.removeEventListener(THEME_CHANGE_EVENT, syncTheme);
-  }, []);
-
-  useEffect(() => {
-    const blurInviteField = () => {
-      if (document.activeElement === inviteInputRef.current) {
-        inviteInputRef.current?.blur();
-      }
-    };
-
-    const timeoutId = window.setTimeout(blurInviteField, 0);
-    const animationFrame = window.requestAnimationFrame(blurInviteField);
-    window.addEventListener("pageshow", blurInviteField);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      window.cancelAnimationFrame(animationFrame);
-      window.removeEventListener("pageshow", blurInviteField);
-    };
   }, []);
 
   const handleJoinByCode = (e: React.FormEvent) => {
@@ -282,12 +265,17 @@ export default function LandingPage() {
               </p>
               <form onSubmit={handleJoinByCode} className="flex gap-2 w-full">
                 <input
-                  ref={inviteInputRef}
+                  ref={inviteInput.ref}
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   placeholder="Enter invite code"
                   className="flex-1 min-w-0 h-11 rounded border border-white/20 bg-white/8 px-3.5 text-sm text-white placeholder:text-white/40 outline-none focus:border-white/40 transition-colors"
                   autoCapitalize="characters"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  enterKeyHint="go"
+                  {...inviteInput.guardedProps}
                 />
                 <button
                   type="submit"

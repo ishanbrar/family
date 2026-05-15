@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { LegatreeBrandLink } from "@/components/branding/LegatreeBrandLink";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
+import { useKeyboardGuardedInput } from "@/hooks/use-keyboard-guarded-input";
 import { createClient } from "@/lib/supabase/client";
 import { CREATE_FAMILY_SIGNUP_PATH, JOIN_FAMILY_SIGNUP_PATH, loginPathForInvite, normalizeInviteCode } from "@/lib/signup-flow";
 import type { Gender } from "@/lib/types";
@@ -64,6 +65,7 @@ export function SignupFlow({ mode }: SignupFlowProps) {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const inviteInput = useKeyboardGuardedInput();
 
   const normalizedInviteCode = normalizeInviteCode(inviteCode);
   const signInHref = isJoin ? loginPathForInvite(normalizedInviteCode) : "/login";
@@ -391,8 +393,18 @@ export function SignupFlow({ mode }: SignupFlowProps) {
             {isJoin ? (
               <div className="relative">
                 <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
-                <input type="text" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="Family invite code" required autoCapitalize="none" className={inputClass} />
+                <input
+                  ref={inviteInput.ref}
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  placeholder="Family invite code"
+                  required
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  className={inputClass}
+                  {...inviteInput.guardedProps}
+                />
               </div>
             ) : (
               <div className="relative">

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { TreePine, HeartPulse, LayoutDashboard, LogIn, User } from "lucide-react";
+import { TreeDeciduous, HeartPulse, LayoutDashboard, LogIn, User, GitBranch } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const DEMO_NAV_ITEMS = [
   { label: "Dashboard", href: "/demo", icon: LayoutDashboard },
+  { label: "Your Tree", href: "/demo/tree", icon: GitBranch },
   { label: "Health DNA", href: "/demo/health", icon: HeartPulse },
   { label: "Profile", href: "/demo/profile", icon: User },
 ];
@@ -16,6 +17,9 @@ export function DemoSidebar() {
 
   const isActive = (href: string) => {
     if (href === "/demo") return pathname === "/demo";
+    if (href === "/demo/profile") {
+      return pathname === "/demo/profile" || pathname.startsWith("/demo/profile/");
+    }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
@@ -35,7 +39,7 @@ export function DemoSidebar() {
           aria-label="Go to demo dashboard"
         >
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gold-400/10">
-            <TreePine size={18} className="text-gold-400" />
+            <TreeDeciduous size={18} className="text-gold-400" />
           </div>
           <span className="hidden lg:block font-serif text-lg font-semibold text-white/90 tracking-wide">
             Legatree Demo
@@ -83,7 +87,7 @@ export function DemoSidebar() {
           paddingRight: "max(env(safe-area-inset-right), 0.5rem)",
         }}
       >
-        <div className="grid grid-cols-4 gap-1 px-1.5 py-2">
+        <div className="grid grid-cols-5 gap-1 px-1.5 py-2">
           {[...DEMO_NAV_ITEMS, { label: "Sign In", href: "/login", icon: LogIn }].map((item) => {
             const Icon = item.icon;
             const active = item.href !== "/login" && isActive(item.href);

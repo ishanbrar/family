@@ -91,7 +91,7 @@ export function VantaCloudBackdrop({
   const hostRef = useRef<HTMLDivElement | null>(null);
   const effectRef = useRef<VantaCloudsInstance | null>(null);
   const [isVantaReady, setIsVantaReady] = useState(false);
-  const [theme, setTheme] = useState<ThemeMode>("dark");
+  const [theme, setTheme] = useState<ThemeMode>("light");
 
   useEffect(() => {
     const syncTheme = () => setTheme(resolveAppliedThemeMode());

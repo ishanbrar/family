@@ -2,6 +2,7 @@ export type ThemeMode = "dark" | "light";
 export type ThemePalette = "gold" | "blue" | "red" | "yellow";
 
 export const THEME_STORAGE_KEY = "legatree:theme-mode";
+export const THEME_EXPLICIT_KEY = "legatree:theme-explicit";
 export const THEME_PALETTE_STORAGE_KEY = "legatree:theme-palette";
 export const THEME_CHANGE_EVENT = "legatree:theme-change";
 
@@ -16,13 +17,24 @@ function isThemePalette(value: string | null): value is ThemePalette {
   return value !== null && PALETTE_VALUES.includes(value as ThemePalette);
 }
 
-export function resolveInitialTheme(): ThemeMode {
+export function resolveThemeModeFromStorage(
+  stored: string | null,
+  explicit: boolean
+): ThemeMode {
+  if (explicit && isThemeMode(stored)) return stored;
+  return "light";
+}
+
+function resolveStoredThemeMode(): ThemeMode {
   if (typeof window === "undefined") return "light";
 
+  const explicit = window.localStorage.getItem(THEME_EXPLICIT_KEY) === "1";
   const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  if (isThemeMode(stored)) return stored;
+  return resolveThemeModeFromStorage(stored, explicit);
+}
 
-  return "light";
+export function resolveInitialTheme(): ThemeMode {
+  return resolveStoredThemeMode();
 }
 
 export function resolveInitialPalette(): ThemePalette {
@@ -39,6 +51,7 @@ export function applyTheme(mode: ThemeMode): void {
   const root = document.documentElement;
   root.classList.remove("light", "dark");
   root.classList.add(mode);
+  root.style.colorScheme = mode;
 }
 
 export function applyThemePalette(palette: ThemePalette): void {
@@ -74,6 +87,7 @@ export function setThemeMode(mode: ThemeMode): void {
   applyTheme(mode);
   if (typeof window !== "undefined") {
     window.localStorage.setItem(THEME_STORAGE_KEY, mode);
+    window.localStorage.setItem(THEME_EXPLICIT_KEY, "1");
   }
   emitThemeChange();
 }

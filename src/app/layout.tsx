@@ -2,7 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Source_Serif_4, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-import { THEME_PALETTE_STORAGE_KEY, THEME_STORAGE_KEY } from "@/lib/theme";
+import {
+  THEME_EXPLICIT_KEY,
+  THEME_PALETTE_STORAGE_KEY,
+  THEME_STORAGE_KEY,
+} from "@/lib/theme";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -53,9 +57,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="light theme-gold" suppressHydrationWarning>
       <head>
+        <meta name="color-scheme" content="light" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var modeKey='${THEME_STORAGE_KEY}';var paletteKey='${THEME_PALETTE_STORAGE_KEY}';var storedMode=localStorage.getItem(modeKey);var mode=storedMode==='light'||storedMode==='dark'?storedMode:'light';var storedPalette=localStorage.getItem(paletteKey);var palette=(storedPalette==='gold'||storedPalette==='blue'||storedPalette==='red'||storedPalette==='yellow')?storedPalette:'gold';var root=document.documentElement;root.classList.remove('light','dark');root.classList.remove('theme-gold','theme-blue','theme-red','theme-yellow');root.classList.add(mode);root.classList.add('theme-'+palette);}catch(e){var root=document.documentElement;root.classList.add('light');root.classList.add('theme-gold');}})();`,
+            __html: `(function(){try{var modeKey='${THEME_STORAGE_KEY}';var explicitKey='${THEME_EXPLICIT_KEY}';var paletteKey='${THEME_PALETTE_STORAGE_KEY}';var explicit=localStorage.getItem(explicitKey)==='1';var storedMode=localStorage.getItem(modeKey);var mode=(explicit&&(storedMode==='light'||storedMode==='dark'))?storedMode:'light';var storedPalette=localStorage.getItem(paletteKey);var palette=(storedPalette==='gold'||storedPalette==='blue'||storedPalette==='red'||storedPalette==='yellow')?storedPalette:'gold';var root=document.documentElement;root.classList.remove('light','dark');root.classList.remove('theme-gold','theme-blue','theme-red','theme-yellow');root.classList.add(mode);root.classList.add('theme-'+palette);root.style.colorScheme=mode;}catch(e){var root=document.documentElement;root.classList.add('light');root.classList.add('theme-gold');root.style.colorScheme='light';}})();`,
           }}
         />
         <script
