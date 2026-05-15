@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// Legacy – Country Utilities
+// Legatree – Country Utilities
 // Flag emojis, alpha-3 → alpha-2 mapping, country names.
 // ══════════════════════════════════════════════════════════
 

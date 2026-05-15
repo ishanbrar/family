@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Legacy – Core Type Definitions
+// Legatree – Core Type Definitions
 // ──────────────────────────────────────────────
 
 export type Role = "ADMIN" | "MEMBER";

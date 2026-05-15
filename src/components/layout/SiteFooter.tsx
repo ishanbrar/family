@@ -11,7 +11,7 @@ export function SiteFooter({ variant = "app" }: SiteFooterProps) {
   return (
     <div className={wrapperClass}>
       <div>
-        <p className="text-xs uppercase tracking-[0.24em] text-white/35">Legacy</p>
+        <p className="text-xs uppercase tracking-[0.24em] text-white/35">Legatree</p>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/55">
           Family history, identity, and health in one private experience.
         </p>

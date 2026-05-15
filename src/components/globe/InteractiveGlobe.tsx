@@ -60,7 +60,7 @@ interface ResolvedMemberLocation {
 
 const TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 const TOPO_LOCAL_URL = "/data/countries-110m.json";
-const TOPO_CACHE_KEY = "legacy:world-topology:v1";
+const TOPO_CACHE_KEY = "legatree:world-topology:v1";
 const BASE_ROTATION: [number, number] = [-20, -15];
 const MAP_MIN_ZOOM = 1;
 const MAP_OPEN_ZOOM = 1.3;

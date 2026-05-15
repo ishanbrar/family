@@ -495,7 +495,7 @@ export async function exportFamilyTreeAsImage({
   ctx.font = "400 18px Georgia, serif";
   ctx.fillStyle = "#b0a090";
   ctx.fillText(
-    "Produced with Legacy · Copyright © 2026 Ishan Brar. All rights reserved.",
+    "Produced with Legatree · Copyright © 2026 Ishan Brar. All rights reserved.",
     width / 2,
     height - bi - 50
   );

@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// Legacy – World Cities Database (for autocomplete)
+// Legatree – World Cities Database (for autocomplete)
 // ~250 major cities across all continents.
 // ══════════════════════════════════════════════════════════
 

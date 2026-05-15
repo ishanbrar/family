@@ -1,4 +1,4 @@
--- Legacy: multi invite codes + join preview + claim node flow
+-- Legatree: multi invite codes + join preview + claim node flow
 
 BEGIN;
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Crown } from "lucide-react";
+import { TreePine } from "lucide-react";
 
-type LegacyBrandLinkProps = {
+type LegatreeBrandLinkProps = {
   destination: "public" | "app";
   className?: string;
   iconClassName?: string;
@@ -10,14 +10,14 @@ type LegacyBrandLinkProps = {
   ariaLabel?: string;
 };
 
-export function LegacyBrandLink({
+export function LegatreeBrandLink({
   destination,
   className = "",
   iconClassName = "",
   textClassName = "",
   showText = true,
   ariaLabel,
-}: LegacyBrandLinkProps) {
+}: LegatreeBrandLinkProps) {
   const href = destination === "app" ? "/dashboard" : "/";
 
   return (
@@ -27,11 +27,11 @@ export function LegacyBrandLink({
       className={`inline-flex items-center gap-3 transition-colors ${className}`.trim()}
     >
       <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${iconClassName}`.trim()}>
-        <Crown size={18} className="text-current" />
+        <TreePine size={18} className="text-current" />
       </div>
       {showText ? (
         <span className={`font-serif font-semibold tracking-wide ${textClassName}`.trim()}>
-          Legacy
+          Legatree
         </span>
       ) : null}
     </Link>

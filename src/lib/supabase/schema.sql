@@ -1,5 +1,5 @@
 -- ══════════════════════════════════════════════════════════
--- Legacy – Supabase Database Schema
+-- Legatree – Supabase Database Schema
 -- Ancestry & Health Platform
 -- ══════════════════════════════════════════════════════════
 

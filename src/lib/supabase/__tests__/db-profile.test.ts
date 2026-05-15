@@ -80,14 +80,14 @@ describe("getProfile", () => {
     ]);
   });
 
-  it("falls back to profile id for legacy direct-id profiles", async () => {
+  it("falls back to profile id for direct-id profiles", async () => {
     const { calls, client } = fakeSupabaseForProfileLookups([
       { data: null, error: null },
       {
         data: profileRow({
           id: "auth-user-id",
           auth_user_id: null,
-          first_name: "Legacy",
+          first_name: "Direct",
           last_name: "Profile",
         }),
         error: null,
@@ -97,7 +97,7 @@ describe("getProfile", () => {
     const profile = await getProfile(client as never, "auth-user-id");
 
     expect(profile?.id).toBe("auth-user-id");
-    expect(profile?.first_name).toBe("Legacy");
+    expect(profile?.first_name).toBe("Direct");
     expect(calls).toEqual([
       { table: "profiles", column: "auth_user_id", value: "auth-user-id" },
       { table: "profiles", column: "id", value: "auth-user-id" },

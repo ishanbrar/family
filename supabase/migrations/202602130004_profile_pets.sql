@@ -1,4 +1,4 @@
--- Legacy: add pets field to profiles
+-- Legatree: add pets field to profiles
 
 BEGIN;
 

@@ -1,4 +1,4 @@
--- Legacy: avatar storage bucket + policies
+-- Legatree: avatar storage bucket + policies
 -- Ensures avatar uploads are persistent and readable across the app.
 
 BEGIN;

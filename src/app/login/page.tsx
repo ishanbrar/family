@@ -9,7 +9,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
-import { LegacyBrandLink } from "@/components/branding/LegacyBrandLink";
+import { LegatreeBrandLink } from "@/components/branding/LegatreeBrandLink";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import {
   AUTH_TIMEOUT_MS,
@@ -320,7 +320,7 @@ function LoginPageContent() {
       >
         {/* Logo */}
         <div className="flex items-center justify-center mb-10">
-          <LegacyBrandLink
+          <LegatreeBrandLink
             destination="public"
             className="text-white/90"
             iconClassName="w-12 h-12 rounded-2xl bg-gold-400/10 border border-gold-400/20 text-gold-400"

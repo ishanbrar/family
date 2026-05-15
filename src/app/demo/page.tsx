@@ -189,7 +189,7 @@ export default function DemoPage() {
                 {viewer.first_name}
               </span>
             </h1>
-            <p className="text-sm text-white/35 mt-1">Your family legacy at a glance</p>
+            <p className="text-sm text-white/35 mt-1">Your family tree at a glance</p>
           </div>
           <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-xs text-white/45">
             Demo mode is read-only

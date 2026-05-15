@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Loader2, Lock, Mail, Phone, User, Users } from "lucide-react";
 import { useState } from "react";
 
-import { LegacyBrandLink } from "@/components/branding/LegacyBrandLink";
+import { LegatreeBrandLink } from "@/components/branding/LegatreeBrandLink";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import { createClient } from "@/lib/supabase/client";
 import { CREATE_FAMILY_SIGNUP_PATH, JOIN_FAMILY_SIGNUP_PATH, loginPathForInvite, normalizeInviteCode } from "@/lib/signup-flow";
@@ -281,7 +281,7 @@ export function SignupFlow({ mode }: SignupFlowProps) {
         className="relative z-10 w-full max-w-md mx-4"
       >
         <div className="flex items-center justify-center mb-10">
-          <LegacyBrandLink
+          <LegatreeBrandLink
             destination="public"
             className="text-white/90"
             iconClassName="w-12 h-12 rounded-2xl bg-gold-400/10 border border-gold-400/20 text-gold-400"

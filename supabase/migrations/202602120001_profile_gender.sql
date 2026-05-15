@@ -1,4 +1,4 @@
--- Legacy: add gender field to profiles
+-- Legatree: add gender field to profiles
 
 BEGIN;
 

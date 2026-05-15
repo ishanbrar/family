@@ -287,7 +287,7 @@ export function useFamilyData(): FamilyData {
     try {
       const state = useFamilyStore.getState();
       localStorage.setItem(
-        "legacy_mock_family_state",
+        "legatree_mock_family_state",
         JSON.stringify({ members: state.members, relationships: state.relationships })
       );
     } catch {
@@ -344,7 +344,7 @@ export function useFamilyData(): FamilyData {
 
     if (!isSupabaseConfigured() || isDevSuperAdminClient()) {
       // ── Offline / Dev super-admin mode ──
-      const MOCK_STORAGE_KEY = "legacy_mock_family_state";
+      const MOCK_STORAGE_KEY = "legatree_mock_family_state";
       try {
         const stored = typeof window !== "undefined" ? localStorage.getItem(MOCK_STORAGE_KEY) : null;
         if (stored) {

@@ -1,4 +1,4 @@
--- Legacy: enforce binary gender values only (male/female)
+-- Legatree: enforce binary gender values only (male/female)
 
 BEGIN;
 

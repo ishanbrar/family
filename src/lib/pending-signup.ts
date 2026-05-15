@@ -1,4 +1,4 @@
-export const PENDING_SIGNUP_KEY = "legacy:pending-signup";
+export const PENDING_SIGNUP_KEY = "legatree:pending-signup";
 
 export interface PendingSignupIntent {
   mode: "create" | "join";

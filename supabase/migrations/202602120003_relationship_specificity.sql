@@ -1,4 +1,4 @@
--- Legacy: add specific maternal/paternal aunt/uncle relationship types
+-- Legatree: add specific maternal/paternal aunt/uncle relationship types
 
 BEGIN;
 

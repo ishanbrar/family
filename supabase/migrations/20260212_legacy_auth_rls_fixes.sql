@@ -1,4 +1,4 @@
--- Legacy: auth + RLS safety fixes
+-- Legatree: auth + RLS safety fixes
 -- Run this in Supabase SQL Editor, or via Supabase CLI migration flow.
 
 BEGIN;

@@ -23,14 +23,14 @@ const sourceSans = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "Legacy — Ancestry & Health Platform",
+  title: "Legatree — Ancestry & Health Platform",
   description:
     "A luxury platform for exploring your family tree, genetic connections, and hereditary health insights.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Legacy",
+    title: "Legatree",
   },
   icons: {
     icon: "/icons/icon-192.png",

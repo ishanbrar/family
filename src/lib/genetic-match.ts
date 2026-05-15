@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// Legacy – "Blood Match" Genetic Algorithm
+// Legatree – "Blood Match" Genetic Algorithm
 // Coefficient of Relationship (r) Calculator
 // ══════════════════════════════════════════════════════════
 //

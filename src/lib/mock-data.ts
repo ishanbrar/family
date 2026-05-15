@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// Legacy – Rich Mock Data for Demo / Development
+// Legatree – Rich Mock Data for Demo / Development
 // ══════════════════════════════════════════════════════════
 
 import type { Profile, Relationship, UserCondition } from "./types";

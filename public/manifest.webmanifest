@@ -1,6 +1,6 @@
 {
-  "name": "Legacy — Family Tree",
-  "short_name": "Legacy",
+  "name": "Legatree — Family Tree",
+  "short_name": "Legatree",
   "description": "Explore your family tree, genetic connections, and heritage.",
   "start_url": "/dashboard",
   "display": "standalone",

@@ -1,4 +1,4 @@
--- Legacy: invite-code lookup RPC + profile membership guard rails
+-- Legatree: invite-code lookup RPC + profile membership guard rails
 -- Fixes join-by-code under RLS and prevents cross-family reassignment.
 
 BEGIN;

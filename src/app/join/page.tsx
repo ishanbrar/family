@@ -49,7 +49,7 @@ const STATIC_MATCH: GeneticMatchResult = {
   relationship: "Family Member",
   path: [],
 };
-const POST_JOIN_LINK_ONLY_KEY = "legacy:post-join-link-only";
+const POST_JOIN_LINK_ONLY_KEY = "legatree:post-join-link-only";
 
 function pickInitialPreviewRootId(
   profiles: Profile[],

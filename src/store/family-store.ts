@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// Legacy – Zustand Family Store
+// Legatree – Zustand Family Store
 // Manages viewer perspective, graph state, and profile edits
 // ══════════════════════════════════════════════════════════
 

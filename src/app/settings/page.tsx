@@ -19,7 +19,7 @@ import {
   type ThemePalette,
 } from "@/lib/theme";
 
-const SETTINGS_STORAGE_KEY = "legacy:settings:v1";
+const SETTINGS_STORAGE_KEY = "legatree:settings:v1";
 
 type NotificationSettings = {
   relationship_updates: boolean;

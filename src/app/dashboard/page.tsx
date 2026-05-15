@@ -48,8 +48,8 @@ import {
   formatPersonName,
 } from "@/lib/display-format";
 
-const ONBOARDING_SNOOZE_KEY = "legacy:onboarding-snoozed-until";
-const POST_JOIN_LINK_ONLY_KEY = "legacy:post-join-link-only";
+const ONBOARDING_SNOOZE_KEY = "legatree:onboarding-snoozed-until";
+const POST_JOIN_LINK_ONLY_KEY = "legatree:post-join-link-only";
 const DIRECT_RELATION_TYPES: RelationshipType[] = ["parent", "child", "sibling", "spouse", "half_sibling"];
 
 export default function DashboardPage() {

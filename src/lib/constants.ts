@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// Legacy – Design Tokens & Constants
+// Legatree – Design Tokens & Constants
 // ══════════════════════════════════════════════════════════
 
 export const COLORS = {

@@ -1,9 +1,9 @@
 export type ThemeMode = "dark" | "light";
 export type ThemePalette = "gold" | "blue" | "red" | "yellow";
 
-export const THEME_STORAGE_KEY = "legacy:theme-mode";
-export const THEME_PALETTE_STORAGE_KEY = "legacy:theme-palette";
-export const THEME_CHANGE_EVENT = "legacy:theme-change";
+export const THEME_STORAGE_KEY = "legatree:theme-mode";
+export const THEME_PALETTE_STORAGE_KEY = "legatree:theme-palette";
+export const THEME_CHANGE_EVENT = "legatree:theme-change";
 
 const MODE_VALUES: ThemeMode[] = ["dark", "light"];
 const PALETTE_VALUES: ThemePalette[] = ["gold", "blue", "red", "yellow"];

@@ -1,4 +1,4 @@
--- Legacy: add display_name (nickname) to profiles
+-- Legatree: add display_name (nickname) to profiles
 
 BEGIN;
 

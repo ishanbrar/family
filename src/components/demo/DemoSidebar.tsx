@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, HeartPulse, LayoutDashboard, LogIn, User } from "lucide-react";
+import { TreePine, HeartPulse, LayoutDashboard, LogIn, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const DEMO_NAV_ITEMS = [
@@ -35,10 +35,10 @@ export function DemoSidebar() {
           aria-label="Go to demo dashboard"
         >
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gold-400/10">
-            <Crown size={18} className="text-gold-400" />
+            <TreePine size={18} className="text-gold-400" />
           </div>
           <span className="hidden lg:block font-serif text-lg font-semibold text-white/90 tracking-wide">
-            Legacy Demo
+            Legatree Demo
           </span>
         </Link>
 

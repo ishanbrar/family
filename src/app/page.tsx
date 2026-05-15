@@ -104,10 +104,13 @@ function LivePreviewFrame({
   src,
   title,
   themeMode,
+  iframeScale = 0.455,
 }: {
   src: string;
   title: string;
   themeMode: ThemeMode;
+  /** Slightly below 0.455 shows more of the embedded page (zoomed out). */
+  iframeScale?: number;
 }) {
   return (
     <div className="relative aspect-[16/10] overflow-hidden rounded border border-black/8 bg-[color:var(--background)] dark:border-white/10">
@@ -117,7 +120,8 @@ function LivePreviewFrame({
           key={`${src}-${themeMode}`}
           title={title}
           src={`${src}?theme=${themeMode}`}
-          className="border-0 pointer-events-none absolute left-0 top-0 h-[220%] w-[220%] origin-top-left scale-[0.455]"
+          className="border-0 pointer-events-none absolute left-0 top-0 h-[220%] w-[220%] origin-top-left"
+          style={{ transform: `scale(${iframeScale})` }}
           loading="lazy"
         />
       </div>
@@ -161,7 +165,14 @@ function ProductPreview({ item, themeMode }: { item: ProductScreen; themeMode: T
   if (item.mode === "static") {
     return <StaticPreviewFrame title={item.title} themeMode={themeMode} staticPaths={item.staticPaths} />;
   }
-  return <LivePreviewFrame src={item.screenshotPath} title={item.title} themeMode={themeMode} />;
+  return (
+    <LivePreviewFrame
+      src={item.screenshotPath}
+      title={item.title}
+      themeMode={themeMode}
+      iframeScale={item.screenshotPath === "/preview/tree" ? 0.4 : 0.455}
+    />
+  );
 }
 
 export default function LandingPage() {

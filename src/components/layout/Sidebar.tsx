@@ -14,7 +14,7 @@ import {
   User,
   Settings,
   LogOut,
-  Crown,
+  TreePine,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase/client";
@@ -81,10 +81,10 @@ export function Sidebar() {
           aria-label="Go to dashboard"
         >
           <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gold-400/10">
-            <Crown size={18} className="text-gold-400" />
+            <TreePine size={18} className="text-gold-400" />
           </div>
           <span className="hidden lg:block font-serif text-lg font-semibold text-white/90 tracking-wide">
-            Legacy
+            Legatree
           </span>
         </Link>
 

@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════
-// Legacy – Top 50 Hereditary / Genetic Health Conditions
+// Legatree – Top 50 Hereditary / Genetic Health Conditions
 // Comprehensive medical conditions database.
 // ══════════════════════════════════════════════════════════
 
