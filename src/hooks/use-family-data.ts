@@ -333,9 +333,10 @@ function useFamilyDataController(): FamilyDataContextValue {
 
   const hydrateFromSnapshot = useCallback(
     (snapshot: FamilyDataSnapshot) => {
-      store.setViewer(snapshot.viewer);
-      store.setMembers(snapshot.members);
-      store.setRelationships(snapshot.relationships);
+      const familyStore = useFamilyStore.getState();
+      familyStore.setViewer(snapshot.viewer);
+      familyStore.setMembers(snapshot.members);
+      familyStore.setRelationships(snapshot.relationships);
       setConditions(snapshot.conditions);
       setUserConds(snapshot.userConditions);
       setFamily(snapshot.family);
@@ -345,7 +346,7 @@ function useFamilyDataController(): FamilyDataContextValue {
       setFamilyId(snapshot.familyId);
       setLoading(false);
     },
-    [store]
+    []
   );
 
   const writeSnapshot = useCallback(
