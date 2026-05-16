@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Bell, Globe, Lock, Palette, Settings, Users, Languages, History } from "lucide-react";
+import { Bell, Globe, Lock, Palette, Settings, Users, Languages, History, Wrench } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -138,7 +138,7 @@ const RELATION_LANGUAGE_OPTIONS: { value: "en" | "punjabi" | "es" | "fr"; label:
 ];
 
 export default function SettingsPage() {
-  const { viewer, family, loading, updateFamilyRelationLanguage, auditLogs } = useFamilyData();
+  const { viewer, family, loading, updateFamilyRelationLanguage, repairRelationships, auditLogs } = useFamilyData();
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
     if (typeof document !== "undefined") return resolveAppliedThemeMode();
     return resolveInitialTheme();
@@ -149,6 +149,8 @@ export default function SettingsPage() {
   });
   const [settings, setSettings] = useState<LocalSettings>(() => readStoredSettings());
   const [relationLangSaving, setRelationLangSaving] = useState(false);
+  const [repairingRelationships, setRepairingRelationships] = useState(false);
+  const [relationshipRepairMessage, setRelationshipRepairMessage] = useState<string | null>(null);
   const relationLanguage = (family?.relation_language as "en" | "punjabi" | "es" | "fr") || "en";
   const isFamilyAdmin = !!viewer && viewer.role === "ADMIN" && !!family;
 
@@ -462,6 +464,48 @@ export default function SettingsPage() {
             >
               Go To Dashboard
             </a>
+            {isFamilyAdmin && (
+              <div className="mt-5 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center shrink-0">
+                    <Wrench size={15} className="text-white/45" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white/85">Repair tree relationships</p>
+                    <p className="text-xs text-white/45 mt-1">
+                      Run the legacy inference once to add missing sibling and parent links. This is explicit and never runs during page load.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={loading || repairingRelationships}
+                      onClick={async () => {
+                        setRepairingRelationships(true);
+                        setRelationshipRepairMessage(null);
+                        try {
+                          const result = await repairRelationships();
+                          setRelationshipRepairMessage(
+                            result.created === 0
+                              ? "No missing relationships found."
+                              : `Added ${result.created} missing relationship${result.created === 1 ? "" : "s"}.`
+                          );
+                        } catch (error) {
+                          console.error("Relationship repair failed:", error);
+                          setRelationshipRepairMessage("Repair failed. Check the console and try again.");
+                        } finally {
+                          setRepairingRelationships(false);
+                        }
+                      }}
+                      className="mt-3 inline-flex items-center justify-center h-10 px-4 rounded-xl bg-white/[0.04] border border-white/[0.12] text-sm text-white/75 hover:text-white hover:bg-white/[0.07] transition-colors disabled:opacity-60"
+                    >
+                      {repairingRelationships ? "Repairing..." : "Repair tree"}
+                    </button>
+                    {relationshipRepairMessage && (
+                      <p className="text-xs text-white/45 mt-2">{relationshipRepairMessage}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </GlassCard>
 
           <GlassCard className="p-5 xl:col-span-2">
