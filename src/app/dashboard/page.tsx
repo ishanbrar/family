@@ -332,8 +332,7 @@ export default function DashboardPage() {
     isOnline &&
     !viewer.onboarding_completed &&
     !suppressAutoOnboarding &&
-    !isOnboardingSnoozed &&
-    !isEstablishedInTree;
+    !isOnboardingSnoozed;
 
   const dismissOnboarding = useCallback(async () => {
     setSuppressAutoOnboarding(true);

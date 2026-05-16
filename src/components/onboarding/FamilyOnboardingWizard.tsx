@@ -488,7 +488,7 @@ export function FamilyOnboardingWizard({
                 <p className="text-xs text-white/35 mt-0.5">
                   {mandatory
                     ? "Mandatory quick start: profile, 3 core relatives, invite 1 family member"
-                    : "Quick start: profile, core relatives, invite a family member (all skippable)"}
+                    : "Quick start: profile, one or more relatives, and invites when you are ready"}
                 </p>
               </div>
               {!mandatory && (
@@ -607,7 +607,7 @@ export function FamilyOnboardingWizard({
                         ? "Step 2: connect your node to existing family members (new node creation is disabled here)."
                         : mandatory
                         ? "Step 2: add at least 3 core relatives connected directly to you."
-                        : "Step 2: add core relatives connected directly to you (you can continue any time)."}
+                        : "Step 2: add one or a few relatives connected directly to you, or continue and come back later."}
                     </p>
                     <span className={cn(
                       "text-xs px-2.5 py-1 rounded-lg",
@@ -953,7 +953,7 @@ export function FamilyOnboardingWizard({
                       </button>
 
                       <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3 text-xs text-white/40">
-                        Mark this step complete after you actually send the invite to at least one family member.
+                        Mark this step complete after sending an invite, or finish setup and invite family later.
                       </div>
                       <button
                         onClick={() => setInviteStepDone(true)}
