@@ -6,7 +6,16 @@
 // Falls back to mock data if Supabase is not configured.
 // ══════════════════════════════════════════════════════════
 
-import { useEffect, useState, useCallback } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   getProfile,
@@ -40,6 +49,7 @@ import { useFamilyStore } from "@/store/family-store";
 import type { Profile, Relationship, MedicalCondition, UserCondition, RelationshipType, AuditLog } from "@/lib/types";
 import { isConfigured as isSupabaseConfigured } from "@/lib/supabase/config";
 import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
+import { isFamilyDataCacheFresh } from "@/lib/family-data-cache";
 import {
   MOCK_PROFILES,
   MOCK_RELATIONSHIPS,
@@ -47,7 +57,10 @@ import {
   MOCK_USER_CONDITIONS,
 } from "@/lib/mock-data";
 
-interface FamilyData {
+// Family data is cached at the provider layer for a short stale-while-revalidate
+// window. Explicit refreshes and mutation follow-ups bypass this cache; normal
+// route changes reuse the warm bundle and avoid full Supabase refetches.
+export interface FamilyData {
   viewer: Profile | null;
   family: FamilyRecord | null;
   inviteCodes: InviteCodeRecord[];
@@ -92,9 +105,32 @@ interface FamilyData {
   deleteInviteCode: (inviteCodeId: string) => Promise<void>;
   updateFamilyName: (nextName: string) => Promise<void>;
   updateFamilyRelationLanguage: (relationLanguage: RelationLanguageCode) => Promise<void>;
+  repairRelationships: () => Promise<{ created: number }>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
+
+interface FamilyDataContextValue extends FamilyData {
+  ensureFresh: () => Promise<void>;
+}
+
+interface FamilyDataSnapshot {
+  viewer: Profile | null;
+  family: FamilyRecord | null;
+  inviteCodes: InviteCodeRecord[];
+  auditLogs: AuditLog[];
+  members: Profile[];
+  relationships: Relationship[];
+  conditions: MedicalCondition[];
+  userConditions: UserCondition[];
+  isOnline: boolean;
+  familyId: string | null;
+  updatedAt: number;
+}
+
+const FamilyDataContext = createContext<FamilyDataContextValue | null>(null);
+let familyDataCache: FamilyDataSnapshot | null = null;
+let familyDataInFlight: Promise<void> | null = null;
 
 function hasExactRelationship(
   relationships: Relationship[],
@@ -256,7 +292,7 @@ function inferSiblingParentRelationships(
   return inferred;
 }
 
-export function useFamilyData(): FamilyData {
+function useFamilyDataController(): FamilyDataContextValue {
   const store = useFamilyStore();
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(false);
@@ -294,6 +330,30 @@ export function useFamilyData(): FamilyData {
       // ignore
     }
   };
+
+  const hydrateFromSnapshot = useCallback(
+    (snapshot: FamilyDataSnapshot) => {
+      store.setViewer(snapshot.viewer);
+      store.setMembers(snapshot.members);
+      store.setRelationships(snapshot.relationships);
+      setConditions(snapshot.conditions);
+      setUserConds(snapshot.userConditions);
+      setFamily(snapshot.family);
+      setInviteCodes(snapshot.inviteCodes);
+      setAuditLogs(snapshot.auditLogs);
+      setIsOnline(snapshot.isOnline);
+      setFamilyId(snapshot.familyId);
+      setLoading(false);
+    },
+    [store]
+  );
+
+  const writeSnapshot = useCallback(
+    (snapshot: Omit<FamilyDataSnapshot, "updatedAt">) => {
+      familyDataCache = { ...snapshot, updatedAt: Date.now() };
+    },
+    []
+  );
 
   const logAudit = useCallback(
     async (
@@ -339,8 +399,24 @@ export function useFamilyData(): FamilyData {
     return `${base}${digits}`;
   };
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (options?: { force?: boolean }) => {
+    const force = options?.force === true;
+    if (!force && familyDataCache && isFamilyDataCacheFresh(familyDataCache.updatedAt)) {
+      hydrateFromSnapshot(familyDataCache);
+      return;
+    }
+    if (!force && familyDataCache) {
+      hydrateFromSnapshot(familyDataCache);
+    }
+    if (!force && familyDataInFlight) {
+      if (!familyDataCache) setLoading(true);
+      await familyDataInFlight;
+      if (familyDataCache) hydrateFromSnapshot(familyDataCache);
+      return;
+    }
+
+    setLoading(!familyDataCache);
+    familyDataInFlight = (async () => {
 
     if (!isSupabaseConfigured() || isDevSuperAdminClient()) {
       // ── Offline / Dev super-admin mode ──
@@ -361,6 +437,19 @@ export function useFamilyData(): FamilyData {
               setInviteCodes([{ id: "mock-invite-1", family_id: "mock-family", code: "MONTAGUE1234", label: "Primary", is_active: true, created_at: new Date().toISOString() }]);
               setAuditLogs([]);
               setIsOnline(false);
+              setFamilyId("mock-family");
+              writeSnapshot({
+                viewer: viewerProfile,
+                family: { id: "mock-family", name: "Montague Family", invite_code: "MONTAGUE1234" },
+                inviteCodes: [{ id: "mock-invite-1", family_id: "mock-family", code: "MONTAGUE1234", label: "Primary", is_active: true, created_at: new Date().toISOString() }],
+                auditLogs: [],
+                members: parsed.members,
+                relationships: parsed.relationships,
+                conditions: MOCK_CONDITIONS,
+                userConditions: MOCK_USER_CONDITIONS,
+                isOnline: false,
+                familyId: "mock-family",
+              });
               setLoading(false);
               return;
             }
@@ -391,6 +480,32 @@ export function useFamilyData(): FamilyData {
       ]);
       setAuditLogs([]);
       setIsOnline(false);
+      setFamilyId("mock-family");
+      writeSnapshot({
+        viewer: MOCK_PROFILES[0],
+        family: {
+          id: "mock-family",
+          name: "Montague Family",
+          invite_code: "MONTAGUE1234",
+        },
+        inviteCodes: [
+          {
+            id: "mock-invite-1",
+            family_id: "mock-family",
+            code: "MONTAGUE1234",
+            label: "Primary",
+            is_active: true,
+            created_at: new Date().toISOString(),
+          },
+        ],
+        auditLogs: [],
+        members: MOCK_PROFILES,
+        relationships: MOCK_RELATIONSHIPS,
+        conditions: MOCK_CONDITIONS,
+        userConditions: MOCK_USER_CONDITIONS,
+        isOnline: false,
+        familyId: "mock-family",
+      });
       setLoading(false);
       return;
     }
@@ -410,6 +525,18 @@ export function useFamilyData(): FamilyData {
         setInviteCodes([]);
         setAuditLogs([]);
         setIsOnline(false);
+        writeSnapshot({
+          viewer: null,
+          family: null,
+          inviteCodes: [],
+          auditLogs: [],
+          members: [],
+          relationships: [],
+          conditions: [],
+          userConditions: [],
+          isOnline: false,
+          familyId: null,
+        });
         setLoading(false);
         return;
       }
@@ -427,6 +554,18 @@ export function useFamilyData(): FamilyData {
         setInviteCodes([]);
         setAuditLogs([]);
         setIsOnline(false);
+        writeSnapshot({
+          viewer: null,
+          family: null,
+          inviteCodes: [],
+          auditLogs: [],
+          members: [],
+          relationships: [],
+          conditions: [],
+          userConditions: [],
+          isOnline: false,
+          familyId: null,
+        });
         setLoading(false);
         return;
       }
@@ -454,53 +593,22 @@ export function useFamilyData(): FamilyData {
         setInviteCodes(codes);
         setAuditLogs(logs);
 
-        // Persist inferred parent relationships for full siblings (union inference)
-        let currentRels = [...rels];
-        for (const rel of rels) {
-          if (rel.type !== "sibling") continue;
-          const inferred = inferSiblingParentRelationships(currentRels, rel.user_id, rel.relative_id, rel.type);
-          for (const nextRel of inferred) {
-            if (hasParentChildRelationship(currentRels, nextRel.userId, nextRel.relativeId)) continue;
-            const created = await dbAddRelationship(supabase, nextRel.userId, nextRel.relativeId, nextRel.type);
-            if (created) {
-              addRelationshipToStoreIfMissing(created);
-              currentRels = useFamilyStore.getState().relationships;
-            }
-          }
-        }
-        // Backfill: if one spouse has kids, infer the other spouse(s) as shared parents
-        for (const rel of currentRels) {
-          if (rel.type !== "parent" && rel.type !== "child") continue;
-          const parentId = rel.type === "parent" ? rel.user_id : rel.relative_id;
-          const childId = rel.type === "parent" ? rel.relative_id : rel.user_id;
-          const spouseParents = inferSpouseParentRelationships(currentRels, parentId, childId);
-          for (const nextRel of spouseParents) {
-            const created = await dbAddRelationship(supabase, nextRel.userId, nextRel.relativeId, nextRel.type);
-            if (created) {
-              addRelationshipToStoreIfMissing(created);
-              currentRels = useFamilyStore.getState().relationships;
-            }
-          }
-        }
-        // Backfill inferred sibling links when people share parents but lack explicit sibling rels
-        for (const rel of currentRels) {
-          if (rel.type !== "parent" && rel.type !== "child") continue;
-          const parentId = rel.type === "parent" ? rel.user_id : rel.relative_id;
-          const childId = rel.type === "parent" ? rel.relative_id : rel.user_id;
-          const inferred = inferSiblingRelationshipsFromParentChild(currentRels, parentId, childId);
-          for (const nextRel of inferred) {
-            const created = await dbAddRelationship(supabase, nextRel.userId, nextRel.relativeId, nextRel.type);
-            if (created) {
-              addRelationshipToStoreIfMissing(created);
-              currentRels = useFamilyStore.getState().relationships;
-            }
-          }
-        }
-
         // Load user conditions for all family members
         const memberIds = profiles.map((p) => p.id);
         const uConds = await getUserConditions(supabase, memberIds);
         setUserConds(uConds);
+        writeSnapshot({
+          viewer: viewerProfile,
+          family: fam,
+          inviteCodes: codes,
+          auditLogs: logs,
+          members: profiles,
+          relationships: rels,
+          conditions: conds,
+          userConditions: uConds,
+          isOnline: true,
+          familyId: viewerProfile.family_id,
+        });
       } else {
         // No family yet — just load conditions
         setFamilyId(null);
@@ -511,6 +619,19 @@ export function useFamilyData(): FamilyData {
         setFamily(null);
         setInviteCodes([]);
         setAuditLogs([]);
+        setUserConds([]);
+        writeSnapshot({
+          viewer: viewerProfile,
+          family: null,
+          inviteCodes: [],
+          auditLogs: [],
+          members: [viewerProfile],
+          relationships: [],
+          conditions: conds,
+          userConditions: [],
+          isOnline: true,
+          familyId: null,
+        });
       }
     } catch (err) {
       setFamilyId(null);
@@ -527,12 +648,17 @@ export function useFamilyData(): FamilyData {
     }
 
     setLoading(false);
+    })();
+    try {
+      await familyDataInFlight;
+    } finally {
+      familyDataInFlight = null;
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrateFromSnapshot, writeSnapshot]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const ensureFresh = useCallback(() => loadData(), [loadData]);
+  const refresh = useCallback(() => loadData({ force: true }), [loadData]);
 
   // ── Actions ─────────────────────────────────────
 
@@ -917,10 +1043,10 @@ export function useFamilyData(): FamilyData {
       }
       await logAudit("relationship.removed", "relationship", relationshipId);
       store.setRelationships(store.relationships.filter((rel) => rel.id !== relationshipId));
-      await loadData();
+      await refresh();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOnline, store.relationships, logAudit]
+    [isOnline, store.relationships, logAudit, refresh]
   );
 
   const updateRelationship = useCallback(
@@ -985,10 +1111,10 @@ export function useFamilyData(): FamilyData {
       store.setRelationships(
         store.relationships.map((rel) => (rel.id === relationshipId ? updated : rel))
       );
-      await loadData();
+      await refresh();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOnline, store.relationships, logAudit]
+    [isOnline, store.relationships, logAudit, refresh]
   );
 
   const removeMember = useCallback(
@@ -1018,11 +1144,96 @@ export function useFamilyData(): FamilyData {
           (rel) => rel.user_id !== memberId && rel.relative_id !== memberId
         )
       );
-      await loadData();
+      await refresh();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isOnline, store.viewer, store.members, store.relationships, logAudit]
+    [isOnline, store.viewer, store.members, store.relationships, logAudit, refresh]
   );
+
+  const repairRelationships = useCallback(async (): Promise<{ created: number }> => {
+    if (store.viewer?.role !== "ADMIN") {
+      throw new Error("Only family admins can repair relationships.");
+    }
+
+    const now = new Date().toISOString();
+    let workingRels = [...useFamilyStore.getState().relationships];
+    let createdCount = 0;
+
+    const addInferredRelationship = async (
+      nextRel: { userId: string; relativeId: string; type: RelationshipType }
+    ) => {
+      if (hasExactRelationship(workingRels, nextRel.userId, nextRel.relativeId, nextRel.type)) return;
+
+      if (!isOnline) {
+        const localRelationship: Relationship = {
+          id: `rel-repair-${Date.now()}-${createdCount}`,
+          user_id: nextRel.userId,
+          relative_id: nextRel.relativeId,
+          type: nextRel.type,
+          marriage_date: null,
+          created_at: now,
+        };
+        addRelationshipToStoreIfMissing(localRelationship);
+        workingRels = useFamilyStore.getState().relationships;
+        createdCount += 1;
+        return;
+      }
+
+      const created = await dbAddRelationship(
+        supabase,
+        nextRel.userId,
+        nextRel.relativeId,
+        nextRel.type
+      );
+      if (created) {
+        addRelationshipToStoreIfMissing(created);
+        workingRels = useFamilyStore.getState().relationships;
+        createdCount += 1;
+      }
+    };
+
+    try {
+      for (const rel of [...workingRels]) {
+        if (rel.type !== "sibling") continue;
+        const inferred = inferSiblingParentRelationships(workingRels, rel.user_id, rel.relative_id, rel.type);
+        for (const nextRel of inferred) {
+          await addInferredRelationship(nextRel);
+        }
+      }
+
+      for (const rel of [...workingRels]) {
+        if (rel.type !== "parent" && rel.type !== "child") continue;
+        const parentId = rel.type === "parent" ? rel.user_id : rel.relative_id;
+        const childId = rel.type === "parent" ? rel.relative_id : rel.user_id;
+        const spouseParents = inferSpouseParentRelationships(workingRels, parentId, childId);
+        for (const nextRel of spouseParents) {
+          await addInferredRelationship(nextRel);
+        }
+      }
+
+      for (const rel of [...workingRels]) {
+        if (rel.type !== "parent" && rel.type !== "child") continue;
+        const parentId = rel.type === "parent" ? rel.user_id : rel.relative_id;
+        const childId = rel.type === "parent" ? rel.relative_id : rel.user_id;
+        const inferred = inferSiblingRelationshipsFromParentChild(workingRels, parentId, childId);
+        for (const nextRel of inferred) {
+          await addInferredRelationship(nextRel);
+        }
+      }
+    } catch (error) {
+      console.error("Relationship repair failed:", error);
+      throw error;
+    }
+
+    if (!isOnline) {
+      persistMockState();
+    } else if (createdCount > 0) {
+      await logAudit("relationships.repaired", "relationship", null, { created: createdCount });
+      await refresh();
+    }
+
+    return { created: createdCount };
+  }, [isOnline, logAudit, refresh, store.viewer, supabase]);
 
   const regenerateInviteCode = useCallback(async () => {
     if (!familyId && !family) return;
@@ -1169,7 +1380,7 @@ export function useFamilyData(): FamilyData {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOnline]);
 
-  return {
+  return useMemo(() => ({
     viewer: store.viewer,
     family,
     inviteCodes,
@@ -1193,7 +1404,55 @@ export function useFamilyData(): FamilyData {
     deleteInviteCode,
     updateFamilyName,
     updateFamilyRelationLanguage,
+    repairRelationships,
     signOut,
-    refresh: loadData,
-  };
+    refresh,
+    ensureFresh,
+  }), [
+    store.viewer,
+    store.members,
+    store.relationships,
+    family,
+    inviteCodes,
+    auditLogs,
+    conditions,
+    userConds,
+    loading,
+    isOnline,
+    updateProfile,
+    addMember,
+    linkMembers,
+    updateRelationship,
+    unlinkRelationship,
+    removeMember,
+    addCondition,
+    regenerateInviteCode,
+    createInviteCode,
+    updateInviteCode,
+    deleteInviteCode,
+    updateFamilyName,
+    updateFamilyRelationLanguage,
+    repairRelationships,
+    signOut,
+    refresh,
+    ensureFresh,
+  ]);
+}
+
+export function FamilyDataProvider({ children }: { children: ReactNode }) {
+  const value = useFamilyDataController();
+  return createElement(FamilyDataContext.Provider, { value }, children);
+}
+
+export function useFamilyData(): FamilyData {
+  const context = useContext(FamilyDataContext);
+  if (!context) {
+    throw new Error("useFamilyData must be used within FamilyDataProvider.");
+  }
+
+  useEffect(() => {
+    void context.ensureFresh();
+  }, [context.ensureFresh]);
+
+  return context;
 }

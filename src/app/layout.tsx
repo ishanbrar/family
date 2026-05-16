@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Source_Serif_4, Source_Sans_3 } from "next/font/google";
 import "./globals.css";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { FamilyDataProvider } from "@/hooks/use-family-data";
 import {
   THEME_EXPLICIT_KEY,
   THEME_PALETTE_STORAGE_KEY,
@@ -72,7 +73,7 @@ export default function RootLayout({
       <body
         className={`${playfair.variable} ${sourceSerif.variable} ${sourceSans.variable} antialiased app-page-bg`}
       >
-        {children}
+        <FamilyDataProvider>{children}</FamilyDataProvider>
         <ThemeToggle />
       </body>
     </html>
