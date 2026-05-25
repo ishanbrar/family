@@ -301,6 +301,12 @@ html.dark .app-input option {
   padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem);
 }
 
+@media (max-width: 767px) {
+  .safe-mobile-bottom {
+    padding-top: calc(env(safe-area-inset-top) + 3.25rem);
+  }
+}
+
 .safe-mobile-top {
   padding-top: env(safe-area-inset-top);
 }

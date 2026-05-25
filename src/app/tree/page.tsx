@@ -289,7 +289,7 @@ export default function TreeExplorerPage() {
                   value={draftFamilyName}
                   onChange={(e) => setDraftFamilyName(e.target.value)}
                   placeholder="Family name"
-                  className="h-9 min-w-[260px] rounded-lg px-3 app-input text-sm outline-none"
+                  className="h-9 w-full min-w-0 sm:min-w-[260px] sm:w-auto rounded-lg px-3 app-input text-sm outline-none"
                 />
                 <button
                   onClick={handleSaveTitle}

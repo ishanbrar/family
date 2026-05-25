@@ -322,7 +322,7 @@ function LoginPageContent() {
         <div className="flex items-center justify-center mb-10">
           <LegatreeBrandLink
             destination="public"
-            size="md"
+            size="lg"
             variant="plain"
             className="text-white/90"
             textClassName="text-white/90"

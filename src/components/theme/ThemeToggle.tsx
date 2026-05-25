@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Sun } from "lucide-react";
+import { cn } from "@/lib/cn";
 import {
   resolveAppliedThemeMode,
   setThemeMode,
@@ -9,7 +11,17 @@ import {
   type ThemeMode,
 } from "@/lib/theme";
 
-export function ThemeToggle() {
+type ThemeToggleProps = {
+  /** `fixed` for app/auth pages; `inline` in marketing header (homepage only). */
+  placement?: "fixed" | "inline";
+};
+
+export function ThemeToggle({ placement = "fixed" }: ThemeToggleProps) {
+  const pathname = usePathname();
+
+  if (placement === "fixed" && pathname === "/") {
+    return null;
+  }
   // Keep first render deterministic for SSR/CSR hydration parity.
   const [theme, setTheme] = useState<ThemeMode>("light");
 
@@ -28,6 +40,8 @@ export function ThemeToggle() {
     setTheme(updated);
   };
 
+  const isInline = placement === "inline";
+
   return (
     <button
       type="button"
@@ -35,13 +49,22 @@ export function ThemeToggle() {
       aria-label={`Switch to ${nextTheme} mode`}
       title={`Switch to ${nextTheme} mode`}
       suppressHydrationWarning
-      className="fixed right-4 top-4 z-30 glass rounded-xl w-11 h-11 sm:w-10 sm:h-10 min-w-[44px] min-h-[44px]
-        text-white/70 hover:text-gold-300 active:scale-[0.97] transition-colors
-        inline-flex items-center justify-center shadow-lg touch-target-44 sm:min-w-0 sm:min-h-0"
-      style={{
-        top: "max(env(safe-area-inset-top), 0.75rem)",
-        right: "max(env(safe-area-inset-right), 0.75rem)",
-      }}
+      className={cn(
+        "glass rounded-xl min-w-[44px] min-h-[44px] w-10 h-10",
+        "text-white/70 hover:text-gold-300 active:scale-[0.97] transition-colors",
+        "inline-flex items-center justify-center touch-target-44",
+        isInline
+          ? "shrink-0 shadow-md"
+          : "fixed z-30 w-11 h-11 sm:w-10 sm:h-10 shadow-lg sm:min-w-0 sm:min-h-0"
+      )}
+      style={
+        isInline
+          ? undefined
+          : {
+              top: "max(env(safe-area-inset-top), 0.75rem)",
+              right: "max(env(safe-area-inset-right), 0.75rem)",
+            }
+      }
     >
       <Sun size={16} />
     </button>

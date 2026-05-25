@@ -6,8 +6,8 @@ import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LegatreeBrandLink } from "@/components/branding/LegatreeBrandLink";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { MarketingHeader } from "@/components/marketing/MarketingHeader";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import { CREATE_FAMILY_SIGNUP_PATH, joinFamilySignupPath } from "@/lib/signup-flow";
 import { useKeyboardGuardedInput } from "@/hooks/use-keyboard-guarded-input";
@@ -200,34 +200,9 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[var(--background)] relative overflow-hidden">
       <PreAuthBackdrop variant="landing" />
 
-      <header className="relative z-10 flex items-center justify-between px-6 lg:px-16 pr-20 lg:pr-24 py-6">
-        <LegatreeBrandLink
-          destination="public"
-          size="lg"
-          variant="plain"
-          className="text-white/95"
-          textClassName="text-white/95"
-        />
+      <MarketingHeader />
 
-        <nav className="mr-10 sm:mr-12 lg:mr-14 flex items-center gap-5 sm:gap-8">
-          <Link
-            href="/demo"
-            className="text-base sm:text-lg font-medium text-white/60 hover:text-white/95 transition-colors min-h-[44px] inline-flex items-center"
-            style={{ fontFamily: "var(--font-source-sans)" }}
-          >
-            View Demo
-          </Link>
-          <Link
-            href="/login"
-            className="text-base sm:text-lg font-medium text-white/90 hover:text-white transition-colors border-b-2 border-white/35 hover:border-white/70 pb-0.5 min-h-[44px] inline-flex items-center"
-            style={{ fontFamily: "var(--font-source-sans)" }}
-          >
-            Sign In
-          </Link>
-        </nav>
-      </header>
-
-      <main className="relative z-10 px-6 lg:px-16 pb-24">
+      <main className="relative z-10 px-4 sm:px-6 lg:px-16 pb-24">
         {/* Hero – Mission & Purpose */}
         <section className="pt-12 lg:pt-20 max-w-4xl mx-auto text-center">
           <motion.h1
