@@ -209,17 +209,17 @@ export default function LandingPage() {
           textClassName="text-white/95"
         />
 
-        <nav className="mr-10 sm:mr-12 lg:mr-14 flex items-center gap-4 sm:gap-6">
+        <nav className="mr-10 sm:mr-12 lg:mr-14 flex items-center gap-5 sm:gap-8">
           <Link
             href="/demo"
-            className="text-sm text-white/55 hover:text-white/90 transition-colors"
+            className="text-base sm:text-lg font-medium text-white/60 hover:text-white/95 transition-colors min-h-[44px] inline-flex items-center"
             style={{ fontFamily: "var(--font-source-sans)" }}
           >
             View Demo
           </Link>
           <Link
             href="/login"
-            className="text-sm text-white/90 hover:text-white transition-colors border-b border-white/30 hover:border-white/60 pb-0.5"
+            className="text-base sm:text-lg font-medium text-white/90 hover:text-white transition-colors border-b-2 border-white/35 hover:border-white/70 pb-0.5 min-h-[44px] inline-flex items-center"
             style={{ fontFamily: "var(--font-source-sans)" }}
           >
             Sign In
