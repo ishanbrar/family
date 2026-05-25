@@ -25,6 +25,52 @@ export function formatPersonName(firstName: string, lastName?: string | null): s
   return parts.join(" ");
 }
 
+export function parseDateOnly(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1) return null;
+
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return date;
+}
+
+export function formatDateOnly(
+  value: string | null | undefined,
+  options: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" }
+): string | null {
+  const date = parseDateOnly(value);
+  if (!date) return null;
+  return date.toLocaleDateString("en-US", options);
+}
+
+export function calculateAgeFromDateOnly(
+  value: string | null | undefined,
+  today = new Date()
+): number | null {
+  const birth = parseDateOnly(value);
+  if (!birth) return null;
+
+  let years = today.getFullYear() - birth.getFullYear();
+  const monthOffset = today.getMonth() - birth.getMonth();
+  if (monthOffset < 0 || (monthOffset === 0 && today.getDate() < birth.getDate())) {
+    years -= 1;
+  }
+  return years;
+}
+
 export function formatFamilyTreeTitle(
   familyName: string | null | undefined,
   fallbackLastName?: string | null

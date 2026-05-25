@@ -14,7 +14,7 @@ import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
 import { countryFlag } from "@/lib/country-utils";
 import { inferCountryCodeFromCity } from "@/lib/cities";
-import { formatDisplayText, formatPersonName } from "@/lib/display-format";
+import { formatDisplayText, formatPersonName, parseDateOnly } from "@/lib/display-format";
 import { shouldZoomTreeOnWheel } from "@/lib/tree-interaction";
 
 export interface TreeMember {
@@ -615,11 +615,9 @@ export function FamilyTree({
           const isDimmed = hasHighlight && !isHighlighted;
           const isViewerNode = viewerId === member.profile.id;
           const initials = getInitials(member.profile.first_name, member.profile.last_name);
-          const birthYear = member.profile.date_of_birth
-            ? new Date(member.profile.date_of_birth).getFullYear()
-            : null;
+          const birthYear = parseDateOnly(member.profile.date_of_birth)?.getFullYear() ?? null;
           const deathValue = (member.profile as { date_of_death?: string | null }).date_of_death || null;
-          const deathYear = deathValue ? new Date(deathValue).getFullYear() : null;
+          const deathYear = parseDateOnly(deathValue)?.getFullYear() ?? null;
           const birthCountryCode =
             inferCountryCodeFromCity(member.profile.place_of_birth || "") ||
             member.profile.country_code ||

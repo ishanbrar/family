@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  calculateAgeFromDateOnly,
   calculateAggregateYearsLived,
+  formatDateOnly,
   formatDisplayText,
   formatFamilyTreeTitle,
   formatPersonName,
@@ -50,6 +52,17 @@ describe("display formatting helpers", () => {
     expect(formatFamilyTreeTitle("doe")).toBe("Doe Family Tree");
     expect(formatFamilyTreeTitle("doe family")).toBe("Doe Family Tree");
     expect(formatFamilyTreeTitle(null, "brar")).toBe("Brar Family Tree");
+  });
+
+  it("formats date-only values without timezone day shifts", () => {
+    expect(formatDateOnly("1992-03-15")).toBe("March 15, 1992");
+    expect(formatDateOnly("2018-05-26")).toBe("May 26, 2018");
+    expect(
+      calculateAgeFromDateOnly("2000-05-26", new Date(2026, 4, 25))
+    ).toBe(25);
+    expect(
+      calculateAgeFromDateOnly("2000-05-26", new Date(2026, 4, 26))
+    ).toBe(26);
   });
 
   it("sums lived years for deceased and living members while excluding incomplete data", () => {

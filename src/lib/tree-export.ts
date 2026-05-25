@@ -1,5 +1,6 @@
 import { findCityByInput } from "@/lib/cities";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
+import { parseDateOnly } from "@/lib/display-format";
 import type { Profile, Relationship } from "@/lib/types";
 
 type ExportScope = "entire" | "related";
@@ -21,14 +22,14 @@ function formatFullName(member: Profile): string {
 
 function formatBirthYear(member: Profile): string {
   if (!member.date_of_birth) return "Year unknown";
-  const year = new Date(member.date_of_birth).getFullYear();
+  const year = parseDateOnly(member.date_of_birth)?.getFullYear();
   return Number.isFinite(year) ? `b. ${year}` : "Year unknown";
 }
 
 function formatDeathYear(member: Profile): string | null {
   if (member.is_alive) return null;
   if (!member.date_of_death) return "d. unknown";
-  const year = new Date(member.date_of_death).getFullYear();
+  const year = parseDateOnly(member.date_of_death)?.getFullYear();
   return Number.isFinite(year) ? `d. ${year}` : "d. unknown";
 }
 

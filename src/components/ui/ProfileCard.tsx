@@ -10,7 +10,7 @@ import { motion } from "framer-motion";
 import { MapPin, Briefcase, Calendar, Star, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
-import { formatGenderLabel, formatPersonName } from "@/lib/display-format";
+import { calculateAgeFromDateOnly, formatDateOnly, formatGenderLabel, formatPersonName } from "@/lib/display-format";
 import { GeneticMatchRing } from "./GeneticMatchRing";
 import { SocialDock } from "./SocialDock";
 import { GlassCard } from "./GlassCard";
@@ -29,22 +29,11 @@ function getInitials(first: string, last: string): string {
 }
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "Unknown";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDateOnly(dateStr) ?? "Unknown";
 }
 
 function calculateAge(dateStr: string | null): number | null {
-  if (!dateStr) return null;
-  const birth = new Date(dateStr);
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
+  return calculateAgeFromDateOnly(dateStr);
 }
 
 export function ProfileCard({

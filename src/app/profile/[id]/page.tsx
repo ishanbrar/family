@@ -34,7 +34,13 @@ import { ProfilePlacesCard } from "@/components/profile/ProfilePlacesCard";
 import { useFamilyData } from "@/hooks/use-family-data";
 import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
 import { calculateGeneticMatch } from "@/lib/genetic-match";
-import { formatDisplayText, formatGenderLabel, formatPersonName } from "@/lib/display-format";
+import {
+  calculateAgeFromDateOnly,
+  formatDateOnly,
+  formatDisplayText,
+  formatGenderLabel,
+  formatPersonName,
+} from "@/lib/display-format";
 import { buildGoogleMapsSearchUrl } from "@/lib/maps";
 import type { Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
@@ -127,16 +133,7 @@ export default function MemberProfilePage({
       )
     );
 
-  const age = member.date_of_birth
-    ? (() => {
-        const birth = new Date(member.date_of_birth);
-        const today = new Date();
-        let years = today.getFullYear() - birth.getFullYear();
-        const monthOffset = today.getMonth() - birth.getMonth();
-        if (monthOffset < 0 || (monthOffset === 0 && today.getDate() < birth.getDate())) years--;
-        return years;
-      })()
-    : null;
+  const age = calculateAgeFromDateOnly(member.date_of_birth);
 
   const connections = members.filter((p) => p.id !== member.id).map((p) => ({
     profile: p,
@@ -279,20 +276,14 @@ export default function MemberProfilePage({
                   {
                     icon: Calendar, label: "Date of Birth",
                     value: member.date_of_birth
-                      ? `${new Date(member.date_of_birth).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}${age !== null ? ` (${age})` : ""}`
+                      ? `${formatDateOnly(member.date_of_birth) ?? "Not set"}${age !== null ? ` (${age})` : ""}`
                       : null,
                   },
                   { icon: MapPin, label: "Place of Birth", value: member.place_of_birth },
                   {
                     icon: Calendar,
                     label: "Marriage / Anniversary",
-                    value: marriageDate
-                      ? new Date(marriageDate).toLocaleDateString("en-US", {
-                          month: "long",
-                          day: "numeric",
-                          year: "numeric",
-                        })
-                      : null,
+                    value: formatDateOnly(marriageDate),
                   },
                 ].map((field) => {
                   const Icon = field.icon;

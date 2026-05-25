@@ -12,33 +12,19 @@ import { CitySearch } from "@/components/ui/CitySearch";
 import { ManualDateInput } from "@/components/ui/ManualDateInput";
 import { cn } from "@/lib/cn";
 import { shouldCommitCompositeBlur } from "@/lib/flow-readiness";
-import { formatPersonName } from "@/lib/display-format";
+import { formatDateOnly, formatPersonName, parseDateOnly } from "@/lib/display-format";
 
 function formatDob(value: string | null): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return formatDateOnly(value, { month: "short", day: "numeric", year: "numeric" }) ?? "—";
 }
 
 function toInputDate(value: string | null): string {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return parseDateOnly(value) ? String(value).slice(0, 10) : "";
 }
 
 function fromInputDate(value: string): string | null {
-  if (!value.trim()) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  const normalized = value.trim().slice(0, 10);
+  return parseDateOnly(normalized) ? normalized : null;
 }
 
 interface FamilyMembersTableProps {

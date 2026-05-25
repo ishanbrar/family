@@ -775,7 +775,23 @@ function useFamilyDataController(): FamilyDataContextValue {
         };
         addRelationshipToStoreIfMissing(directRelationship);
 
-        const withDirect = useFamilyStore.getState().relationships;
+        let withDirect = useFamilyStore.getState().relationships;
+        if (rel.type === "parent" || rel.type === "child") {
+          const parentId = rel.type === "parent" ? newId : rel.relativeId;
+          const childId = rel.type === "parent" ? rel.relativeId : newId;
+          const spouseParents = inferSpouseParentRelationships(withDirect, parentId, childId);
+          spouseParents.forEach((nextRel, index) => {
+            addRelationshipToStoreIfMissing({
+              id: `rel-${Date.now()}-sp-${index}`,
+              user_id: nextRel.userId,
+              relative_id: nextRel.relativeId,
+              type: nextRel.type,
+              created_at: now,
+            });
+          });
+          withDirect = useFamilyStore.getState().relationships;
+        }
+
         const inferred = inferSiblingParentRelationships(
           withDirect,
           newId,
@@ -791,6 +807,21 @@ function useFamilyDataController(): FamilyDataContextValue {
             created_at: now,
           });
         });
+        withDirect = useFamilyStore.getState().relationships;
+        if (rel.type === "parent" || rel.type === "child") {
+          const parentId = rel.type === "parent" ? newId : rel.relativeId;
+          const childId = rel.type === "parent" ? rel.relativeId : newId;
+          const inferredSiblings = inferSiblingRelationshipsFromParentChild(withDirect, parentId, childId);
+          inferredSiblings.forEach((nextRel, index) => {
+            addRelationshipToStoreIfMissing({
+              id: `rel-${Date.now()}-s-${index}`,
+              user_id: nextRel.userId,
+              relative_id: nextRel.relativeId,
+              type: nextRel.type,
+              created_at: now,
+            });
+          });
+        }
         persistMockState();
         return;
       }
@@ -830,7 +861,25 @@ function useFamilyDataController(): FamilyDataContextValue {
       }
       addRelationshipToStoreIfMissing(newRel);
 
-      const withDirect = useFamilyStore.getState().relationships;
+      let withDirect = useFamilyStore.getState().relationships;
+      if (rel.type === "parent" || rel.type === "child") {
+        const parentId = rel.type === "parent" ? finalProfile.id : rel.relativeId;
+        const childId = rel.type === "parent" ? rel.relativeId : finalProfile.id;
+        const spouseParents = inferSpouseParentRelationships(withDirect, parentId, childId);
+        for (const nextRel of spouseParents) {
+          const created = await dbAddRelationship(
+            supabase,
+            nextRel.userId,
+            nextRel.relativeId,
+            nextRel.type
+          );
+          if (created) {
+            addRelationshipToStoreIfMissing(created);
+            withDirect = useFamilyStore.getState().relationships;
+          }
+        }
+      }
+
       const inferred = inferSiblingParentRelationships(
         withDirect,
         finalProfile.id,
@@ -846,6 +895,23 @@ function useFamilyDataController(): FamilyDataContextValue {
         );
         if (created) {
           addRelationshipToStoreIfMissing(created);
+        }
+      }
+      withDirect = useFamilyStore.getState().relationships;
+      if (rel.type === "parent" || rel.type === "child") {
+        const parentId = rel.type === "parent" ? finalProfile.id : rel.relativeId;
+        const childId = rel.type === "parent" ? rel.relativeId : finalProfile.id;
+        const inferredSiblings = inferSiblingRelationshipsFromParentChild(withDirect, parentId, childId);
+        for (const nextRel of inferredSiblings) {
+          const created = await dbAddRelationship(
+            supabase,
+            nextRel.userId,
+            nextRel.relativeId,
+            nextRel.type
+          );
+          if (created) {
+            addRelationshipToStoreIfMissing(created);
+          }
         }
       }
       await logAudit("member.added", "profile", finalProfile.id, {

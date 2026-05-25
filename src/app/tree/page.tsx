@@ -32,26 +32,21 @@ import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { exportFamilyTreeAsImage } from "@/lib/tree-export";
 import type { Profile, RelationshipType } from "@/lib/types";
-import { formatGenderLabel, formatPersonName } from "@/lib/display-format";
+import {
+  calculateAgeFromDateOnly,
+  formatDateOnly,
+  formatGenderLabel,
+  formatPersonName,
+} from "@/lib/display-format";
 import { distanceMilesBetweenCoordinates, getProfileLocationPoints } from "@/lib/profile-locations";
 import { cn } from "@/lib/cn";
 
 function formatBirthDate(value: string | null): string {
-  if (!value) return "Not set";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not set";
-  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  return formatDateOnly(value) ?? "Not set";
 }
 
 function getAge(value: string | null): number | null {
-  if (!value) return null;
-  const dob = new Date(value);
-  if (Number.isNaN(dob.getTime())) return null;
-  const now = new Date();
-  let years = now.getFullYear() - dob.getFullYear();
-  const monthOffset = now.getMonth() - dob.getMonth();
-  if (monthOffset < 0 || (monthOffset === 0 && now.getDate() < dob.getDate())) years -= 1;
-  return years;
+  return calculateAgeFromDateOnly(value);
 }
 
 interface FarAndWideRow {
