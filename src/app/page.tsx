@@ -203,9 +203,10 @@ export default function LandingPage() {
       <header className="relative z-10 flex items-center justify-between px-6 lg:px-16 pr-20 lg:pr-24 py-6">
         <LegatreeBrandLink
           destination="public"
+          size="lg"
+          variant="plain"
           className="text-white/95"
-          iconClassName="border border-white/10 bg-white/5 text-white/80"
-          textClassName="text-base text-white/95"
+          textClassName="text-white/95"
         />
 
         <nav className="mr-10 sm:mr-12 lg:mr-14 flex items-center gap-4 sm:gap-6">

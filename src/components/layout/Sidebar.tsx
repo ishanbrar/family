@@ -14,8 +14,8 @@ import {
   User,
   Settings,
   LogOut,
-  TreeDeciduous,
 } from "lucide-react";
+import { LegatreeTreeIcon } from "@/components/branding/LegatreeTreeIcon";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase/client";
 import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
@@ -80,10 +80,10 @@ export function Sidebar() {
           className="flex items-center gap-3 px-4 lg:px-6 h-16 border-b border-white/[0.06] hover:bg-white/[0.03] transition-colors"
           aria-label="Go to dashboard"
         >
-          <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gold-400/10">
-            <TreeDeciduous size={18} className="text-gold-400" />
+          <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gold-400/10 shrink-0">
+            <LegatreeTreeIcon size={32} />
           </div>
-          <span className="hidden lg:block font-serif text-lg font-semibold text-white/90 tracking-wide">
+          <span className="hidden lg:block font-serif text-xl font-semibold text-white/90 tracking-wide">
             Legatree
           </span>
         </Link>

@@ -8,6 +8,13 @@ import {
   THEME_PALETTE_STORAGE_KEY,
   THEME_STORAGE_KEY,
 } from "@/lib/theme";
+import { getSiteUrl } from "@/lib/site-url";
+
+const siteUrl = getSiteUrl();
+const siteTitle = "Legatree — Ancestry & Health Platform";
+const siteDescription =
+  "Explore your family tree, genetic connections, and heritage with Legatree.";
+const ogImage = "/og-image.png";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -28,9 +35,13 @@ const sourceSans = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "Legatree — Ancestry & Health Platform",
-  description:
-    "A luxury platform for exploring your family tree, genetic connections, and hereditary health insights.",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: siteTitle,
+    template: "%s · Legatree",
+  },
+  description: siteDescription,
+  applicationName: "Legatree",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
@@ -38,8 +49,35 @@ export const metadata: Metadata = {
     title: "Legatree",
   },
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/icons/apple-touch-icon.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/favicon.ico",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: siteUrl,
+    siteName: "Legatree",
+    title: siteTitle,
+    description: siteDescription,
+    images: [
+      {
+        url: ogImage,
+        width: 1200,
+        height: 630,
+        alt: "Legatree — family tree platform",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+    images: [ogImage],
   },
 };
 

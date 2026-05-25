@@ -1,8 +1,23 @@
 import Link from "next/link";
-import { TreeDeciduous } from "lucide-react";
+import { LegatreeTreeIcon } from "@/components/branding/LegatreeTreeIcon";
+import { cn } from "@/lib/cn";
+
+type BrandSize = "sm" | "md" | "lg";
+
+const SIZE_PRESETS: Record<
+  BrandSize,
+  { icon: number; gap: string; box: string; text: string }
+> = {
+  sm: { icon: 24, gap: "gap-2.5", box: "w-9 h-9", text: "text-sm" },
+  md: { icon: 36, gap: "gap-3.5", box: "w-12 h-12", text: "text-xl" },
+  lg: { icon: 52, gap: "gap-4", box: "w-14 h-14", text: "text-2xl sm:text-3xl" },
+};
 
 type LegatreeBrandLinkProps = {
   destination: "public" | "app";
+  size?: BrandSize;
+  /** Boxed icon container (sidebar) vs plain mark (landing header). */
+  variant?: "boxed" | "plain";
   className?: string;
   iconClassName?: string;
   textClassName?: string;
@@ -12,6 +27,8 @@ type LegatreeBrandLinkProps = {
 
 export function LegatreeBrandLink({
   destination,
+  size = "sm",
+  variant = "boxed",
   className = "",
   iconClassName = "",
   textClassName = "",
@@ -19,18 +36,36 @@ export function LegatreeBrandLink({
   ariaLabel,
 }: LegatreeBrandLinkProps) {
   const href = destination === "app" ? "/dashboard" : "/";
+  const preset = SIZE_PRESETS[size];
+  const isPlain = variant === "plain";
 
   return (
     <Link
       href={href}
       aria-label={ariaLabel || (destination === "app" ? "Go to dashboard" : "Go to homepage")}
-      className={`inline-flex items-center gap-3 transition-colors ${className}`.trim()}
+      className={cn(
+        "inline-flex items-center transition-colors",
+        preset.gap,
+        className
+      )}
     >
-      <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${iconClassName}`.trim()}>
-        <TreeDeciduous size={18} className="text-current" />
+      <div
+        className={cn(
+          "flex items-center justify-center shrink-0",
+          isPlain ? "p-0" : cn("rounded-xl", preset.box),
+          iconClassName
+        )}
+      >
+        <LegatreeTreeIcon size={preset.icon} />
       </div>
       {showText ? (
-        <span className={`font-serif font-semibold tracking-wide ${textClassName}`.trim()}>
+        <span
+          className={cn(
+            "font-serif font-semibold tracking-wide",
+            preset.text,
+            textClassName
+          )}
+        >
           Legatree
         </span>
       ) : null}
