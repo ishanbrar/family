@@ -50,6 +50,7 @@ import type { Profile, Relationship, MedicalCondition, UserCondition, Relationsh
 import { isConfigured as isSupabaseConfigured } from "@/lib/supabase/config";
 import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
 import { isFamilyDataCacheFresh } from "@/lib/family-data-cache";
+import { inferRelationshipsForNewLink } from "@/lib/relationship-inference";
 import {
   MOCK_PROFILES,
   MOCK_RELATIONSHIPS,
@@ -775,25 +776,8 @@ function useFamilyDataController(): FamilyDataContextValue {
         };
         addRelationshipToStoreIfMissing(directRelationship);
 
-        let withDirect = useFamilyStore.getState().relationships;
-        if (rel.type === "parent" || rel.type === "child") {
-          const parentId = rel.type === "parent" ? newId : rel.relativeId;
-          const childId = rel.type === "parent" ? rel.relativeId : newId;
-          const spouseParents = inferSpouseParentRelationships(withDirect, parentId, childId);
-          spouseParents.forEach((nextRel, index) => {
-            addRelationshipToStoreIfMissing({
-              id: `rel-${Date.now()}-sp-${index}`,
-              user_id: nextRel.userId,
-              relative_id: nextRel.relativeId,
-              type: nextRel.type,
-              created_at: now,
-            });
-          });
-          withDirect = useFamilyStore.getState().relationships;
-        }
-
-        const inferred = inferSiblingParentRelationships(
-          withDirect,
+        const inferred = inferRelationshipsForNewLink(
+          useFamilyStore.getState().relationships,
           newId,
           rel.relativeId,
           rel.type
@@ -807,21 +791,6 @@ function useFamilyDataController(): FamilyDataContextValue {
             created_at: now,
           });
         });
-        withDirect = useFamilyStore.getState().relationships;
-        if (rel.type === "parent" || rel.type === "child") {
-          const parentId = rel.type === "parent" ? newId : rel.relativeId;
-          const childId = rel.type === "parent" ? rel.relativeId : newId;
-          const inferredSiblings = inferSiblingRelationshipsFromParentChild(withDirect, parentId, childId);
-          inferredSiblings.forEach((nextRel, index) => {
-            addRelationshipToStoreIfMissing({
-              id: `rel-${Date.now()}-s-${index}`,
-              user_id: nextRel.userId,
-              relative_id: nextRel.relativeId,
-              type: nextRel.type,
-              created_at: now,
-            });
-          });
-        }
         persistMockState();
         return;
       }
@@ -861,27 +830,8 @@ function useFamilyDataController(): FamilyDataContextValue {
       }
       addRelationshipToStoreIfMissing(newRel);
 
-      let withDirect = useFamilyStore.getState().relationships;
-      if (rel.type === "parent" || rel.type === "child") {
-        const parentId = rel.type === "parent" ? finalProfile.id : rel.relativeId;
-        const childId = rel.type === "parent" ? rel.relativeId : finalProfile.id;
-        const spouseParents = inferSpouseParentRelationships(withDirect, parentId, childId);
-        for (const nextRel of spouseParents) {
-          const created = await dbAddRelationship(
-            supabase,
-            nextRel.userId,
-            nextRel.relativeId,
-            nextRel.type
-          );
-          if (created) {
-            addRelationshipToStoreIfMissing(created);
-            withDirect = useFamilyStore.getState().relationships;
-          }
-        }
-      }
-
-      const inferred = inferSiblingParentRelationships(
-        withDirect,
+      const inferred = inferRelationshipsForNewLink(
+        useFamilyStore.getState().relationships,
         finalProfile.id,
         rel.relativeId,
         rel.type
@@ -895,23 +845,6 @@ function useFamilyDataController(): FamilyDataContextValue {
         );
         if (created) {
           addRelationshipToStoreIfMissing(created);
-        }
-      }
-      withDirect = useFamilyStore.getState().relationships;
-      if (rel.type === "parent" || rel.type === "child") {
-        const parentId = rel.type === "parent" ? finalProfile.id : rel.relativeId;
-        const childId = rel.type === "parent" ? rel.relativeId : finalProfile.id;
-        const inferredSiblings = inferSiblingRelationshipsFromParentChild(withDirect, parentId, childId);
-        for (const nextRel of inferredSiblings) {
-          const created = await dbAddRelationship(
-            supabase,
-            nextRel.userId,
-            nextRel.relativeId,
-            nextRel.type
-          );
-          if (created) {
-            addRelationshipToStoreIfMissing(created);
-          }
         }
       }
       await logAudit("member.added", "profile", finalProfile.id, {
@@ -972,44 +905,15 @@ function useFamilyDataController(): FamilyDataContextValue {
         };
         addRelationshipToStoreIfMissing(directRelationship);
 
-        let withDirect = useFamilyStore.getState().relationships;
-        if (type === "parent" || type === "child") {
-          const parentId = type === "parent" ? fromMemberId : toMemberId;
-          const childId = type === "parent" ? toMemberId : fromMemberId;
-          const spouseParents = inferSpouseParentRelationships(withDirect, parentId, childId);
-          spouseParents.forEach((nextRel, index) => {
-            addRelationshipToStoreIfMissing({
-              id: `rel-${Date.now()}-sp-${index}`,
-              user_id: nextRel.userId,
-              relative_id: nextRel.relativeId,
-              type: nextRel.type,
-              created_at: new Date().toISOString(),
-            });
-          });
-          withDirect = useFamilyStore.getState().relationships;
-        }
-        const inferredParents = inferSiblingParentRelationships(
-          withDirect,
+        const inferred = inferRelationshipsForNewLink(
+          useFamilyStore.getState().relationships,
           fromMemberId,
           toMemberId,
           type
         );
-        inferredParents.forEach((nextRel, index) => {
+        inferred.forEach((nextRel, index) => {
           addRelationshipToStoreIfMissing({
-            id: `rel-${Date.now()}-p-${index}`,
-            user_id: nextRel.userId,
-            relative_id: nextRel.relativeId,
-            type: nextRel.type,
-            created_at: new Date().toISOString(),
-          });
-        });
-        withDirect = useFamilyStore.getState().relationships;
-        const parentId = type === "parent" ? fromMemberId : toMemberId;
-        const childId = type === "parent" ? toMemberId : fromMemberId;
-        const inferredSiblings = inferSiblingRelationshipsFromParentChild(withDirect, parentId, childId);
-        inferredSiblings.forEach((nextRel, index) => {
-          addRelationshipToStoreIfMissing({
-            id: `rel-${Date.now()}-s-${index}`,
+            id: `rel-${Date.now()}-${index}`,
             user_id: nextRel.userId,
             relative_id: nextRel.relativeId,
             type: nextRel.type,
@@ -1032,53 +936,13 @@ function useFamilyDataController(): FamilyDataContextValue {
         marriage_date: marriageDate || null,
       });
 
-      let withDirect = useFamilyStore.getState().relationships;
-      // If one spouse has kids, infer the other spouse(s) as shared parents
-      if (type === "parent" || type === "child") {
-        const parentId = type === "parent" ? fromMemberId : toMemberId;
-        const childId = type === "parent" ? toMemberId : fromMemberId;
-        const spouseParents = inferSpouseParentRelationships(withDirect, parentId, childId);
-        for (const nextRel of spouseParents) {
-          const created = await dbAddRelationship(
-            supabase,
-            nextRel.userId,
-            nextRel.relativeId,
-            nextRel.type
-          );
-          if (created) {
-            addRelationshipToStoreIfMissing(created);
-            withDirect = useFamilyStore.getState().relationships;
-          }
-        }
-      }
-      // Infer parent links when adding sibling
-      const inferredParents = inferSiblingParentRelationships(
-        withDirect,
+      const inferred = inferRelationshipsForNewLink(
+        useFamilyStore.getState().relationships,
         fromMemberId,
         toMemberId,
         type
       );
-      for (const nextRel of inferredParents) {
-        const created = await dbAddRelationship(
-          supabase,
-          nextRel.userId,
-          nextRel.relativeId,
-          nextRel.type
-        );
-        if (created) {
-          addRelationshipToStoreIfMissing(created);
-          withDirect = useFamilyStore.getState().relationships;
-        }
-      }
-      // Infer sibling links when adding parent-child (so aunt/cousin labels resolve correctly)
-      const parentId = type === "parent" ? fromMemberId : toMemberId;
-      const childId = type === "parent" ? toMemberId : fromMemberId;
-      const inferredSiblings = inferSiblingRelationshipsFromParentChild(
-        withDirect,
-        parentId,
-        childId
-      );
-      for (const nextRel of inferredSiblings) {
+      for (const nextRel of inferred) {
         const created = await dbAddRelationship(
           supabase,
           nextRel.userId,
