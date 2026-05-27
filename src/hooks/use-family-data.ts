@@ -48,6 +48,7 @@ import { uploadAvatar, deleteAvatar, uploadProfilePhotos } from "@/lib/supabase/
 import { useFamilyStore } from "@/store/family-store";
 import type { Profile, Relationship, MedicalCondition, UserCondition, RelationshipType, AuditLog } from "@/lib/types";
 import { isConfigured as isSupabaseConfigured } from "@/lib/supabase/config";
+import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
 import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
 import { isFamilyDataCacheFresh } from "@/lib/family-data-cache";
 import { inferRelationshipsForNewLink } from "@/lib/relationship-inference";
@@ -514,7 +515,11 @@ function useFamilyDataController(): FamilyDataContextValue {
 
     try {
       // Get current auth user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (isInvalidRefreshTokenError(authError)) {
+        await supabase.auth.signOut();
+      }
 
       if (!user) {
         setFamilyId(null);

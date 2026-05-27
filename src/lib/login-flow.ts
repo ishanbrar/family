@@ -38,9 +38,11 @@ export function friendlyAuthMessage(message: string): string {
   const isLoadFailed = /load\s*failed|failed\s*to\s*fetch|network\s*error|abort/i.test(message);
   const isRateLimit = /rate\s*limit|too\s*many\s*requests|429/i.test(message);
   const isInvalidCredentials = /invalid.*login|invalid.*credentials|email.*password/i.test(message);
+  const isSessionExpired = /invalid refresh token|refresh token not found|session[_\s-]*expired/i.test(message);
   if (isTimeout) return "Supabase Auth is taking longer than expected. Please try again.";
   if (isLoadFailed) return "Could not reach Supabase Auth. Please check your internet and try again.";
   if (isRateLimit) return "Too many attempts. Please wait an hour and try again.";
+  if (isSessionExpired) return "Your session expired. Please sign in again.";
   if (isInvalidCredentials) return "Invalid email or password. Please check your credentials and try again.";
   return message;
 }

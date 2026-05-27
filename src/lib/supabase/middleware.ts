@@ -7,8 +7,15 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { isConfigured } from "./config";
+import { isInvalidRefreshTokenError } from "./auth-errors";
 import { createTimeoutFetch, SUPABASE_REQUEST_TIMEOUT_MS } from "./timeout-fetch";
 import { DEV_SUPER_ADMIN_COOKIE, DEV_SUPER_ADMIN_ENABLED } from "@/lib/dev-auth";
+
+function copyCookies(from: NextResponse, to: NextResponse) {
+  from.cookies.getAll().forEach(({ name, value }) => {
+    to.cookies.set(name, value);
+  });
+}
 
 export async function updateSession(request: NextRequest) {
   const isAuthPage =
@@ -33,11 +40,6 @@ export async function updateSession(request: NextRequest) {
 
   // In demo mode, skip all auth checks
   if (!isConfigured()) {
-    return NextResponse.next({ request });
-  }
-
-  // Auth pages should render immediately; login/signup can handle client-side auth state.
-  if (isAuthPage) {
     return NextResponse.next({ request });
   }
 
@@ -67,25 +69,45 @@ export async function updateSession(request: NextRequest) {
   );
 
   let user = null;
+  let authError: unknown = null;
+
   try {
     const result = await supabase.auth.getUser();
     user = result.data.user;
+    authError = result.error;
   } catch (error) {
+    authError = error;
     if (process.env.NODE_ENV !== "production") {
       console.warn("[Supabase middleware] Session refresh failed:", error);
     }
   }
 
+  if (isInvalidRefreshTokenError(authError)) {
+    try {
+      await supabase.auth.signOut();
+    } catch (signOutError) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[Supabase middleware] Failed to clear stale session:", signOutError);
+      }
+    }
+    user = null;
+  }
+
   if (!user && !isAuthPage && !isPublicPage && !isCallbackPage && !isDemoPage && !isPreviewPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    url.searchParams.set("error", "session_expired");
+    const redirect = NextResponse.redirect(url);
+    copyCookies(supabaseResponse, redirect);
+    return redirect;
   }
 
   if (user && isAuthPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    const redirect = NextResponse.redirect(url);
+    copyCookies(supabaseResponse, redirect);
+    return redirect;
   }
 
   return supabaseResponse;

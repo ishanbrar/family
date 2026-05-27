@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { LOCATION_SOURCE_META, LOCATION_SOURCE_ORDER } from "@/lib/location-source-meta";
+import { PROFILE_MAP_SOURCE_ACCENTS } from "@/lib/profile-locations";
 import { groupWorldCountryByMember, type WorldCountrySummary } from "@/lib/world-locations";
 
 interface CountryTileGridProps {
@@ -35,7 +36,7 @@ export function CountryTileGrid({ countries, selectedCode, onSelect, className }
   }
 
   return (
-    <div className={cn("grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-3", className)}>
+    <div className={cn("grid grid-cols-1 gap-3 sm:grid-cols-2", className)}>
       {countries.map((country, index) => {
         const active = selectedCode === country.code;
         const memberGroups = groupWorldCountryByMember(country);
@@ -56,16 +57,16 @@ export function CountryTileGrid({ countries, selectedCode, onSelect, className }
             whileTap={{ scale: 0.98 }}
             onClick={() => onSelect(country)}
             className={cn(
-              "group rounded-2xl border px-4 py-4 text-left transition-all duration-200",
+              "group w-full rounded-2xl border px-4 py-4 text-left transition-all duration-200",
               active
                 ? "border-gold-400/35 bg-gold-400/[0.08] shadow-[0_0_24px_rgba(212,175,55,0.08)]"
                 : "border-white/[0.08] bg-white/[0.02] hover:border-gold-400/20 hover:bg-white/[0.04]"
             )}
           >
             <div className="flex items-start gap-3">
-              <span className="text-2xl leading-none">{country.flag}</span>
+              <span className="shrink-0 text-2xl leading-none">{country.flag}</span>
               <div className="min-w-0 flex-1">
-                <p className="truncate font-serif text-base text-white/90">{country.name}</p>
+                <p className="font-serif text-base leading-snug text-white/90">{country.name}</p>
                 <p className="mt-1 text-[11px] text-white/38">
                   {memberGroups.length} member{memberGroups.length === 1 ? "" : "s"} · {country.locationCount} place
                   {country.locationCount === 1 ? "" : "s"}
@@ -80,7 +81,10 @@ export function CountryTileGrid({ countries, selectedCode, onSelect, className }
                   <span
                     key={source}
                     title={meta.label}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.03] text-white/55"
+                    className={cn(
+                      "inline-flex h-7 w-7 items-center justify-center rounded-full border",
+                      PROFILE_MAP_SOURCE_ACCENTS[source]
+                    )}
                   >
                     <Icon size={13} />
                   </span>

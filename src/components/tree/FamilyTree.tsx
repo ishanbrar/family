@@ -57,6 +57,7 @@ interface FamilyTreeProps {
   showHoverCard?: boolean;
   canvasWidth?: number;
   canvasHeight?: number;
+  fitPadding?: number;
   className?: string;
 }
 
@@ -85,10 +86,12 @@ export function FamilyTree({
   showHoverCard = false,
   canvasWidth = 800,
   canvasHeight = 560,
+  fitPadding = 36,
   className,
 }: FamilyTreeProps) {
   const hasHighlight = dimNonHighlighted && highlightedMembers && highlightedMembers.size > 0;
   const [hoveredMemberId, setHoveredMemberId] = useState<string | null>(null);
+  const [containerHeight, setContainerHeight] = useState<number | null>(null);
   const viewRef = useRef({ x: 0, y: 0, scale: 1 });
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 });
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -208,17 +211,21 @@ export function FamilyTree({
     const el = containerRef.current;
     if (!el || !treeBounds) return;
     const vw = el.clientWidth;
-    const vh = el.clientHeight;
-    const breathingRoom = Math.max(96, Math.min(180, Math.min(vw, vh) * 0.16));
-    const availableW = Math.max(240, vw - breathingRoom * 2);
-    const availableH = Math.max(220, vh - breathingRoom * 2);
+    const maxViewportHeight =
+      typeof window !== "undefined" ? Math.min(window.innerHeight * 0.78, 860) : 760;
+    const vh = Math.max(320, Math.min(maxViewportHeight, el.clientHeight || maxViewportHeight));
+    const padding = fitPadding;
+    const availableW = Math.max(240, vw - padding * 2);
+    const availableH = Math.max(220, vh - padding * 2);
     const treeW = Math.max(1, treeBounds.maxX - treeBounds.minX);
     const treeH = Math.max(1, treeBounds.maxY - treeBounds.minY);
-    const scale = clampScale(Math.min(0.92, availableW / treeW, availableH / treeH));
-    const x = (vw - treeW * scale) / 2 - treeBounds.minX * scale;
-    const y = (vh - treeH * scale) / 2 - treeBounds.minY * scale;
+    const scale = clampScale(Math.min(availableW / treeW, availableH / treeH));
+    const fittedHeight = Math.ceil(treeH * scale + padding * 2);
+    setContainerHeight(Math.max(280, Math.min(fittedHeight, maxViewportHeight)));
+    const x = padding + (availableW - treeW * scale) / 2 - treeBounds.minX * scale;
+    const y = padding + (availableH - treeH * scale) / 2 - treeBounds.minY * scale;
     animateTo({ x, y, scale });
-  }, [treeBounds, animateTo]);
+  }, [treeBounds, animateTo, fitPadding]);
 
   const resetZoom = useCallback(() => {
     fitToView();
@@ -300,6 +307,7 @@ export function FamilyTree({
   useEffect(() => {
     if (members.length === 0) return;
     hasAutoCenteredRef.current = false;
+    setContainerHeight(null);
     requestAnimationFrame(() => requestAnimationFrame(() => fitToView()));
   }, [layoutKey, members.length, fitToView]);
 
@@ -408,6 +416,7 @@ export function FamilyTree({
     <div
       ref={containerRef}
       className={cn("relative w-full overflow-hidden touch-none select-none cursor-grab active:cursor-grabbing", className)}
+      style={{ height: containerHeight ?? Math.min(canvasHeight, 760) }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerEnd}

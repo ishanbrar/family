@@ -89,13 +89,13 @@ export function WorldPageContent({ members, profileBasePath }: WorldPageContentP
         </div>
       </motion.div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,420px)]">
-        <GlassCard className="p-4 sm:p-5 xl:p-6">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(280px,380px)] xl:grid-cols-[minmax(0,1.45fr)_340px]">
+        <GlassCard className="flex min-w-0 flex-col p-4 sm:p-5 xl:p-6">
           <div className="mb-4">
             <h2 className="font-serif text-lg text-white/92">Family Globe</h2>
             <p className="text-xs text-white/35">Spin the globe, then click a highlighted country to open its places.</p>
           </div>
-          <div ref={globeHostRef} className="flex min-w-0 max-w-full flex-col items-center overflow-hidden">
+          <div ref={globeHostRef} className="flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden">
             <InteractiveGlobe
               members={members}
               size={globeSize}
@@ -105,7 +105,7 @@ export function WorldPageContent({ members, profileBasePath }: WorldPageContentP
           </div>
         </GlassCard>
 
-        <GlassCard className="p-4 sm:p-5">
+        <GlassCard className="flex min-w-0 flex-col p-4 sm:p-5 lg:sticky lg:top-6 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
           <div className="mb-4">
             <h2 className="font-serif text-lg text-white/92">Countries</h2>
             <p className="text-xs text-white/35">Tiles appear for every country tied to a birth town, city, or address.</p>
@@ -114,6 +114,7 @@ export function WorldPageContent({ members, profileBasePath }: WorldPageContentP
             countries={countrySummaries}
             selectedCode={selectedCountry?.code}
             onSelect={handleCountrySelect}
+            className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-1"
           />
         </GlassCard>
       </div>

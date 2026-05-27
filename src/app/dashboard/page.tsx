@@ -960,7 +960,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.45fr)_minmax(380px,520px)] 2xl:grid-cols-[minmax(0,1.55fr)_minmax(400px,540px)] gap-4 sm:gap-6 items-start">
           {/* ── Family Tree (2 cols) ─────────────── */}
           <GlassCard className="p-4 sm:p-6">
-            <div className="mx-auto w-full max-w-[980px] xl:max-w-[1020px]">
+            <div className="w-full">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-3">
                 <h2 className="font-serif text-xl font-semibold text-white/90">{familyTreeTitle}</h2>
                 <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:flex-nowrap sm:justify-end">
@@ -1019,8 +1019,9 @@ export default function DashboardPage() {
                 showCurrentCountryFlag={showCurrentCountryFlag}
                 viewResetSignal={treeViewResetSignal}
                 onMemberClick={(id) => navigateToProfile(id)}
-                canvasWidth={treeLayout.width}
-                canvasHeight={treeLayout.height}
+              canvasWidth={treeLayout.width}
+              canvasHeight={treeLayout.height}
+              fitPadding={32}
               />
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {[

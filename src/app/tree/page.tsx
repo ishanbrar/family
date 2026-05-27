@@ -570,7 +570,8 @@ export default function TreeExplorerPage() {
               onMemberClick={handleMemberClick}
               onBackgroundClick={() => setSelectedMemberId(null)}
               canvasWidth={treeLayout.width}
-              canvasHeight={Math.max(treeLayout.height, 740)}
+              canvasHeight={treeLayout.height}
+              fitPadding={32}
             />
           </GlassCard>
 
