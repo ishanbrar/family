@@ -180,7 +180,7 @@ export default function LandingPage() {
   const router = useRouter();
   const [joinCode, setJoinCode] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
-  const inviteInput = useKeyboardGuardedInput();
+  const { ref: inviteInputRef, guardedProps: inviteInputProps } = useKeyboardGuardedInput();
 
   useEffect(() => {
     const syncTheme = () => setThemeMode(resolveAppliedThemeMode());
@@ -241,7 +241,7 @@ export default function LandingPage() {
               </p>
               <form onSubmit={handleJoinByCode} className="flex gap-2 w-full">
                 <input
-                  ref={inviteInput.ref}
+                  ref={inviteInputRef}
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   placeholder="Enter invite code"
@@ -251,7 +251,7 @@ export default function LandingPage() {
                   autoCorrect="off"
                   spellCheck={false}
                   enterKeyHint="go"
-                  {...inviteInput.guardedProps}
+                  {...inviteInputProps}
                 />
                 <button
                   type="submit"

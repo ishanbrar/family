@@ -16,6 +16,7 @@ import {
   Linkedin,
   Facebook,
   Phone,
+  Globe,
   Briefcase,
   Calendar,
   User,
@@ -77,6 +78,7 @@ export function EditProfileModal({
     instagram: profile.social_links?.instagram || "",
     linkedin: profile.social_links?.linkedin || "",
     facebook: profile.social_links?.facebook || "",
+    website: profile.social_links?.website || "",
     phone_number: profile.social_links?.phone_number || "",
   });
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -106,6 +108,7 @@ export function EditProfileModal({
       instagram: profile.social_links?.instagram || "",
       linkedin: profile.social_links?.linkedin || "",
       facebook: profile.social_links?.facebook || "",
+      website: profile.social_links?.website || "",
       phone_number: profile.social_links?.phone_number || "",
     });
     setSaving(false);
@@ -160,6 +163,7 @@ export function EditProfileModal({
     if (social.instagram) cleanSocial.instagram = social.instagram;
     if (social.linkedin) cleanSocial.linkedin = social.linkedin;
     if (social.facebook) cleanSocial.facebook = social.facebook;
+    if (social.website) cleanSocial.website = social.website;
     if (social.phone_number) cleanSocial.phone_number = social.phone_number;
 
     setSaving(true);
@@ -466,6 +470,7 @@ export function EditProfileModal({
                     { key: "instagram" as const, icon: Instagram, placeholder: "username" },
                     { key: "linkedin" as const, icon: Linkedin, placeholder: "username" },
                     { key: "facebook" as const, icon: Facebook, placeholder: "username" },
+                    { key: "website" as const, icon: Globe, placeholder: "https://example.com" },
                     { key: "phone_number" as const, icon: Phone, placeholder: "+1 234 567 8900" },
                   ]).map((field) => {
                     const Icon = field.icon;

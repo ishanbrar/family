@@ -1,3 +1,5 @@
+import { LegatreeBrandLink } from "@/components/branding/LegatreeBrandLink";
+
 type SiteFooterProps = {
   variant?: "public" | "app";
 };
@@ -11,6 +13,16 @@ export function SiteFooter({ variant = "app" }: SiteFooterProps) {
   return (
     <div className={wrapperClass}>
       <div>
+        <div className="inline-flex items-center">
+          <LegatreeBrandLink
+            destination={variant === "public" ? "public" : "app"}
+            size="sm"
+            variant="plain"
+            showText={false}
+            ariaLabel="Legatree home"
+            className="opacity-90 hover:opacity-100 transition-opacity"
+          />
+        </div>
         <p className="text-xs uppercase tracking-[0.24em] text-white/35">Legatree</p>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/55">
           Family history, identity, and health in one private experience.

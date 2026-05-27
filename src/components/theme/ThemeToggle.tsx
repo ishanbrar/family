@@ -19,9 +19,6 @@ type ThemeToggleProps = {
 export function ThemeToggle({ placement = "fixed" }: ThemeToggleProps) {
   const pathname = usePathname();
 
-  if (placement === "fixed" && pathname === "/") {
-    return null;
-  }
   // Keep first render deterministic for SSR/CSR hydration parity.
   const [theme, setTheme] = useState<ThemeMode>("light");
 
@@ -41,6 +38,10 @@ export function ThemeToggle({ placement = "fixed" }: ThemeToggleProps) {
   };
 
   const isInline = placement === "inline";
+
+  if (placement === "fixed" && pathname === "/") {
+    return null;
+  }
 
   return (
     <button

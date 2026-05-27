@@ -12,6 +12,7 @@ import {
   Linkedin,
   Facebook,
   Phone,
+  Globe,
 } from "lucide-react";
 import type { SocialLinks } from "@/lib/types";
 import { cn } from "@/lib/cn";
@@ -41,12 +42,25 @@ const SOCIAL_CONFIG = [
     label: "Facebook",
   },
   {
+    key: "website" as const,
+    icon: Globe,
+    getUrl: (raw: string) => normalizeWebsiteUrl(raw),
+    label: "Website",
+  },
+  {
     key: "phone_number" as const,
     icon: Phone,
     getUrl: (number: string) => `tel:${number}`,
     label: "Phone",
   },
 ];
+
+function normalizeWebsiteUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "#";
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
 
 export function SocialDock({ links, className }: SocialDockProps) {
   const activeLinks = SOCIAL_CONFIG.filter((s) => links[s.key]);
@@ -93,7 +107,11 @@ export function SocialDock({ links, className }: SocialDockProps) {
                 text-[10px] font-medium text-white/80 app-popover opacity-0 group-hover:opacity-100
                 transition-opacity duration-200 pointer-events-none whitespace-nowrap"
             >
-              {social.key === "phone_number" ? value : `@${value}`}
+              {social.key === "phone_number"
+                ? value
+                : social.key === "website"
+                  ? value
+                  : `@${value}`}
             </span>
           </motion.a>
         );

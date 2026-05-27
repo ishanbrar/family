@@ -34,6 +34,7 @@ export const MOCK_PROFILES: Profile[] = [
     social_links: {
       instagram: "alex.montague",
       linkedin: "alexandermontague",
+      website: "alexmontague.example",
       phone_number: "+1-212-555-0142",
     },
     about_me:

@@ -4,6 +4,7 @@
  *
  * Prerequisites: `npm run build` then run this script (or use npm run capture:marketing-static).
  */
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { chromium } = require("playwright");
 const { spawn } = require("child_process");
 const path = require("path");

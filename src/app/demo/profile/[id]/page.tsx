@@ -5,6 +5,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -29,7 +30,6 @@ import { calculateGeneticMatch } from "@/lib/genetic-match";
 import { formatGenderLabel } from "@/lib/display-format";
 import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
 import { buildGoogleMapsSearchUrl } from "@/lib/maps";
-import type { Profile } from "@/lib/types";
 
 export default function DemoProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -97,9 +97,9 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
         {/* Demo banner */}
         <div className="mb-6 px-4 py-2.5 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex items-center justify-between">
           <p className="text-xs text-white/50">
-            Demo mode &mdash; <a href="/" className="text-gold-400 hover:text-gold-300 underline">Join</a>
+            Demo mode &mdash; <Link href="/" className="text-gold-400 hover:text-gold-300 underline">Join</Link>
             {" "}or{" "}
-            <a href="/" className="text-gold-400 hover:text-gold-300 underline">Create</a>
+            <Link href="/" className="text-gold-400 hover:text-gold-300 underline">Create</Link>
             {" "}your own family for the full experience.
           </p>
           <span className="text-[10px] text-white/20 bg-white/5 px-2 py-0.5 rounded-lg">DEMO</span>

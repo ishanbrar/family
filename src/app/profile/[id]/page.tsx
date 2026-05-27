@@ -146,6 +146,12 @@ export default function MemberProfilePage({
   );
   const marriageDate = spouseRelation?.marriage_date || null;
   const addressUrl = member.address ? buildGoogleMapsSearchUrl(member.address) : null;
+  const websiteUrl =
+    typeof member.social_links?.website === "string" && member.social_links.website.trim()
+      ? (/^[a-z][a-z0-9+.-]*:\/\//i.test(member.social_links.website.trim())
+          ? member.social_links.website.trim()
+          : `https://${member.social_links.website.trim()}`)
+      : null;
 
   const handleSave = async (updates: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => {
     const { avatarFile, galleryFiles, ...profileUpdates } = updates;
@@ -276,6 +282,7 @@ export default function MemberProfilePage({
                   { icon: MapPin, label: "Location", value: member.location_city },
                   { icon: MapPin, label: "Secondary Home", value: member.secondary_location_city || null },
                   { icon: MapPin, label: "Address", value: member.address, href: addressUrl },
+                  { icon: User, label: "Website", value: member.social_links?.website || null, href: websiteUrl },
                   {
                     icon: Calendar, label: "Date of Birth",
                     value: member.date_of_birth

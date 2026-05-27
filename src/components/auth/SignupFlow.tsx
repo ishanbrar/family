@@ -58,6 +58,7 @@ export function SignupFlow({ mode }: SignupFlowProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
+  const { ref: inviteInputRef, guardedProps: inviteInputProps } = useKeyboardGuardedInput();
   const [familyName, setFamilyName] = useState("");
   const [phone, setPhone] = useState("");
   const [inviteCode, setInviteCode] = useState(initialInviteCode);
@@ -65,7 +66,6 @@ export function SignupFlow({ mode }: SignupFlowProps) {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const inviteInput = useKeyboardGuardedInput();
 
   const normalizedInviteCode = normalizeInviteCode(inviteCode);
   const signInHref = isJoin ? loginPathForInvite(normalizedInviteCode) : "/login";
@@ -395,7 +395,7 @@ export function SignupFlow({ mode }: SignupFlowProps) {
               <div className="relative">
                 <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
                 <input
-                  ref={inviteInput.ref}
+                  ref={inviteInputRef}
                   type="text"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value)}
@@ -404,7 +404,7 @@ export function SignupFlow({ mode }: SignupFlowProps) {
                   autoCapitalize="none"
                   autoComplete="off"
                   className={inputClass}
-                  {...inviteInput.guardedProps}
+                  {...inviteInputProps}
                 />
               </div>
             ) : (

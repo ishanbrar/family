@@ -430,7 +430,12 @@ html.dark .app-input option {
   overflow: hidden;
   max-width: 0;
   vertical-align: bottom;
-  animation: scribe-write 1.65s cubic-bezier(0.55, 0.02, 0.2, 1) 0.12s forwards;
+  font-style: italic;
+  letter-spacing: 0.01em;
+  text-shadow:
+    0 0 0.01em rgb(0 0 0 / 0.35),
+    0 0 0.14em rgb(var(--accent-rgb) / 0.12);
+  animation: scribe-write var(--scribe-duration, 3.1s) steps(var(--scribe-steps, 28), end) 0.12s forwards;
 }
 
 .scribe-greeting::after {
@@ -442,8 +447,10 @@ html.dark .app-input option {
   vertical-align: -0.08em;
   border-radius: 999px;
   background: var(--accent-300);
-  box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.32);
-  animation: scribe-pen-lift 1.65s cubic-bezier(0.55, 0.02, 0.2, 1) 0.12s forwards;
+  box-shadow:
+    0 0 10px rgb(var(--accent-rgb) / 0.32),
+    0 0 2px rgb(0 0 0 / 0.3);
+  animation: scribe-pen-lift var(--scribe-duration, 3.1s) cubic-bezier(0.55, 0.02, 0.2, 1) 0.12s forwards;
 }
 
 @keyframes scribe-write {
@@ -452,7 +459,7 @@ html.dark .app-input option {
     opacity: 0.82;
   }
   to {
-    max-width: 24ch;
+    max-width: calc(var(--scribe-ch, 24) * 1ch);
     opacity: 1;
   }
 }

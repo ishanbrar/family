@@ -433,13 +433,12 @@ export function FamilyTree({
         <button
           type="button"
           onClick={resetZoom}
-          className="app-control h-10 min-w-[4.25rem] rounded-xl px-2.5 flex items-center justify-center"
+          className="app-control h-10 min-w-[2.75rem] rounded-xl px-2.5 flex items-center justify-center"
           aria-label="Reset family tree zoom"
           title="Fit tree to view"
         >
           <span className="inline-flex items-center gap-1">
             <RotateCcw size={14} />
-            {Math.round(view.scale * 100)}%
           </span>
         </button>
         <button

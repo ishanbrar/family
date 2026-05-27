@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { AlertTriangle, Dna, GitBranch, HeartPulse, Shield, Users } from "lucide-react";
+import { AlertTriangle, Dna, GitBranch, HeartPulse, Users } from "lucide-react";
 import { DemoSidebar } from "@/components/demo/DemoSidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -114,9 +115,9 @@ export default function DemoHealthPage() {
         >
           <p className="text-xs text-white/50">
             You&apos;re viewing the <span className="text-gold-300 font-medium">Montague</span> health timeline.{" "}
-            <a href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Join</a>
+            <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Join</Link>
             {" "}or{" "}
-            <a href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create</a>
+            <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create</Link>
             {" "}your own family to unlock private, editable health insights.
           </p>
           <span className="text-[10px] text-white/20 bg-white/5 px-2 py-0.5 rounded-lg">DEMO</span>

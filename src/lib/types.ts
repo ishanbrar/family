@@ -60,6 +60,7 @@ export interface SocialLinks {
   instagram?: string;
   linkedin?: string;
   facebook?: string;
+  website?: string;
   phone_number?: string;
 }
 
