@@ -428,7 +428,10 @@ function cityScore(city: City, q: string): number {
   if (country.includes(q)) score += 38;
   if (label.includes(q)) score += 25;
   if (aliases.some((a) => a.includes(q))) score += 45;
-  score += priorityBonus;
+
+  if (score > 0) {
+    score += priorityBonus;
+  }
 
   return score;
 }
@@ -446,7 +449,7 @@ export function getPopularCities(limit = 14): City[] {
  * USA, Canada, Europe, and India. Empty query returns popular cities.
  */
 export function searchCities(query: string, limit = 14): City[] {
-  const q = query.trim().toLowerCase();
+  const q = normalize(query.trim());
   if (!q) return getPopularCities(limit);
 
   return WORLD_CITIES
@@ -478,7 +481,7 @@ export function findCityByInput(value: string): City | null {
     if (normalize(city.name) === q) return city;
   }
 
-  const ranked = searchCities(value, 1);
+  const ranked = searchCities(normalize(value), 1);
   return ranked[0] || null;
 }
 

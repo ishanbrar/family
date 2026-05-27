@@ -10,6 +10,8 @@ interface AddressSuggestion {
   secondary: string | null;
 }
 
+type ResolvedAddressSuggestion = AddressSuggestion & { lat: number; lng: number };
+
 interface PhotonFeatureProperties {
   name?: string;
   street?: string;
@@ -46,7 +48,7 @@ interface AddressSearchProps {
   className?: string;
 }
 
-function formatSuggestion(feature: PhotonFeature): (AddressSuggestion & { lat: number; lng: number }) | null {
+function formatSuggestion(feature: PhotonFeature): ResolvedAddressSuggestion | null {
   const properties = feature.properties;
   const coordinates = feature.geometry?.coordinates;
   if (!properties || !coordinates || coordinates.length < 2) return null;
@@ -80,7 +82,7 @@ export function AddressSearch({
   className,
 }: AddressSearchProps) {
   const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<AddressSuggestion[]>([]);
+  const [results, setResults] = useState<ResolvedAddressSuggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [isFocused, setIsFocused] = useState(false);
@@ -112,7 +114,7 @@ export function AddressSearch({
         const data = (await response.json()) as PhotonResponse;
         const nextResults = (data.features || [])
           .map(formatSuggestion)
-          .filter((entry): entry is AddressSuggestion & { lat: number; lng: number } => Boolean(entry))
+          .filter((entry): entry is ResolvedAddressSuggestion => Boolean(entry))
           .filter((entry, index, array) => array.findIndex((candidate) => candidate.label === entry.label) === index);
         setResults(nextResults);
         setIsOpen(nextResults.length > 0);
@@ -134,7 +136,7 @@ export function AddressSearch({
   }, [isFocused, query]);
 
   const handleSelect = useCallback(
-    (suggestion: AddressSuggestion & { lat: number; lng: number }) => {
+    (suggestion: ResolvedAddressSuggestion) => {
       justSelectedRef.current = true;
       setQuery(suggestion.label);
       onChange(suggestion.label);

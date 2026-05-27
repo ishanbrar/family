@@ -1,4 +1,5 @@
-import { getCityCoordinates, inferCountryCodeFromCity } from "./cities";
+import { getCityCoordinates } from "./cities";
+import { inferCountryCodeFromLocation } from "./country-utils";
 import type { Profile, ProfileMapLocationSource } from "./types";
 
 export type ProfileLocationSource = ProfileMapLocationSource;
@@ -34,10 +35,10 @@ export const PROFILE_MAP_SOURCE_LABELS: Record<ProfileLocationSource, string> = 
 };
 
 export const PROFILE_MAP_SOURCE_ACCENTS: Record<ProfileLocationSource, string> = {
-  birthplace: "bg-gold-400/18 text-gold-200 border-gold-400/25",
-  current_home: "bg-emerald-400/12 text-emerald-200 border-emerald-400/20",
-  secondary_home: "bg-sky-400/12 text-sky-200 border-sky-400/20",
-  address: "bg-violet-400/12 text-violet-200 border-violet-400/20",
+  birthplace: "location-chip location-chip-birthplace",
+  current_home: "location-chip location-chip-current",
+  secondary_home: "location-chip location-chip-secondary",
+  address: "location-chip location-chip-address",
 };
 
 export const PROFILE_MAP_SOURCE_ORDER: ProfileLocationSource[] = [
@@ -76,7 +77,7 @@ function createPoint(
     member,
     source,
     city: trimmedCity,
-    countryCode: (countryCode || inferCountryCodeFromCity(trimmedCity) || "").toUpperCase() || null,
+    countryCode: (countryCode || inferCountryCodeFromLocation(trimmedCity) || "").toUpperCase() || null,
     lat: coords?.[0] ?? null,
     lng: coords?.[1] ?? null,
   };

@@ -38,6 +38,7 @@ import { groupByCountry, type CountryGroup } from "@/lib/country-utils";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { exportFamilyTreeAsImage } from "@/lib/tree-export";
+import { UpcomingMilestonesSection } from "@/components/dashboard/UpcomingMilestonesSection";
 
 export default function DemoPage() {
   const router = useRouter();
@@ -197,6 +198,12 @@ export default function DemoPage() {
           </div>
         </motion.div>
 
+        <UpcomingMilestonesSection
+          members={members}
+          relationships={relationships}
+          onMemberClick={(id) => router.push(`/demo/profile/${id}`)}
+        />
+
         {/* Main Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <GlassCard className="xl:col-span-2 p-6">
@@ -332,6 +339,7 @@ export default function DemoPage() {
                     focusCountryCode={focusedCountryCode}
                     focusSignal={focusSignal}
                     onMemberClick={(m) => navigateToProfile(m.id)}
+                    onGlobeOpen={() => router.push("/demo/world")}
                   />
                 </div>
                 {countryGroups.length > 0 && (

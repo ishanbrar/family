@@ -3,7 +3,91 @@
 // Flag emojis, alpha-3 → alpha-2 mapping, country names.
 // ══════════════════════════════════════════════════════════
 
-import { inferCountryCodeFromCity } from "./cities";
+import { inferCountryCodeFromCity, findCityByInput } from "./cities";
+
+const TRAILING_COUNTRY_CODES: Record<string, string> = {
+  "united states": "USA",
+  "united states of america": "USA",
+  usa: "USA",
+  us: "USA",
+  "u s a": "USA",
+  "united kingdom": "GBR",
+  uk: "GBR",
+  "u k": "GBR",
+  england: "GBR",
+  scotland: "GBR",
+  wales: "GBR",
+  "northern ireland": "GBR",
+  france: "FRA",
+  canada: "CAN",
+  australia: "AUS",
+  singapore: "SGP",
+  india: "IND",
+  germany: "DEU",
+  italy: "ITA",
+  spain: "ESP",
+  netherlands: "NLD",
+  japan: "JPN",
+  china: "CHN",
+  "hong kong": "HKG",
+  "new zealand": "NZL",
+  ireland: "IRL",
+  switzerland: "CHE",
+  sweden: "SWE",
+  norway: "NOR",
+  denmark: "DNK",
+  belgium: "BEL",
+  brazil: "BRA",
+  mexico: "MEX",
+};
+
+function normalizeLocationText(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** Infer ISO alpha-3 country code from a free-form location or address string. */
+export function inferCountryCodeFromLocation(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+
+  const normalized = normalizeLocationText(trimmed);
+  if (!normalized) return null;
+
+  if (TRAILING_COUNTRY_CODES[normalized]) {
+    return TRAILING_COUNTRY_CODES[normalized];
+  }
+
+  const trailingSegment = trimmed.split(",").pop()?.trim();
+  if (trailingSegment) {
+    const trailingNormalized = normalizeLocationText(trailingSegment);
+    if (TRAILING_COUNTRY_CODES[trailingNormalized]) {
+      return TRAILING_COUNTRY_CODES[trailingNormalized];
+    }
+  }
+
+  const matched = findCityByInput(trimmed);
+  if (matched) {
+    const normalizedInput = normalizeLocationText(trimmed);
+    const normalizedName = normalizeLocationText(matched.name);
+    const normalizedLabel = normalizeLocationText(matched.label);
+    if (
+      normalizedInput === normalizedName ||
+      normalizedInput === normalizedLabel ||
+      normalizedInput.startsWith(`${normalizedName} `) ||
+      normalizedLabel.startsWith(`${normalizedInput} `)
+    ) {
+      return matched.countryCode;
+    }
+  }
+
+  const fallback = inferCountryCodeFromCity(trimmed);
+  return fallback;
+}
 
 const A3_TO_A2: Record<string, string> = {
   USA: "US", GBR: "GB", FRA: "FR", AUS: "AU", CAN: "CA", DEU: "DE",

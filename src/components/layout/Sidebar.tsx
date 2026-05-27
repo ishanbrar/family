@@ -10,27 +10,55 @@ import Link from "next/link";
 import {
   LayoutDashboard,
   GitBranch,
+  Globe2,
   HeartPulse,
   User,
   Settings,
   LogOut,
+  type LucideIcon,
 } from "lucide-react";
 import { LegatreeTreeIcon } from "@/components/branding/LegatreeTreeIcon";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase/client";
 import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
 
-const NAV_ITEMS = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Family Tree", href: "/tree", icon: GitBranch },
-  { label: "Health DNA", href: "/health", icon: HeartPulse },
-  { label: "Profile", href: "/profile", icon: User },
-  { label: "Settings", href: "/settings", icon: Settings },
+interface NavItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+interface NavSection {
+  heading?: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
+  {
+    items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
+  },
+  {
+    heading: "Your Tree",
+    items: [
+      { label: "Family Tree", href: "/tree", icon: GitBranch },
+      { label: "World", href: "/world", icon: Globe2 },
+    ],
+  },
+  {
+    items: [
+      { label: "Health DNA", href: "/health", icon: HeartPulse },
+      { label: "Profile", href: "/profile", icon: User },
+      { label: "Settings", href: "/settings", icon: Settings },
+    ],
+  },
 ];
+
+const NAV_ITEMS = NAV_SECTIONS.flatMap((section) => section.items);
 
 const MOBILE_NAV_ITEMS = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
   { label: "Tree", href: "/tree", icon: GitBranch },
+  { label: "World", href: "/world", icon: Globe2 },
   { label: "Health", href: "/health", icon: HeartPulse },
   { label: "Profile", href: "/profile", icon: User },
   { label: "Settings", href: "/settings", icon: Settings },
@@ -62,6 +90,8 @@ export function Sidebar() {
     return true;
   });
 
+  let navItemIndex = 0;
+
   return (
     <>
       <motion.aside
@@ -89,27 +119,37 @@ export function Sidebar() {
         </Link>
 
         <nav className="flex-1 px-2 lg:px-3 py-4 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item, idx) => {
-            const Icon = item.icon;
-            const isActive = idx === activeDesktopIndex;
-            return (
-              <Link key={item.label} href={item.href}>
-                <motion.div whileHover={{ x: 2 }} whileTap={{ scale: 0.98 }}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200",
-                    isActive ? "bg-gold-400/10 text-gold-300" : "text-white/40 hover:text-white/70 hover:bg-white/[0.03]"
-                  )}>
-                  <Icon size={18} className="shrink-0" />
-                  <span className="hidden lg:block text-sm font-medium">{item.label}</span>
-                  {isActive && (
-                    <motion.div layoutId="sidebar-indicator"
-                      className="hidden lg:block ml-auto w-1.5 h-1.5 rounded-full bg-gold-400"
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }} />
-                  )}
-                </motion.div>
-              </Link>
-            );
-          })}
+          {NAV_SECTIONS.map((section) => (
+            <div key={section.heading || section.items[0]?.href} className="space-y-1">
+              {section.heading && (
+                <p className="hidden lg:block px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/22">
+                  {section.heading}
+                </p>
+              )}
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                const idx = navItemIndex++;
+                const isActive = idx === activeDesktopIndex;
+                return (
+                  <Link key={item.label} href={item.href}>
+                    <motion.div whileHover={{ x: 2 }} whileTap={{ scale: 0.98 }}
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200",
+                        isActive ? "bg-gold-400/10 text-gold-300" : "text-white/40 hover:text-white/70 hover:bg-white/[0.03]"
+                      )}>
+                      <Icon size={18} className="shrink-0" />
+                      <span className="hidden lg:block text-sm font-medium">{item.label}</span>
+                      {isActive && (
+                        <motion.div layoutId="sidebar-indicator"
+                          className="hidden lg:block ml-auto w-1.5 h-1.5 rounded-full bg-gold-400"
+                          transition={{ type: "spring", stiffness: 400, damping: 30 }} />
+                      )}
+                    </motion.div>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
 
           <motion.button whileHover={{ x: 2 }} whileTap={{ scale: 0.98 }}
             onClick={handleSignOut}
@@ -128,7 +168,7 @@ export function Sidebar() {
           paddingRight: "max(env(safe-area-inset-right), 0.5rem)",
         }}
       >
-        <div className="grid grid-cols-6 gap-1 px-1.5 py-2">
+        <div className="grid grid-cols-7 gap-1 px-1.5 py-2">
           {[...MOBILE_NAV_ITEMS, { label: "Sign Out", href: "#", icon: LogOut }].map((item) => {
             const Icon = item.icon;
             const isSignOut = item.label === "Sign Out";

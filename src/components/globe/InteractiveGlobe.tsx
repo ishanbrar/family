@@ -32,6 +32,8 @@ interface InteractiveGlobeProps {
   members: Profile[];
   onMemberClick?: (member: Profile) => void;
   onCountryClick?: (countryCode: string) => void;
+  /** When set, a tap/click on the globe (without dragging) opens the full World page. */
+  onGlobeOpen?: () => void;
   focusCountryCode?: string | null;
   focusSignal?: number;
   /** Globe diameter in pixels. Default 300. */
@@ -67,6 +69,7 @@ const MAP_FOCUS_ZOOM = 2.8;
 const MAP_MAX_ZOOM = 8;
 const MAP_ZOOM_STEP = 1.92;
 const AUTO_ROTATE_STEP_DEGREES = 0.21;
+const GLOBE_CLICK_DRAG_THRESHOLD = 8;
 
 const COUNTRY_NAME_ALIASES: Record<string, string[]> = {
   USA: ["United States of America", "United States"],
@@ -114,6 +117,7 @@ export function InteractiveGlobe({
   members,
   onMemberClick,
   onCountryClick,
+  onGlobeOpen,
   focusCountryCode,
   focusSignal,
   size = 420,
@@ -147,6 +151,7 @@ export function InteractiveGlobe({
   });
 
   const autoSpinRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const dragDistanceRef = useRef(0);
 
   const extractCountries = useCallback((topology: unknown): CountryFeature[] => {
     if (!topology || typeof topology !== "object") return [];
@@ -541,6 +546,7 @@ export function InteractiveGlobe({
     (e: React.PointerEvent<HTMLDivElement>) => {
       setAutoRotate(false);
       setIsDragging(true);
+      dragDistanceRef.current = 0;
       dragStart.current = {
         x: e.clientX,
         y: e.clientY,
@@ -557,6 +563,10 @@ export function InteractiveGlobe({
 
       const dx = e.clientX - dragStart.current.x;
       const dy = e.clientY - dragStart.current.y;
+      dragDistanceRef.current = Math.max(
+        dragDistanceRef.current,
+        Math.hypot(dx, dy)
+      );
 
       if (isFlatMap) {
         setMapPan({
@@ -578,8 +588,15 @@ export function InteractiveGlobe({
     setIsDragging(false);
   }, []);
 
+  const handleGlobeClick = useCallback(() => {
+    if (!onGlobeOpen) return;
+    if (dragDistanceRef.current > GLOBE_CLICK_DRAG_THRESHOLD) return;
+    onGlobeOpen();
+  }, [onGlobeOpen]);
+
   const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
+    if (onGlobeOpen) return;
     setAutoRotate(false);
 
     if (!isFlatMap) {
@@ -590,7 +607,7 @@ export function InteractiveGlobe({
     }
 
     setMapZoom((prev) => Math.min(MAP_MAX_ZOOM, prev * MAP_ZOOM_STEP));
-  }, [isFlatMap]);
+  }, [isFlatMap, onGlobeOpen]);
 
   const handleResetView = useCallback(() => {
     setIsFlatMap(false);
@@ -609,7 +626,7 @@ export function InteractiveGlobe({
       <div
         className={cn(
           "relative flex items-center justify-center select-none overflow-hidden rounded-2xl touch-none",
-          isDragging ? "cursor-grabbing" : "cursor-grab"
+          isDragging ? "cursor-grabbing" : onGlobeOpen ? "cursor-pointer" : "cursor-grab"
         )}
         style={{ width: baseSize, height: baseSize }}
         onPointerDown={handlePointerDown}
@@ -617,7 +634,21 @@ export function InteractiveGlobe({
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onClick={handleGlobeClick}
         onDoubleClick={handleDoubleClick}
+        role={onGlobeOpen ? "button" : undefined}
+        tabIndex={onGlobeOpen ? 0 : undefined}
+        aria-label={onGlobeOpen ? "Open world map" : undefined}
+        onKeyDown={
+          onGlobeOpen
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onGlobeOpen();
+                }
+              }
+            : undefined
+        }
       >
         <svg
           width={baseSize}
@@ -847,7 +878,11 @@ export function InteractiveGlobe({
         )}
 
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] text-white/20 pointer-events-none text-center px-2">
-          {isFlatMap ? "drag to pan · double-click to zoom in" : "drag to rotate · double-click to open map"}
+          {onGlobeOpen
+            ? "drag to rotate · click to open world"
+            : isFlatMap
+              ? "drag to pan · double-click to zoom in"
+              : "drag to rotate · double-click to open map"}
         </div>
 
         {loadingTopology && (

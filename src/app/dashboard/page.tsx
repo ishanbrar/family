@@ -33,6 +33,7 @@ import { GenerationInsights } from "@/components/tree/GenerationInsights";
 import { AddMemberModal } from "@/components/ui/AddMemberModal";
 import { ManageTreeModal } from "@/components/ui/ManageTreeModal";
 import { InviteFamilyModal } from "@/components/ui/InviteFamilyModal";
+import { UpcomingMilestonesSection } from "@/components/dashboard/UpcomingMilestonesSection";
 import { FamilyOnboardingWizard } from "@/components/onboarding/FamilyOnboardingWizard";
 import { useFamilyData } from "@/hooks/use-family-data";
 import { useFamilyStore } from "@/store/family-store";
@@ -929,6 +930,12 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
+        <UpcomingMilestonesSection
+          members={members}
+          relationships={relationships}
+          onMemberClick={navigateToProfile}
+        />
+
         {shouldPromptPostJoinLink({ postJoinLinkOnlyRequired, viewerHasDirectRelationship }) && (
           <div className="mb-6 rounded-2xl border border-gold-400/25 bg-gold-400/[0.08] px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
@@ -1053,6 +1060,7 @@ export default function DashboardPage() {
                   focusSignal={focusSignal}
                   onMemberClick={(member) => navigateToProfile(member.id)}
                   onCountryClick={handleFocusCountry}
+                  onGlobeOpen={() => router.push("/world")}
                 />
               </div>
             </GlassCard>

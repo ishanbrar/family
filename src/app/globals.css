@@ -56,6 +56,23 @@
   --map-marker-glow-hover: rgba(212, 165, 116, 0.5);
   --map-marker-label: rgba(255, 255, 255, 0.32);
   --map-marker-label-hover: rgba(255, 255, 255, 0.72);
+  --country-map-bg: #07111f;
+  --country-map-fill: rgba(255, 255, 255, 0.05);
+  --country-map-stroke: rgb(var(--accent-rgb) / 0.42);
+  --country-map-glow: rgb(var(--accent-rgb) / 0.12);
+  --country-map-tooltip-bg: rgba(11, 22, 40, 0.96);
+  --location-birthplace-fg: #f5d08a;
+  --location-birthplace-bg: rgb(var(--accent-rgb) / 0.16);
+  --location-birthplace-border: rgb(var(--accent-rgb) / 0.28);
+  --location-current-fg: #6ee7b7;
+  --location-current-bg: rgba(52, 211, 153, 0.14);
+  --location-current-border: rgba(52, 211, 153, 0.28);
+  --location-secondary-fg: #7dd3fc;
+  --location-secondary-bg: rgba(56, 189, 248, 0.14);
+  --location-secondary-border: rgba(56, 189, 248, 0.28);
+  --location-address-fg: #c4b5fd;
+  --location-address-bg: rgba(167, 139, 250, 0.14);
+  --location-address-border: rgba(167, 139, 250, 0.28);
   --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
 }
 
@@ -150,6 +167,23 @@ html.light {
   --map-marker-glow-hover: rgba(74, 128, 74, 0.45);
   --map-marker-label: rgba(26, 47, 26, 0.38);
   --map-marker-label-hover: rgba(26, 47, 26, 0.75);
+  --country-map-bg: #dfeadf;
+  --country-map-fill: rgba(26, 47, 26, 0.1);
+  --country-map-stroke: rgba(74, 128, 74, 0.55);
+  --country-map-glow: rgba(134, 179, 134, 0.18);
+  --country-map-tooltip-bg: rgba(255, 255, 255, 0.98);
+  --location-birthplace-fg: #7a5a1f;
+  --location-birthplace-bg: rgb(var(--accent-rgb) / 0.18);
+  --location-birthplace-border: rgb(var(--accent-rgb) / 0.34);
+  --location-current-fg: #166534;
+  --location-current-bg: rgba(22, 101, 52, 0.12);
+  --location-current-border: rgba(22, 101, 52, 0.24);
+  --location-secondary-fg: #075985;
+  --location-secondary-bg: rgba(7, 89, 133, 0.1);
+  --location-secondary-border: rgba(7, 89, 133, 0.22);
+  --location-address-fg: #5b21b6;
+  --location-address-bg: rgba(91, 33, 182, 0.1);
+  --location-address-border: rgba(91, 33, 182, 0.22);
 }
 
 html.light .app-surface [class*="text-white"],
@@ -705,6 +739,57 @@ html.light select {
 html.light select option {
   color: #0f172a;
   background-color: #ffffff;
+}
+
+.location-chip {
+  border-width: 1px;
+  border-style: solid;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.location-chip-birthplace {
+  color: var(--location-birthplace-fg);
+  background: var(--location-birthplace-bg);
+  border-color: var(--location-birthplace-border);
+}
+
+.location-chip-current {
+  color: var(--location-current-fg);
+  background: var(--location-current-bg);
+  border-color: var(--location-current-border);
+}
+
+.location-chip-secondary {
+  color: var(--location-secondary-fg);
+  background: var(--location-secondary-bg);
+  border-color: var(--location-secondary-border);
+}
+
+.location-chip-address {
+  color: var(--location-address-fg);
+  background: var(--location-address-bg);
+  border-color: var(--location-address-border);
+}
+
+.location-chip-active {
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent);
+}
+
+.country-map-shell {
+  background: var(--country-map-bg);
+  border-color: var(--surface-border);
+}
+
+.country-map-tooltip {
+  background: var(--country-map-tooltip-bg);
+  border-color: var(--surface-border);
+  color: var(--foreground);
+}
+
+html.light .bg-\[\#0a1220\],
+html.light .bg-\[\#07111f\],
+html.light .bg-\[\#0b1628\] {
+  background-color: var(--surface-bg) !important;
 }
 
 /* ── PWA: iOS safe areas for notched devices ── */

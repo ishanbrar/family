@@ -7,6 +7,7 @@
 
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, use } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
@@ -43,7 +44,11 @@ import {
   formatPersonName,
 } from "@/lib/display-format";
 import { googleMapsHrefFor } from "@/lib/maps";
-import type { ProfileLocationSource } from "@/lib/profile-locations";
+import {
+  getProfileMapLocations,
+  resolveProfileMapLocation,
+  type ProfileLocationSource,
+} from "@/lib/profile-locations";
 import type { Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 
@@ -66,6 +71,7 @@ export default function MemberProfilePage({
   } = useFamilyData();
 
   const [editOpen, setEditOpen] = useState(false);
+  const [activeMapSource, setActiveMapSource] = useState<ProfileLocationSource | null>(null);
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   const [galleryUploading, setGalleryUploading] = useState(false);
   const [galleryUploadError, setGalleryUploadError] = useState<string | null>(null);
@@ -87,6 +93,10 @@ export default function MemberProfilePage({
 
   const member = members.find((m) => m.id === id);
   const resolvedGalleryPhotos = useResolvedGalleryPhotos(member?.gallery_photos || []);
+
+  useEffect(() => {
+    setActiveMapSource(null);
+  }, [id]);
 
   if (loading) {
     return <LegatreeLoader fullScreen label="Loading profile..." />;
@@ -144,7 +154,19 @@ export default function MemberProfilePage({
       ((rel.user_id === member.id && rel.relative_id !== member.id) ||
         (rel.relative_id === member.id && rel.user_id !== member.id))
   );
+  const spouseId = spouseRelation
+    ? spouseRelation.user_id === member.id
+      ? spouseRelation.relative_id
+      : spouseRelation.user_id
+    : null;
+  const spouse = spouseId ? members.find((entry) => entry.id === spouseId) : null;
   const marriageDate = spouseRelation?.marriage_date || null;
+  const savedLocations = getProfileMapLocations(member);
+  const resolvedMapSource =
+    activeMapSource ??
+    resolveProfileMapLocation(member)?.source ??
+    savedLocations[0]?.source ??
+    null;
   const addressUrl = googleMapsHrefFor(member.address);
   const websiteUrl =
     typeof member.social_links?.website === "string" && member.social_links.website.trim()
@@ -177,9 +199,11 @@ export default function MemberProfilePage({
     }
   };
 
-  const handleMapLocationSourceChange = async (source: ProfileLocationSource) => {
-    if (!canEdit) return;
-    await updateProfile(member.id, { map_location_source: source });
+  const handleActiveMapSourceChange = async (source: ProfileLocationSource) => {
+    setActiveMapSource(source);
+    if (canEdit) {
+      await updateProfile(member.id, { map_location_source: source });
+    }
   };
 
   return (
@@ -258,6 +282,10 @@ export default function MemberProfilePage({
                 )}
               </div>
 
+              <div className="mt-4 w-full">
+                <SocialDock links={member.social_links} />
+              </div>
+
               {member.about_me && (
                 <div className="mt-5 w-full">
                   <div className="flex items-center gap-1.5 mb-2">
@@ -279,9 +307,33 @@ export default function MemberProfilePage({
                   },
                   { icon: Briefcase, label: "Profession", value: member.profession },
                   { icon: PawPrint, label: "Pets", value: member.pets.length > 0 ? member.pets.join(", ") : null },
-                  { icon: MapPin, label: "Location", value: member.location_city, href: googleMapsHrefFor(member.location_city) },
-                  { icon: MapPin, label: "Secondary Home", value: member.secondary_location_city || null, href: googleMapsHrefFor(member.secondary_location_city) },
-                  { icon: MapPin, label: "Address", value: member.address, href: addressUrl },
+                  ...(member.location_city
+                    ? [{
+                        icon: MapPin,
+                        label: "Location",
+                        value: member.location_city,
+                        mapSource: "current_home" as ProfileLocationSource,
+                        href: googleMapsHrefFor(member.location_city),
+                      }]
+                    : []),
+                  ...(member.secondary_location_city
+                    ? [{
+                        icon: MapPin,
+                        label: "Secondary Home",
+                        value: member.secondary_location_city,
+                        mapSource: "secondary_home" as ProfileLocationSource,
+                        href: googleMapsHrefFor(member.secondary_location_city),
+                      }]
+                    : []),
+                  ...(member.address
+                    ? [{
+                        icon: MapPin,
+                        label: "Address",
+                        value: member.address,
+                        mapSource: "address" as ProfileLocationSource,
+                        href: addressUrl,
+                      }]
+                    : []),
                   { icon: User, label: "Website", value: member.social_links?.website || null, href: websiteUrl },
                   {
                     icon: Calendar, label: "Date of Birth",
@@ -289,39 +341,94 @@ export default function MemberProfilePage({
                       ? `${formatDateOnly(member.date_of_birth) ?? "Not set"}${age !== null ? ` (${age})` : ""}`
                       : null,
                   },
-                  { icon: MapPin, label: "Place of Birth", value: member.place_of_birth, href: googleMapsHrefFor(member.place_of_birth) },
-                  {
-                    icon: Calendar,
-                    label: "Marriage / Anniversary",
-                    value: formatDateOnly(marriageDate),
-                  },
+                  ...(member.place_of_birth
+                    ? [{
+                        icon: MapPin,
+                        label: "Place of Birth",
+                        value: member.place_of_birth,
+                        mapSource: "birthplace" as ProfileLocationSource,
+                        href: googleMapsHrefFor(member.place_of_birth),
+                      }]
+                    : []),
                 ].map((field) => {
                   const Icon = field.icon;
+                  const isMapLocation = "mapSource" in field && field.mapSource;
                   return (
                     <div key={field.label} className="flex items-center gap-3 py-2 border-b border-white/[0.04]">
                       <Icon size={14} className="text-white/20 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-[10px] text-white/25 font-medium uppercase tracking-wider">{field.label}</p>
-                        {field.href && field.value ? (
-                          <a
-                            href={field.href}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-0.5 block break-words text-sm text-gold-300 transition-colors hover:text-gold-200"
-                          >
-                            {field.value}
-                          </a>
+                        {field.value ? (
+                          isMapLocation ? (
+                            <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void handleActiveMapSourceChange(field.mapSource!)}
+                                className={`break-words text-left text-sm transition-colors ${
+                                  resolvedMapSource === field.mapSource
+                                    ? "text-gold-300"
+                                    : "text-white/70 hover:text-gold-200"
+                                }`}
+                              >
+                                {field.value}
+                              </button>
+                              {field.href && (
+                                <a
+                                  href={field.href}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[11px] text-white/40 transition-colors hover:text-gold-300"
+                                >
+                                  Maps
+                                </a>
+                              )}
+                            </div>
+                          ) : field.href ? (
+                            <a
+                              href={field.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-0.5 block break-words text-sm text-gold-300 transition-colors hover:text-gold-200"
+                            >
+                              {field.value}
+                            </a>
+                          ) : (
+                            <p className="mt-0.5 break-words text-sm text-white/70">{field.value}</p>
+                          )
                         ) : (
-                          <p className="mt-0.5 break-words text-sm text-white/70">{field.value || "Not set"}</p>
+                          <p className="mt-0.5 break-words text-sm text-white/70">Not set</p>
                         )}
                       </div>
                     </div>
                   );
                 })}
-              </div>
 
-              <div className="mt-5">
-                <SocialDock links={member.social_links} />
+                <div className="flex items-center gap-3 py-2 border-b border-white/[0.04]">
+                  <Calendar size={14} className="text-white/20 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-white/25 font-medium uppercase tracking-wider">
+                      Marriage / Anniversary
+                    </p>
+                    {marriageDate || spouse ? (
+                      <p className="mt-0.5 break-words text-sm text-white/70">
+                        {marriageDate ? formatDateOnly(marriageDate) : "Date not set"}
+                        {spouse && (
+                          <>
+                            {" · Married to "}
+                            <Link
+                              href={`/profile/${spouse.id}`}
+                              className="text-gold-300 transition-colors hover:text-gold-200"
+                            >
+                              {formatPersonName(spouse.first_name, spouse.last_name)}
+                            </Link>
+                          </>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="mt-0.5 text-sm text-white/70">Not set</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="mt-5 w-full">
@@ -385,9 +492,10 @@ export default function MemberProfilePage({
 
           <div className="xl:col-span-2 space-y-6">
             <ProfilePlacesCard
+              key={member.id}
               profile={member}
-              canEdit={canEdit}
-              onMapLocationSourceChange={handleMapLocationSourceChange}
+              activeSource={resolvedMapSource ?? undefined}
+              onActiveSourceChange={handleActiveMapSourceChange}
             />
 
             <GlassCard className="p-6">

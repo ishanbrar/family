@@ -2,16 +2,41 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HeartPulse, LayoutDashboard, LogIn, User, GitBranch } from "lucide-react";
+import { HeartPulse, LayoutDashboard, LogIn, User, GitBranch, Globe2, type LucideIcon } from "lucide-react";
 import { LegatreeTreeIcon } from "@/components/branding/LegatreeTreeIcon";
 import { cn } from "@/lib/cn";
 
-const DEMO_NAV_ITEMS = [
-  { label: "Dashboard", href: "/demo", icon: LayoutDashboard },
-  { label: "Your Tree", href: "/demo/tree", icon: GitBranch },
-  { label: "Health DNA", href: "/demo/health", icon: HeartPulse },
-  { label: "Profile", href: "/demo/profile", icon: User },
+interface NavItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+interface NavSection {
+  heading?: string;
+  items: NavItem[];
+}
+
+const DEMO_NAV_SECTIONS: NavSection[] = [
+  {
+    items: [{ label: "Dashboard", href: "/demo", icon: LayoutDashboard }],
+  },
+  {
+    heading: "Your Tree",
+    items: [
+      { label: "Your Tree", href: "/demo/tree", icon: GitBranch },
+      { label: "World", href: "/demo/world", icon: Globe2 },
+    ],
+  },
+  {
+    items: [
+      { label: "Health DNA", href: "/demo/health", icon: HeartPulse },
+      { label: "Profile", href: "/demo/profile", icon: User },
+    ],
+  },
 ];
+
+const DEMO_NAV_ITEMS = DEMO_NAV_SECTIONS.flatMap((section) => section.items);
 
 export function DemoSidebar() {
   const pathname = usePathname();
@@ -48,25 +73,34 @@ export function DemoSidebar() {
         </Link>
 
         <nav className="flex-1 px-2 lg:px-3 py-4 space-y-1 overflow-y-auto">
-          {DEMO_NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            return (
-              <Link key={item.label} href={item.href}>
-                <div
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200",
-                    active
-                      ? "bg-gold-400/10 text-gold-300"
-                      : "text-white/40 hover:text-white/70 hover:bg-white/[0.03]"
-                  )}
-                >
-                  <Icon size={18} className="shrink-0" />
-                  <span className="hidden lg:block text-sm font-medium">{item.label}</span>
-                </div>
-              </Link>
-            );
-          })}
+          {DEMO_NAV_SECTIONS.map((section) => (
+            <div key={section.heading || section.items[0]?.href} className="space-y-1">
+              {section.heading && (
+                <p className="hidden lg:block px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/22">
+                  {section.heading}
+                </p>
+              )}
+              {section.items.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.href);
+                return (
+                  <Link key={item.label} href={item.href}>
+                    <div
+                      className={cn(
+                        "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200",
+                        active
+                          ? "bg-gold-400/10 text-gold-300"
+                          : "text-white/40 hover:text-white/70 hover:bg-white/[0.03]"
+                      )}
+                    >
+                      <Icon size={18} className="shrink-0" />
+                      <span className="hidden lg:block text-sm font-medium">{item.label}</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         <div className="px-3 pb-4">
@@ -88,7 +122,7 @@ export function DemoSidebar() {
           paddingRight: "max(env(safe-area-inset-right), 0.5rem)",
         }}
       >
-        <div className="grid grid-cols-5 gap-1 px-1.5 py-2">
+        <div className="grid grid-cols-6 gap-1 px-1.5 py-2">
           {[...DEMO_NAV_ITEMS, { label: "Sign In", href: "/login", icon: LogIn }].map((item) => {
             const Icon = item.icon;
             const active = item.href !== "/login" && isActive(item.href);
