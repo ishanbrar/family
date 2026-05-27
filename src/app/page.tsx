@@ -320,6 +320,66 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Privacy – Honest + strong */}
+        <section className="mt-16 lg:mt-20 max-w-6xl mx-auto">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+            <div className="max-w-3xl">
+              <p
+                className="text-xs uppercase tracking-widest text-white/45"
+                style={{ fontFamily: "var(--font-source-sans)" }}
+              >
+                Privacy-first by design
+              </p>
+              <h2
+                className="mt-2 text-2xl lg:text-3xl text-white/95 font-semibold"
+                style={{ fontFamily: "var(--font-source-serif)" }}
+              >
+                Built for families, not for data brokers
+              </h2>
+              <p
+                className="mt-3 text-sm lg:text-base text-white/55 leading-relaxed"
+                style={{ fontFamily: "var(--font-source-sans)" }}
+              >
+                Legatree is invite-only and family-scoped. Your family data is protected by database-enforced access
+                controls, and we don&apos;t sell your family&apos;s information.
+              </p>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                {
+                  title: "Invite-only families",
+                  body: "Joining requires an invite flow—your family stays private by default.",
+                },
+                {
+                  title: "Database-enforced access",
+                  body: "Family data is protected with Row Level Security (RLS) rules in Supabase.",
+                },
+                {
+                  title: "Private galleries",
+                  body: "Family photos live in a private storage bucket with family-scoped access rules.",
+                },
+                {
+                  title: "No data broker business model",
+                  body: "We don&apos;t sell your family data—period.",
+                },
+              ].map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"
+                >
+                  <p className="text-sm font-semibold text-white/90" style={{ fontFamily: "var(--font-source-serif)" }}>
+                    {item.title}
+                  </p>
+                  <p className="mt-1.5 text-sm text-white/55 leading-relaxed" style={{ fontFamily: "var(--font-source-sans)" }}>
+                    {item.body}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <footer className="mt-24 lg:mt-28 max-w-6xl mx-auto border-t border-white/10 pt-8">
           <SiteFooter variant="public" />
         </footer>
