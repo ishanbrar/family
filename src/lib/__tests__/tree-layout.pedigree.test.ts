@@ -172,4 +172,21 @@ describe("pedigree layout constraints", () => {
       )
     ).toBe(true);
   });
+
+  it("creates a sibling rail when siblings do not have parents in the tree", () => {
+    const members: Profile[] = [
+      profile("viewer", "Viewer", "Brar", "male"),
+      profile("sibling", "Sibling", "Brar", "male"),
+    ];
+    const relationships: Relationship[] = [
+      rel("r1", "viewer", "sibling", "sibling"),
+    ];
+
+    const tree = createFamilyTreeLayout(members, relationships, "viewer");
+
+    expect(tree.sibships).toContainEqual({
+      parents: [],
+      children: ["viewer", "sibling"],
+    });
+  });
 });

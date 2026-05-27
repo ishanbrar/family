@@ -1,4 +1,5 @@
 import type { Profile, Relationship, RelationshipType } from "./types";
+import { inferAssumedRelationships } from "./relationship-inference";
 
 export interface TreeLayoutNode {
   profile: Profile;
@@ -75,9 +76,10 @@ export function createFamilyTreeLayout(
   }
 
   const memberById = new Map(members.map((m) => [m.id, m]));
+  const effectiveRelationships = inferAssumedRelationships(relationships);
   const adjacency = new Map<string, { id: string; type: RelationshipType }[]>();
 
-  for (const rel of relationships) {
+  for (const rel of effectiveRelationships) {
     if (!adjacency.has(rel.user_id)) adjacency.set(rel.user_id, []);
     adjacency.get(rel.user_id)!.push({ id: rel.relative_id, type: rel.type });
     if (!adjacency.has(rel.relative_id)) adjacency.set(rel.relative_id, []);
@@ -90,7 +92,7 @@ export function createFamilyTreeLayout(
   const memberIds = members.map((m) => m.id);
   const undirectedAdj = new Map<string, Set<string>>();
   for (const id of memberIds) undirectedAdj.set(id, new Set());
-  for (const rel of relationships) {
+  for (const rel of effectiveRelationships) {
     if (!memberById.has(rel.user_id) || !memberById.has(rel.relative_id)) continue;
     undirectedAdj.get(rel.user_id)!.add(rel.relative_id);
     undirectedAdj.get(rel.relative_id)!.add(rel.user_id);
@@ -118,7 +120,7 @@ export function createFamilyTreeLayout(
     if (!parentIdsByChild.has(childId)) parentIdsByChild.set(childId, new Set());
     parentIdsByChild.get(childId)!.add(parentId);
   };
-  for (const rel of relationships) {
+  for (const rel of effectiveRelationships) {
     if (rel.type === "parent") addParentMapEntry(rel.user_id, rel.relative_id);
     else if (rel.type === "child") addParentMapEntry(rel.relative_id, rel.user_id);
   }
@@ -128,7 +130,7 @@ export function createFamilyTreeLayout(
   let changed = true;
   while (changed) {
     changed = false;
-    for (const rel of relationships) {
+    for (const rel of effectiveRelationships) {
       if (rel.type !== "sibling" && rel.type !== "half_sibling") continue;
       const a = rel.user_id,
         b = rel.relative_id;
@@ -291,7 +293,7 @@ export function createFamilyTreeLayout(
     if (!spouseRefineAdj.has(a)) spouseRefineAdj.set(a, new Set());
     spouseRefineAdj.get(a)!.add(b);
   };
-  for (const rel of relationships) {
+  for (const rel of effectiveRelationships) {
     if (rel.type !== "spouse") continue;
     if (!memberById.has(rel.user_id) || !memberById.has(rel.relative_id)) continue;
     addSpouseRefineLink(rel.user_id, rel.relative_id);
@@ -360,7 +362,7 @@ export function createFamilyTreeLayout(
     if (!spouseAdj.has(a)) spouseAdj.set(a, new Set());
     spouseAdj.get(a)!.add(b);
   };
-  for (const rel of relationships) {
+  for (const rel of effectiveRelationships) {
     if (rel.type !== "spouse") continue;
     if (!memberById.has(rel.user_id) || !memberById.has(rel.relative_id)) continue;
     addSpouseLink(rel.user_id, rel.relative_id);
@@ -595,7 +597,7 @@ export function createFamilyTreeLayout(
 
   // Hard post-normalization to prevent same-row overlap, especially spouse overlap.
   // 1) Keep spouse pairs separated when they are on the same generation row.
-  for (const rel of relationships) {
+  for (const rel of effectiveRelationships) {
     if (rel.type !== "spouse") continue;
     const a = positions.get(rel.user_id);
     const b = positions.get(rel.relative_id);
@@ -642,7 +644,7 @@ export function createFamilyTreeLayout(
   const connectionSet = new Set<string>();
   const connections: TreeLayoutConnection[] = [];
 
-  for (const rel of relationships) {
+  for (const rel of effectiveRelationships) {
     if (!positions.has(rel.user_id) || !positions.has(rel.relative_id)) continue;
 
     if (rel.type === "spouse") {
@@ -701,6 +703,45 @@ export function createFamilyTreeLayout(
   for (const { parents, children } of childrenByParents.values()) {
     if (children.length > 0) {
       sibships.push({ parents, children });
+    }
+  }
+
+  const siblingAdj = new Map<string, Set<string>>();
+  const addSiblingLink = (a: string, b: string) => {
+    if (!positions.has(a) || !positions.has(b)) return;
+    if (!siblingAdj.has(a)) siblingAdj.set(a, new Set());
+    if (!siblingAdj.has(b)) siblingAdj.set(b, new Set());
+    siblingAdj.get(a)!.add(b);
+    siblingAdj.get(b)!.add(a);
+  };
+  for (const rel of effectiveRelationships) {
+    if (rel.type !== "sibling" && rel.type !== "half_sibling") continue;
+    addSiblingLink(rel.user_id, rel.relative_id);
+  }
+
+  const childIdsAlreadyInSibship = new Set(sibships.flatMap((sib) => sib.children));
+  const seenSiblingIds = new Set<string>();
+  for (const member of members) {
+    if (seenSiblingIds.has(member.id)) continue;
+    const stack = [member.id];
+    const component: string[] = [];
+    seenSiblingIds.add(member.id);
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      component.push(current);
+      const siblings = siblingAdj.get(current);
+      if (!siblings) continue;
+      for (const siblingId of siblings) {
+        if (seenSiblingIds.has(siblingId)) continue;
+        seenSiblingIds.add(siblingId);
+        stack.push(siblingId);
+      }
+    }
+    const parentlessSiblingChildren = component
+      .filter((id) => !childIdsAlreadyInSibship.has(id))
+      .sort((a, b) => (positions.get(a)?.x ?? 0) - (positions.get(b)?.x ?? 0));
+    if (parentlessSiblingChildren.length >= 2) {
+      sibships.push({ parents: [], children: parentlessSiblingChildren });
     }
   }
 

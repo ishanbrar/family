@@ -18,6 +18,7 @@
 
 import type { Relationship, RelationshipType, GeneticMatchResult, Gender } from "./types";
 import { getRelationDisplayLabel, type RelationLanguageCode } from "./relation-labels";
+import { inferAssumedRelationships } from "./relationship-inference";
 
 /** Minimal member info for resolving maternal/paternal and elder/younger labels */
 export interface MemberForLabel {
@@ -196,8 +197,10 @@ export function calculateGeneticMatch(
     return { percentage: 100, relationship: "Self", path: [viewerId] };
   }
 
+  const effectiveRelationships = inferAssumedRelationships(relationships);
+
   // Explicit sibling / half-sibling edge — always wins over inferred paths (avoids "Niece" via parent→child).
-  const directSibling = relationships.find(
+  const directSibling = effectiveRelationships.find(
     (r) =>
       (r.type === "sibling" || r.type === "half_sibling") &&
       ((r.user_id === viewerId && r.relative_id === targetId) ||
@@ -220,7 +223,7 @@ export function calculateGeneticMatch(
     };
   }
 
-  const graph = buildGraph(relationships);
+  const graph = buildGraph(effectiveRelationships);
 
   /** Prefer sibling edges in BFS so 2-hop sibling paths beat 2-hop parent/child paths. */
   const neighborSortKey = (t: RelationshipType): number => {
@@ -259,11 +262,11 @@ export function calculateGeneticMatch(
         let label: string;
         if (viewerPerspective.length === 1) {
           label =
-            resolveSpecificDirectAuntUncleLabel(viewerId, targetId, relationships) ||
+            resolveSpecificDirectAuntUncleLabel(viewerId, targetId, effectiveRelationships) ||
             RELATIONSHIP_LABELS[viewerPerspective[0]];
           // Paternal uncle: elder (Tayaji) vs younger (Chacha ji) from birth dates
           if (label === "Paternal Uncle" && members?.length) {
-            const fatherId = getViewerFatherId(viewerId, relationships, members);
+            const fatherId = getViewerFatherId(viewerId, effectiveRelationships, members);
             const father = fatherId ? members.find((m) => m.id === fatherId) : null;
             const target = members.find((m) => m.id === targetId);
             if (father?.date_of_birth && target?.date_of_birth) {
@@ -305,7 +308,7 @@ export function calculateGeneticMatch(
             else if (!maternal && !aunt) {
               label = "Paternal Uncle";
               // Elder (Tayaji) vs younger (Chacha ji) when birth dates available
-              const fatherId = getViewerFatherId(viewerId, relationships, members);
+              const fatherId = getViewerFatherId(viewerId, effectiveRelationships, members);
               const father = fatherId ? members.find((m) => m.id === fatherId) : null;
               if (father?.date_of_birth && auntOrUncle?.date_of_birth) {
                 const fBirth = new Date(father.date_of_birth).getTime();
@@ -397,6 +400,8 @@ function inferRelationship(types: RelationshipType[]): string {
     // Aunt/uncle's spouse (in-law)
     "parent→sibling→spouse": "Aunt's/Uncle's Spouse",
     "parent→parent→child→spouse": "Aunt's/Uncle's Spouse",
+    "parent→sibling→child→spouse": "First Cousin's Spouse",
+    "parent→parent→child→child→spouse": "First Cousin's Spouse",
     // In-laws
     "spouse→parent": "Parent-in-Law",
     "child→spouse": "Child-in-Law",

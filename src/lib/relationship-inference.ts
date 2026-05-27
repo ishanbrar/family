@@ -186,6 +186,98 @@ function appendInferred(
   ];
 }
 
+function inferredRelationshipId(rel: InferredRelationship, index: number): string {
+  return `inferred:${rel.type}:${rel.userId}:${rel.relativeId}:${index}`;
+}
+
+function addAssumedRelationship(
+  relationships: Relationship[],
+  inferred: InferredRelationship[],
+  userId: string,
+  relativeId: string,
+  type: InferredRelationship["type"]
+): void {
+  if (userId === relativeId) return;
+  if (type === "parent" && hasParentChildRelationship(relationships, userId, relativeId)) return;
+  if (type === "sibling" && hasSiblingRelationship(relationships, userId, relativeId)) return;
+  if (
+    inferred.some((rel) => {
+      if (rel.type !== type) return false;
+      if (type === "parent") return rel.userId === userId && rel.relativeId === relativeId;
+      return (
+        (rel.userId === userId && rel.relativeId === relativeId) ||
+        (rel.userId === relativeId && rel.relativeId === userId)
+      );
+    })
+  ) {
+    return;
+  }
+  inferred.push({ userId, relativeId, type });
+}
+
+export function inferAssumedRelationships(relationships: Relationship[]): Relationship[] {
+  let working = relationships;
+  const allInferred: InferredRelationship[] = [];
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    const inferredThisPass: InferredRelationship[] = [];
+
+    for (const rel of working) {
+      if (rel.type === "parent" || rel.type === "child") {
+        const parentId = rel.type === "parent" ? rel.user_id : rel.relative_id;
+        const childId = rel.type === "parent" ? rel.relative_id : rel.user_id;
+
+        for (const spouseId of getSpouseIds(working, parentId)) {
+          addAssumedRelationship(working, inferredThisPass, spouseId, childId, "parent");
+        }
+
+        for (const siblingId of getSharedChildren(working, parentId)) {
+          addAssumedRelationship(working, inferredThisPass, childId, siblingId, "sibling");
+        }
+      }
+
+      if (rel.type === "sibling") {
+        const parentsOfA = getParentIdsForMember(working, rel.user_id);
+        const parentsOfB = getParentIdsForMember(working, rel.relative_id);
+        for (const parentId of parentsOfA) {
+          addAssumedRelationship(working, inferredThisPass, parentId, rel.relative_id, "parent");
+        }
+        for (const parentId of parentsOfB) {
+          addAssumedRelationship(working, inferredThisPass, parentId, rel.user_id, "parent");
+        }
+      }
+    }
+
+    if (inferredThisPass.length > 0) {
+      changed = true;
+      allInferred.push(...inferredThisPass);
+      working = [
+        ...working,
+        ...inferredThisPass.map((rel, index) => ({
+          id: inferredRelationshipId(rel, allInferred.length + index),
+          user_id: rel.userId,
+          relative_id: rel.relativeId,
+          type: rel.type,
+          created_at: "",
+        })),
+      ];
+    }
+  }
+
+  return [
+    ...relationships,
+    ...allInferred.map((rel, index) => ({
+      id: inferredRelationshipId(rel, index),
+      user_id: rel.userId,
+      relative_id: rel.relativeId,
+      type: rel.type,
+      created_at: "",
+    })),
+  ];
+}
+
 export function inferRelationshipsForNewLink(
   relationshipsWithDirectLink: Relationship[],
   fromMemberId: string,
