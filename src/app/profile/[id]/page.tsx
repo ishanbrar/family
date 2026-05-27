@@ -42,6 +42,7 @@ import {
   formatPersonName,
 } from "@/lib/display-format";
 import { buildGoogleMapsSearchUrl } from "@/lib/maps";
+import type { ProfileLocationSource } from "@/lib/profile-locations";
 import type { Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 
@@ -171,6 +172,11 @@ export default function MemberProfilePage({
     } finally {
       setGalleryUploading(false);
     }
+  };
+
+  const handleMapLocationSourceChange = async (source: ProfileLocationSource) => {
+    if (!canEdit) return;
+    await updateProfile(member.id, { map_location_source: source });
   };
 
   return (
@@ -374,7 +380,11 @@ export default function MemberProfilePage({
           </GlassCard>
 
           <div className="xl:col-span-2 space-y-6">
-            <ProfilePlacesCard profile={member} />
+            <ProfilePlacesCard
+              profile={member}
+              canEdit={canEdit}
+              onMapLocationSourceChange={handleMapLocationSourceChange}
+            />
 
             <GlassCard className="p-6">
               <h3 className="font-serif text-lg font-semibold text-white/90 mb-4">Health Conditions</h3>

@@ -29,7 +29,7 @@ export default function PreviewProfileExpandedPage() {
 
   return (
     <div className="app-surface min-h-screen w-full bg-[color:var(--background)] p-6">
-      <div className="grid h-full grid-cols-[1.05fr_1.35fr] gap-5">
+      <div className="grid h-full grid-cols-1 gap-5 lg:grid-cols-[1.05fr_1.35fr]">
         <ProfileCard profile={member} geneticMatch={geneticMatch} className="max-w-none" />
 
         <div className="space-y-4">

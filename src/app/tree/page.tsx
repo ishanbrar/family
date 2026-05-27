@@ -30,7 +30,7 @@ import { useFamilyData } from "@/hooks/use-family-data";
 import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
-import { exportFamilyTreeAsImage } from "@/lib/tree-export";
+import { exportFamilyTreeAsImage, type ExportSideContent, type FamilyTreeExportOptions } from "@/lib/tree-export";
 import type { Profile, RelationshipType } from "@/lib/types";
 import {
   calculateAgeFromDateOnly,
@@ -90,7 +90,17 @@ export default function TreeExplorerPage() {
   const [savingTitle, setSavingTitle] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [relationshipModalOpen, setRelationshipModalOpen] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportingTree, setExportingTree] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportOptions, setExportOptions] = useState<FamilyTreeExportOptions>({
+    showBirthDates: true,
+    showDeathDates: true,
+    nameMode: "full",
+    avatarMode: "headshot",
+    sideContent: ["worldMap", "countries"],
+    profileMemberId: null,
+  });
 
   const treeLayout = useMemo(() => {
     if (!viewer) return { nodes: [], connections: [], sibships: [], width: 900, height: 620 };
@@ -203,9 +213,28 @@ export default function TreeExplorerPage() {
     [addMemberAction]
   );
 
+  const openExportModal = useCallback(() => {
+    setExportError(null);
+    setExportOptions((prev) => ({
+      ...prev,
+      profileMemberId: prev.profileMemberId || selectedMemberId || viewer?.id || members[0]?.id || null,
+    }));
+    setExportModalOpen(true);
+  }, [members, selectedMemberId, viewer?.id]);
+
+  const toggleExportSideContent = useCallback((content: ExportSideContent) => {
+    setExportOptions((prev) => {
+      const current = new Set(prev.sideContent);
+      if (current.has(content)) current.delete(content);
+      else current.add(content);
+      return { ...prev, sideContent: [...current] };
+    });
+  }, []);
+
   const handleExportTree = useCallback(async () => {
     if (!viewer) return;
     setExportingTree(true);
+    setExportError(null);
     try {
       await exportFamilyTreeAsImage({
         familyName: family?.name || `${viewer.last_name || "Family"} Family Tree`,
@@ -214,13 +243,15 @@ export default function TreeExplorerPage() {
         rootId: viewer.id,
         scope: "entire",
         scopeLabel: "Family Tree",
+        exportOptions,
       });
-    } catch {
-      // ignore export errors for now
+      setExportModalOpen(false);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Could not export tree image.");
     } finally {
       setExportingTree(false);
     }
-  }, [viewer, family?.name, members, relationships]);
+  }, [viewer, family?.name, members, relationships, exportOptions]);
 
   if (loading) {
     return (
@@ -267,6 +298,184 @@ export default function TreeExplorerPage() {
         onRemoveMember={removeMember}
         restrictToViewer={viewer.role !== "ADMIN"}
       />
+      <AnimatePresence>
+        {exportModalOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setExportModalOpen(false)}
+              className="fixed inset-0 app-overlay backdrop-blur-sm z-[70]"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="export-tree-title"
+              className="fixed z-[71] inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
+                sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
+                w-auto sm:w-[min(720px,94vw)] rounded-2xl app-surface border border-white/[0.08] overflow-hidden flex flex-col"
+            >
+              <div className="px-5 py-4 border-b border-white/[0.06]">
+                <h3 id="export-tree-title" className="font-serif text-lg text-white/92">Export Family Tree</h3>
+                <p className="text-xs text-white/40 mt-1">
+                  Choose labels, portraits, and the side content to include in the landscape export.
+                </p>
+              </div>
+              <div className="px-5 py-4 flex-1 min-h-0 overflow-y-auto space-y-5">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-white/42 mb-2">People</p>
+                  <div className="grid sm:grid-cols-2 gap-2.5">
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="export-name-mode"
+                        checked={exportOptions.nameMode === "full"}
+                        onChange={() => setExportOptions((prev) => ({ ...prev, nameMode: "full" }))}
+                        className="h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Full names</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="export-name-mode"
+                        checked={exportOptions.nameMode === "display"}
+                        onChange={() => setExportOptions((prev) => ({ ...prev, nameMode: "display" }))}
+                        className="h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Display names when available</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="export-avatar-mode"
+                        checked={exportOptions.avatarMode === "headshot"}
+                        onChange={() => setExportOptions((prev) => ({ ...prev, avatarMode: "headshot" }))}
+                        className="h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Headshots when available</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="export-avatar-mode"
+                        checked={exportOptions.avatarMode === "initials"}
+                        onChange={() => setExportOptions((prev) => ({ ...prev, avatarMode: "initials" }))}
+                        className="h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Initials only</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.showBirthDates}
+                        onChange={(event) => setExportOptions((prev) => ({ ...prev, showBirthDates: event.target.checked }))}
+                        className="h-4 w-4 rounded text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Birth dates</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.showDeathDates}
+                        onChange={(event) => setExportOptions((prev) => ({ ...prev, showDeathDates: event.target.checked }))}
+                        className="h-4 w-4 rounded text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Death dates</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-white/42 mb-2">Side Content</p>
+                  <div className="grid sm:grid-cols-3 gap-2.5">
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.sideContent.includes("worldMap")}
+                        onChange={() => toggleExportSideContent("worldMap")}
+                        className="mt-0.5 h-4 w-4 rounded text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span>
+                        <span className="block text-sm text-white/84">World map pins</span>
+                        <span className="block text-[11px] text-white/36 mt-0.5">No city labels; repeated cities get one numbered pin.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.sideContent.includes("countries")}
+                        onChange={() => toggleExportSideContent("countries")}
+                        className="mt-0.5 h-4 w-4 rounded text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span>
+                        <span className="block text-sm text-white/84">Country counts</span>
+                        <span className="block text-[11px] text-white/36 mt-0.5">A compact list of countries and resident totals.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.sideContent.includes("profile")}
+                        onChange={() => toggleExportSideContent("profile")}
+                        className="mt-0.5 h-4 w-4 rounded text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span>
+                        <span className="block text-sm text-white/84">Profile panel</span>
+                        <span className="block text-[11px] text-white/36 mt-0.5">Biodata and about text for one selected person.</span>
+                      </span>
+                    </label>
+                  </div>
+                  {exportOptions.sideContent.includes("profile") && (
+                    <div className="mt-3">
+                      <label className="block text-[11px] uppercase tracking-wider text-white/42 mb-1.5">Profile person</label>
+                      <select
+                        value={exportOptions.profileMemberId || ""}
+                        onChange={(event) => setExportOptions((prev) => ({ ...prev, profileMemberId: event.target.value || null }))}
+                        className="h-10 w-full rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-white/82 outline-none"
+                      >
+                        {members.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.first_name} {member.last_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                {exportError && (
+                  <div className="rounded-lg border border-red-400/20 bg-red-400/[0.08] px-3 py-2 text-xs text-red-200/90">
+                    {exportError}
+                  </div>
+                )}
+              </div>
+              <div className="px-5 py-4 border-t border-white/[0.06] flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setExportModalOpen(false)}
+                  className="px-3.5 py-2 rounded-lg text-xs text-white/55 hover:text-white/80 hover:bg-white/[0.04] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExportTree}
+                  disabled={exportingTree}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg
+                    bg-gold-400/14 border border-gold-400/24 text-xs text-gold-300
+                    hover:bg-gold-400/20 disabled:opacity-40 transition-colors"
+                >
+                  {exportingTree ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                  Download Image
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
       <main className="ml-0 md:ml-[72px] lg:ml-[240px] p-4 sm:p-6 lg:p-8 safe-mobile-bottom md:pb-8">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -310,45 +519,39 @@ export default function TreeExplorerPage() {
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => setAddModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
-                bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
-                hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
+              className="app-control inline-flex items-center justify-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl active:scale-[0.99] touch-target-44 sm:min-w-0"
             >
-              <UserPlus size={14} />
+              <UserPlus size={15} />
               Add Member
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => setRelationshipModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
-                bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
-                hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors touch-target-44 sm:min-w-0"
+              className="app-control inline-flex items-center justify-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl active:scale-[0.99] touch-target-44 sm:min-w-0"
             >
-              <Users size={14} />
+              <Users size={15} />
               Modify Relationships
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.98 }}
-              onClick={handleExportTree}
+              onClick={openExportModal}
               disabled={exportingTree}
-              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-3.5 py-2 rounded-xl border border-white/[0.12]
-                bg-white/[0.03] text-sm text-white/70 hover:text-white/90 hover:border-gold-400/30
-                hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors disabled:opacity-50 touch-target-44 sm:min-w-0"
+              className="app-control inline-flex items-center justify-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl active:scale-[0.99] disabled:opacity-50 touch-target-44 sm:min-w-0"
             >
               {exportingTree ? (
-                <Loader2 size={14} className="animate-spin" />
+                <Loader2 size={15} className="animate-spin" />
               ) : (
-                <Download size={14} />
+                <Download size={15} />
               )}
               Export Tree
             </motion.button>
             {canEditTitle && !editingTitle && (
               <button
                 onClick={startEditTitle}
-                className="min-h-[44px] h-11 sm:h-9 px-3 rounded-lg bg-white/[0.04] border border-white/[0.12] text-xs text-white/75 hover:text-white/92 hover:border-gold-400/28 hover:bg-gold-400/[0.08] active:scale-[0.98] transition-colors flex items-center touch-target-44 sm:min-w-0"
+                className="app-control h-10 min-h-[44px] px-3.5 rounded-xl active:scale-[0.99] flex items-center touch-target-44 sm:min-w-0"
               >
-                <span className="inline-flex items-center gap-1.5">
-                  <Edit3 size={12} />
+                <span className="inline-flex items-center gap-2">
+                  <Edit3 size={15} />
                   Rename tree
                 </span>
               </button>

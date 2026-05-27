@@ -141,7 +141,23 @@ export function FamilyTree({
 
   const MIN_ZOOM = 0.3;
   const MAX_ZOOM = 3;
+  const NODE_VISUAL_RADIUS = 92;
   const clampScale = (s: number) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, s));
+  const treeBounds = useMemo(() => {
+    if (members.length === 0) return null;
+    const xs = members.map((m) => m.x);
+    const ys = members.map((m) => m.y);
+    return {
+      minX: Math.min(...xs) - NODE_VISUAL_RADIUS,
+      maxX: Math.max(...xs) + NODE_VISUAL_RADIUS,
+      minY: Math.min(...ys) - NODE_VISUAL_RADIUS,
+      maxY: Math.max(...ys) + NODE_VISUAL_RADIUS + 94,
+    };
+  }, [members]);
+  const layoutKey = useMemo(
+    () => members.map((member) => `${member.profile.id}:${Math.round(member.x)}:${Math.round(member.y)}`).join("|"),
+    [members]
+  );
 
   const updateView = useCallback((next: { x: number; y: number; scale: number }) => {
     viewRef.current = next;
@@ -188,36 +204,23 @@ export function FamilyTree({
 
   const fitToView = useCallback(() => {
     const el = containerRef.current;
-    if (!el || members.length === 0) return;
-    const xs = members.map((m) => m.x);
-    const ys = members.map((m) => m.y);
-    const pad = 84;
-    const minX = Math.min(...xs) - pad;
-    const maxX = Math.max(...xs) + pad;
-    const minY = Math.min(...ys) - pad;
-    const maxY = Math.max(...ys) + pad;
-    const treeW = maxX - minX;
-    const treeH = maxY - minY;
+    if (!el || !treeBounds) return;
     const vw = el.clientWidth;
     const vh = el.clientHeight;
-    const scale = clampScale(Math.min(vw / treeW, vh / treeH));
-    const x = (vw - treeW * scale) / 2 - minX * scale;
-    const y = (vh - treeH * scale) / 2 - minY * scale;
+    const breathingRoom = Math.max(96, Math.min(180, Math.min(vw, vh) * 0.16));
+    const availableW = Math.max(240, vw - breathingRoom * 2);
+    const availableH = Math.max(220, vh - breathingRoom * 2);
+    const treeW = Math.max(1, treeBounds.maxX - treeBounds.minX);
+    const treeH = Math.max(1, treeBounds.maxY - treeBounds.minY);
+    const scale = clampScale(Math.min(0.92, availableW / treeW, availableH / treeH));
+    const x = (vw - treeW * scale) / 2 - treeBounds.minX * scale;
+    const y = (vh - treeH * scale) / 2 - treeBounds.minY * scale;
     animateTo({ x, y, scale });
-  }, [members, animateTo]);
+  }, [treeBounds, animateTo]);
 
   const resetZoom = useCallback(() => {
-    const el = containerRef.current;
-    if (!el || members.length === 0) return;
-    const xs = members.map((m) => m.x);
-    const pad = 84;
-    const minX = Math.min(...xs) - pad;
-    const maxX = Math.max(...xs) + pad;
-    const treeW = maxX - minX;
-    const x = (el.clientWidth - treeW) / 2 - minX;
-    const y = 20;
-    animateTo({ x, y, scale: 1 });
-  }, [members, animateTo]);
+    fitToView();
+  }, [fitToView]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -291,6 +294,23 @@ export function FamilyTree({
     hasAutoCenteredRef.current = true;
     requestAnimationFrame(() => requestAnimationFrame(() => fitToView()));
   }, [members.length, fitToView]);
+
+  useEffect(() => {
+    if (members.length === 0) return;
+    hasAutoCenteredRef.current = false;
+    requestAnimationFrame(() => requestAnimationFrame(() => fitToView()));
+  }, [layoutKey, members.length, fitToView]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (!hasAutoCenteredRef.current) return;
+      fitToView();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [fitToView]);
 
   useEffect(() => {
     if (viewResetSignal == null) return;
@@ -378,6 +398,10 @@ export function FamilyTree({
     zoomTo(viewRef.current.scale * 1.8, e.clientX - rect.left, e.clientY - rect.top, true);
   }, [zoomTo]);
 
+  const stopTreeControlEvent = useCallback((e: React.SyntheticEvent) => {
+    e.stopPropagation();
+  }, []);
+
   return (
     <div
       ref={containerRef}
@@ -388,49 +412,52 @@ export function FamilyTree({
       onPointerCancel={handlePointerEnd}
       onDoubleClick={handleDoubleClick}
     >
-      <div className="absolute right-2 top-2 z-30 flex items-center gap-1 rounded-xl border border-white/[0.12] bg-black/45 p-1.5 sm:p-1 backdrop-blur">
+      <div
+        className="absolute right-3 top-3 z-30 flex items-center gap-1.5 rounded-2xl app-surface p-1.5 shadow-lg"
+        onPointerDown={stopTreeControlEvent}
+        onClick={stopTreeControlEvent}
+        onDoubleClick={stopTreeControlEvent}
+      >
         <button
           type="button"
-          onPointerDown={(e) => e.stopPropagation()}
           onClick={zoomOut}
           disabled={view.scale <= MIN_ZOOM}
-          className="h-11 w-11 sm:h-7 sm:w-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+          className="app-control app-icon-button disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
           aria-label="Zoom out family tree"
+          title="Zoom out"
         >
-          <Minus size={18} className="sm:w-3.5 sm:h-3.5" />
+          <Minus size={16} />
         </button>
         <button
           type="button"
-          onPointerDown={(e) => e.stopPropagation()}
           onClick={resetZoom}
-          className="h-11 min-w-[3.5rem] sm:h-7 sm:min-w-14 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] px-2 text-xs sm:text-[11px] text-white/80 hover:bg-white/[0.09] flex items-center justify-center"
+          className="app-control h-10 min-w-[4.25rem] rounded-xl px-2.5 flex items-center justify-center"
           aria-label="Reset family tree zoom"
-          title="Reset zoom"
+          title="Fit tree to view"
         >
           <span className="inline-flex items-center gap-1">
-            <RotateCcw size={14} className="sm:w-[11px] sm:h-[11px]" />
+            <RotateCcw size={14} />
             {Math.round(view.scale * 100)}%
           </span>
         </button>
         <button
           type="button"
-          onPointerDown={(e) => e.stopPropagation()}
           onClick={fitToView}
-          className="h-11 w-11 sm:h-7 sm:w-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] flex items-center justify-center"
+          className="app-control app-icon-button flex items-center justify-center"
           aria-label="Fit tree to view"
           title="Fit to view (F)"
         >
-          <Maximize2 size={16} className="sm:w-3.5 sm:h-3.5" />
+          <Maximize2 size={16} />
         </button>
         <button
           type="button"
-          onPointerDown={(e) => e.stopPropagation()}
           onClick={zoomIn}
           disabled={view.scale >= MAX_ZOOM}
-          className="h-11 w-11 sm:h-7 sm:w-7 touch-target-44 sm:min-h-0 sm:min-w-0 rounded-lg sm:rounded-md border border-white/[0.12] bg-white/[0.04] text-white/80 hover:bg-white/[0.09] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+          className="app-control app-icon-button disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
           aria-label="Zoom in family tree"
+          title="Zoom in"
         >
-          <Plus size={18} className="sm:w-3.5 sm:h-3.5" />
+          <Plus size={16} />
         </button>
       </div>
       <div

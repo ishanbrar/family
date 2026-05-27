@@ -38,6 +38,7 @@ CREATE TABLE profiles (
   address         TEXT,
   location_lat    DOUBLE PRECISION,
   location_lng    DOUBLE PRECISION,
+  map_location_source TEXT NOT NULL DEFAULT 'current_home' CHECK (map_location_source IN ('birthplace', 'current_home', 'secondary_home')),
   pets            TEXT[] DEFAULT '{}'::TEXT[],
   social_links    JSONB DEFAULT '{}'::JSONB,
   gallery_photos  TEXT[] DEFAULT '{}'::TEXT[],

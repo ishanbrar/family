@@ -249,6 +249,48 @@ body {
   color: color-mix(in srgb, var(--foreground) 36%, transparent) !important;
 }
 
+.app-control {
+  background: color-mix(in srgb, var(--surface-bg) 76%, transparent);
+  border: 1px solid color-mix(in srgb, var(--surface-border) 90%, transparent);
+  color: color-mix(in srgb, var(--foreground) 78%, transparent);
+  font-family: var(--font-apple);
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--foreground) 5%, transparent);
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.app-control:hover {
+  background: color-mix(in srgb, var(--surface-bg) 88%, transparent);
+  border-color: rgb(var(--accent-rgb) / 0.24);
+  color: color-mix(in srgb, var(--foreground) 90%, transparent);
+}
+
+.app-control:focus-visible {
+  outline: 2px solid rgb(var(--accent-rgb) / 0.34);
+  outline-offset: 2px;
+}
+
+.app-control-primary {
+  background: rgb(var(--accent-rgb) / 0.1);
+  border-color: rgb(var(--accent-rgb) / 0.24);
+  color: color-mix(in srgb, var(--foreground) 86%, var(--accent-500) 14%);
+}
+
+.app-control-primary:hover {
+  background: rgb(var(--accent-rgb) / 0.15);
+  border-color: rgb(var(--accent-rgb) / 0.34);
+}
+
+.app-icon-button {
+  width: 2.5rem;
+  height: 2.5rem;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  border-radius: 0.75rem;
+}
+
 .app-input option {
   color: #0f172a;
   background: #ffffff;

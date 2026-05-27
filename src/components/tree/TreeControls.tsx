@@ -77,16 +77,16 @@ export function TreeControls({
     Number(!!onShowDeathYearChange && showDeathYear) +
     Number(!!onShowBirthCountryFlagChange && showBirthCountryFlag);
   const controlClass =
-    "h-10 min-h-[44px] sm:h-9 sm:min-h-0 touch-target-44 rounded-xl px-3 border border-white/[0.10] bg-white/[0.03] text-xs font-medium text-white/72 outline-none hover:bg-white/[0.05] hover:text-white/88 active:scale-[0.98] transition-colors";
+    "app-control h-10 min-h-[44px] rounded-xl px-3.5 outline-none active:scale-[0.99]";
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 flex-wrap font-sans">
       <div className="flex items-center gap-2">
-        <Filter size={12} className="text-gold-300/80" />
+        <Filter size={15} className="text-gold-300/80" />
         <select
           value={relatedByFilter || ""}
           onChange={(e) => onRelatedByFilterChange(e.target.value || null)}
-          className={controlClass}
+          className={`${controlClass} min-w-[178px] appearance-none pr-9`}
         >
           <option value="">Related By...</option>
           {members.map((member) => (
@@ -98,7 +98,7 @@ export function TreeControls({
         {relatedByFilter && (
           <button
             onClick={() => onRelatedByFilterChange(null)}
-            className="w-10 h-10 touch-target-44 rounded-xl border border-white/[0.10] bg-white/[0.03] text-white/55 hover:text-white/80 hover:bg-white/[0.05] flex items-center justify-center transition-colors"
+            className="app-control app-icon-button flex items-center justify-center"
             aria-label="Clear related by"
           >
             <X size={14} />
@@ -110,16 +110,16 @@ export function TreeControls({
         <button
           type="button"
           onClick={() => setOptionsOpen((prev) => !prev)}
-          className={`${controlClass} inline-flex items-center gap-1.5`}
+          className={`${controlClass} inline-flex items-center gap-2`}
           aria-haspopup="menu"
           aria-expanded={optionsOpen}
         >
-          <SlidersHorizontal size={12} />
+          <SlidersHorizontal size={15} />
           Display
-          <span className="inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-gold-400/18 text-[10px] text-gold-300/90">
+          <span className="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-gold-400/16 text-xs text-gold-300/90">
             {optionCount}
           </span>
-          <ChevronDown size={12} className={optionsOpen ? "rotate-180 transition-transform" : "transition-transform"} />
+          <ChevronDown size={14} className={optionsOpen ? "rotate-180 transition-transform" : "transition-transform"} />
         </button>
 
         {optionsOpen && (
@@ -194,10 +194,10 @@ export function TreeControls({
         <button
           type="button"
           onClick={onResetView}
-          className={`${controlClass} inline-flex items-center gap-1.5`}
+          className={`${controlClass} inline-flex items-center gap-2`}
           title="Reset tree view"
         >
-          <RotateCcw size={12} />
+          <RotateCcw size={15} />
           Reset
         </button>
       )}

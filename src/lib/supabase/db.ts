@@ -152,6 +152,7 @@ export async function updateProfile(
   if (updates.address !== undefined) dbUpdates.address = updates.address;
   if (updates.location_lat !== undefined) dbUpdates.location_lat = updates.location_lat;
   if (updates.location_lng !== undefined) dbUpdates.location_lng = updates.location_lng;
+  if (updates.map_location_source !== undefined) dbUpdates.map_location_source = updates.map_location_source;
   if (updates.pets !== undefined) dbUpdates.pets = updates.pets;
   if (updates.social_links !== undefined) dbUpdates.social_links = updates.social_links;
   if (updates.about_me !== undefined) dbUpdates.about_me = updates.about_me;
@@ -724,6 +725,7 @@ function mapProfile(row: any): Profile {
     address: row.address || null,
     location_lat: row.location_lat,
     location_lng: row.location_lng,
+    map_location_source: row.map_location_source || "current_home",
     pets: Array.isArray(row.pets) ? row.pets : [],
     social_links: row.social_links || {},
     about_me: row.about_me || null,

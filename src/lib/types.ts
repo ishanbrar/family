@@ -21,6 +21,8 @@ export type RelationshipType =
   | "niece_nephew"
   | "cousin";
 
+export type ProfileMapLocationSource = "birthplace" | "current_home" | "secondary_home";
+
 export type ConditionSeverity = "mild" | "moderate" | "severe";
 
 export interface Profile {
@@ -40,6 +42,7 @@ export interface Profile {
   address?: string | null;
   location_lat: number | null;
   location_lng: number | null;
+  map_location_source?: ProfileMapLocationSource;
   pets: string[];
   social_links: SocialLinks;
   about_me: string | null;

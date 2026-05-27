@@ -39,7 +39,7 @@ import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import type { Profile, RelationshipType } from "@/lib/types";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
-import { exportFamilyTreeAsImage } from "@/lib/tree-export";
+import { exportFamilyTreeAsImage, type ExportSideContent, type FamilyTreeExportOptions } from "@/lib/tree-export";
 import { shouldPromptPostJoinLink } from "@/lib/flow-readiness";
 import {
   calculateAggregateYearsLived,
@@ -98,6 +98,14 @@ export default function DashboardPage() {
   const [exportScope, setExportScope] = useState<"entire" | "related">("entire");
   const [exportingTree, setExportingTree] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportOptions, setExportOptions] = useState<FamilyTreeExportOptions>({
+    showBirthDates: true,
+    showDeathDates: true,
+    nameMode: "full",
+    avatarMode: "headshot",
+    sideContent: ["worldMap", "countries"],
+    profileMemberId: null,
+  });
   const [onboardingSnoozedUntil, setOnboardingSnoozedUntil] = useState<number | null>(null);
   const [postJoinLinkOnlyRequired, setPostJoinLinkOnlyRequired] = useState(false);
   const moreActionsRef = useRef<HTMLDivElement | null>(null);
@@ -373,8 +381,21 @@ export default function DashboardPage() {
   const handleOpenExportModal = useCallback(() => {
     if (!canExportRelated) setExportScope("entire");
     setExportError(null);
+    setExportOptions((prev) => ({
+      ...prev,
+      profileMemberId: prev.profileMemberId || viewer?.id || members[0]?.id || null,
+    }));
     setExportModalOpen(true);
-  }, [canExportRelated]);
+  }, [canExportRelated, members, viewer?.id]);
+
+  const toggleExportSideContent = useCallback((content: ExportSideContent) => {
+    setExportOptions((prev) => {
+      const current = new Set(prev.sideContent);
+      if (current.has(content)) current.delete(content);
+      else current.add(content);
+      return { ...prev, sideContent: [...current] };
+    });
+  }, []);
 
   const handleExportTree = useCallback(async () => {
     if (!viewer) return;
@@ -415,6 +436,7 @@ export default function DashboardPage() {
               scopedMember ? `${scopedMember.first_name} ${scopedMember.last_name}` : "Selection"
             }`
           : "Scope: Entire Family Tree",
+        exportOptions,
       });
 
       setExportModalOpen(false);
@@ -432,6 +454,7 @@ export default function DashboardPage() {
     members,
     relationships,
     family,
+    exportOptions,
   ]);
 
   useEffect(() => {
@@ -551,7 +574,7 @@ export default function DashboardPage() {
               tabIndex={-1}
               className="fixed z-[71] inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] bottom-[calc(env(safe-area-inset-bottom)+0.75rem)]
                 sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2
-                w-auto sm:w-[min(560px,94vw)] rounded-2xl app-surface border border-white/[0.08] overflow-hidden"
+                w-auto sm:w-[min(720px,94vw)] rounded-2xl app-surface border border-white/[0.08] overflow-hidden flex flex-col"
             >
               <div className="px-5 py-4 border-b border-white/[0.06]">
                 <h3 id="export-tree-title" className="font-serif text-lg text-white/92">Export Family Tree Image</h3>
@@ -559,7 +582,8 @@ export default function DashboardPage() {
                   Generates a high-resolution landscape PNG in an old-school print style.
                 </p>
               </div>
-              <div className="px-5 py-4 space-y-3">
+              <div className="px-5 py-4 flex-1 min-h-0 overflow-y-auto space-y-5">
+                <div className="space-y-3">
                 <label className="flex items-start gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
                   <input
                     type="radio"
@@ -603,6 +627,129 @@ export default function DashboardPage() {
                     )}
                   </span>
                 </label>
+                </div>
+
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-white/42 mb-2">People</p>
+                  <div className="grid sm:grid-cols-2 gap-2.5">
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="dashboard-export-name-mode"
+                        checked={exportOptions.nameMode === "full"}
+                        onChange={() => setExportOptions((prev) => ({ ...prev, nameMode: "full" }))}
+                        className="h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Full names</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="dashboard-export-name-mode"
+                        checked={exportOptions.nameMode === "display"}
+                        onChange={() => setExportOptions((prev) => ({ ...prev, nameMode: "display" }))}
+                        className="h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Display names when available</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="dashboard-export-avatar-mode"
+                        checked={exportOptions.avatarMode === "headshot"}
+                        onChange={() => setExportOptions((prev) => ({ ...prev, avatarMode: "headshot" }))}
+                        className="h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Headshots when available</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="dashboard-export-avatar-mode"
+                        checked={exportOptions.avatarMode === "initials"}
+                        onChange={() => setExportOptions((prev) => ({ ...prev, avatarMode: "initials" }))}
+                        className="h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Initials only</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.showBirthDates}
+                        onChange={(event) => setExportOptions((prev) => ({ ...prev, showBirthDates: event.target.checked }))}
+                        className="h-4 w-4 rounded text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Birth dates</span>
+                    </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.showDeathDates}
+                        onChange={(event) => setExportOptions((prev) => ({ ...prev, showDeathDates: event.target.checked }))}
+                        className="h-4 w-4 rounded text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span className="text-sm text-white/82">Death dates</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-white/42 mb-2">Side Content</p>
+                  <div className="grid sm:grid-cols-3 gap-2.5">
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.sideContent.includes("worldMap")}
+                        onChange={() => toggleExportSideContent("worldMap")}
+                        className="mt-0.5 h-4 w-4 rounded text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span>
+                        <span className="block text-sm text-white/84">World map pins</span>
+                        <span className="block text-[11px] text-white/36 mt-0.5">No labels; repeated cities get numbered pins.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.sideContent.includes("countries")}
+                        onChange={() => toggleExportSideContent("countries")}
+                        className="mt-0.5 h-4 w-4 rounded text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span>
+                        <span className="block text-sm text-white/84">Country counts</span>
+                        <span className="block text-[11px] text-white/36 mt-0.5">Countries and resident totals.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={exportOptions.sideContent.includes("profile")}
+                        onChange={() => toggleExportSideContent("profile")}
+                        className="mt-0.5 h-4 w-4 rounded text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span>
+                        <span className="block text-sm text-white/84">Profile panel</span>
+                        <span className="block text-[11px] text-white/36 mt-0.5">Biodata and about text for one person.</span>
+                      </span>
+                    </label>
+                  </div>
+                  {exportOptions.sideContent.includes("profile") && (
+                    <div className="mt-3">
+                      <label className="block text-[11px] uppercase tracking-wider text-white/42 mb-1.5">Profile person</label>
+                      <select
+                        value={exportOptions.profileMemberId || ""}
+                        onChange={(event) => setExportOptions((prev) => ({ ...prev, profileMemberId: event.target.value || null }))}
+                        className="h-10 w-full rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-white/82 outline-none"
+                      >
+                        {members.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.first_name} {member.last_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
 
                 {exportError && (
                   <div className="rounded-lg border border-red-400/20 bg-red-400/[0.08] px-3 py-2 text-xs text-red-200/90">
@@ -660,11 +807,9 @@ export default function DashboardPage() {
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setInviteModalOpen(true)}
-                  className="inline-flex items-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl border border-gold-400/18
-                    bg-gold-400/[0.08] text-sm text-gold-300 hover:text-gold-200 hover:bg-gold-400/[0.12]
-                    active:scale-[0.98] transition-colors touch-target-44"
+                  className="app-control app-control-primary inline-flex items-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl active:scale-[0.99] touch-target-44"
                 >
-                  <MailPlus size={14} />
+                  <MailPlus size={15} />
                   Invite Family
                 </motion.button>
               )}
@@ -674,13 +819,11 @@ export default function DashboardPage() {
                   whileTap={{ scale: 0.98 }}
                   type="button"
                   onClick={() => setMoreActionsOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl border border-white/[0.10]
-                    bg-white/[0.03] text-sm text-white/72 hover:text-white/88 hover:bg-white/[0.05]
-                    active:scale-[0.98] transition-colors touch-target-44"
+                  className="app-control inline-flex items-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl active:scale-[0.99] touch-target-44"
                   aria-haspopup="menu"
                   aria-expanded={moreActionsOpen}
                 >
-                  <MoreHorizontal size={14} />
+                  <MoreHorizontal size={15} />
                   More
                 </motion.button>
 
@@ -739,7 +882,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/25" />
+              <Search size={18} className="app-input-icon absolute left-4 top-1/2 -translate-y-1/2" />
               <input
                 value={memberSearchQuery}
                 onChange={(e) => {
@@ -749,7 +892,7 @@ export default function DashboardPage() {
                 onFocus={() => setMemberSearchOpen(true)}
                 onBlur={() => setTimeout(() => setMemberSearchOpen(false), 120)}
                 placeholder="Search members..."
-                className="w-full h-11 sm:h-10 min-h-[44px] rounded-xl pl-9 pr-3 app-input text-sm outline-none transition-colors"
+                className="w-full h-12 min-h-[44px] rounded-2xl pl-12 pr-4 app-input font-sans text-sm font-medium outline-none transition-colors"
               />
 
               {memberSearchOpen && (
