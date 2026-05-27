@@ -307,8 +307,10 @@ export function FamilyTree({
   useEffect(() => {
     if (members.length === 0) return;
     hasAutoCenteredRef.current = false;
-    setContainerHeight(null);
-    requestAnimationFrame(() => requestAnimationFrame(() => fitToView()));
+    requestAnimationFrame(() => {
+      setContainerHeight(null);
+      requestAnimationFrame(() => fitToView());
+    });
   }, [layoutKey, members.length, fitToView]);
 
   useEffect(() => {
@@ -442,13 +444,11 @@ export function FamilyTree({
         <button
           type="button"
           onClick={resetZoom}
-          className="app-control h-10 min-w-[2.75rem] rounded-xl px-2.5 flex items-center justify-center"
+          className="app-control app-icon-button flex items-center justify-center"
           aria-label="Reset family tree zoom"
           title="Fit tree to view"
         >
-          <span className="inline-flex items-center gap-1">
-            <RotateCcw size={14} />
-          </span>
+          <RotateCcw size={16} />
         </button>
         <button
           type="button"

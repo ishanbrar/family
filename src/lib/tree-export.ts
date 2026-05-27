@@ -263,13 +263,13 @@ function drawWorldMapPanel(
   ctx.fillText("Current homes and secondary residences.", x + 34, y + 80);
 
   const mapX = x + 34;
-  const mapY = y + 128;
   const mapW = width - 68;
-  const mapH = height - 168;
+  const mapH = Math.min(height - 168, Math.round(mapW * 0.56));
+  const mapY = y + 128 + Math.max(0, (height - 168 - mapH) / 2);
   drawRoundedRect(ctx, mapX, mapY, mapW, mapH, 22);
   const ocean = ctx.createLinearGradient(mapX, mapY, mapX, mapY + mapH);
-  ocean.addColorStop(0, "#eef4f0");
-  ocean.addColorStop(1, "#e4ece5");
+  ocean.addColorStop(0, "#eef5f1");
+  ocean.addColorStop(1, "#dde9e1");
   ctx.fillStyle = ocean;
   ctx.fill();
   ctx.save();
@@ -295,10 +295,10 @@ function drawWorldMapPanel(
     for (const country of countries) {
       ctx.beginPath();
       path(country as never);
-      ctx.fillStyle = "#d9cdb7";
+      ctx.fillStyle = "#d6c7ac";
       ctx.fill();
-      ctx.strokeStyle = "rgba(96,82,58,0.22)";
-      ctx.lineWidth = 0.75;
+      ctx.strokeStyle = "rgba(91,76,50,0.28)";
+      ctx.lineWidth = 0.9;
       ctx.stroke();
     }
   } else {
@@ -618,19 +618,24 @@ export async function exportFamilyTreeAsImage({
     preferAncestorRoot: preferAncestorRoot ?? false,
   });
 
-  const horizontalPadding = 220;
-  const panelWidth = 1160;
-  const sidePanelGap = 130;
+  const residenceCountries = collectResidenceCountries(members);
+  const residencePins = collectResidencePins(members);
+  const countryPanelHeight = sideContent.has("countries")
+    ? Math.max(300, 138 + residenceCountries.length * 48)
+    : 0;
+
+  const horizontalPadding = 150;
+  const panelWidth = 1350;
+  const sidePanelGap = 80;
   const hasLeftPanel = sideContent.has("worldMap");
   const hasRightPanel = sideContent.has("countries") || sideContent.has("profile");
   const leftClearance = horizontalPadding + (hasLeftPanel ? panelWidth + sidePanelGap : 0);
   const rightClearance = horizontalPadding + (hasRightPanel ? panelWidth + sidePanelGap : 0);
-  const topPadding = 370;
-  const bottomPadding = 190;
-  const maxCanvasWidth = 7200;
-  const minCanvasWidth = 5600;
-  const minCanvasHeight = 3150;
-  const targetScale = 2.35;
+  const topPadding = 300;
+  const bottomPadding = 160;
+  const maxCanvasWidth = 8200;
+  const minCanvasWidth = 6400;
+  const targetScale = 3.05;
   const width = Math.max(
     minCanvasWidth,
     Math.min(
@@ -642,7 +647,21 @@ export async function exportFamilyTreeAsImage({
     targetScale,
     (width - leftClearance - rightClearance) / Math.max(tree.width, 1)
   );
-  const height = Math.max(minCanvasHeight, Math.ceil(topPadding + tree.height * scale + bottomPadding));
+  const sidebarY = topPadding + 12;
+  const mapPanelHeight = sideContent.has("worldMap") ? Math.round(panelWidth * 0.74) : 0;
+  const profilePanelHeight = sideContent.has("profile")
+    ? Math.max(1380, sideContent.has("countries") ? Math.round(panelWidth * 1.04) : Math.round(panelWidth * 1.2))
+    : 0;
+  const rightStackHeight =
+    profilePanelHeight +
+    (profilePanelHeight && countryPanelHeight ? 34 : 0) +
+    countryPanelHeight;
+  const sideStackHeight = Math.max(mapPanelHeight, rightStackHeight);
+  const height = Math.max(
+    2280,
+    Math.ceil(topPadding + tree.height * scale + bottomPadding),
+    Math.ceil(sidebarY + sideStackHeight + bottomPadding + 24)
+  );
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -706,12 +725,6 @@ export async function exportFamilyTreeAsImage({
   const treeOffsetY = topPadding;
   const leftSidebarX = horizontalPadding;
   const sidebarX = width - horizontalPadding - panelWidth;
-  const sidebarY = topPadding + 22;
-  const sideAvailableHeight = height - sidebarY - bottomPadding - 76;
-  const mapPanelHeight = Math.min(1060, Math.max(880, sideAvailableHeight * 0.46));
-  const profilePanelHeight = Math.min(1420, Math.max(1180, sideAvailableHeight * (sideContent.has("countries") ? 0.56 : 0.74)));
-  const residenceCountries = collectResidenceCountries(members);
-  const residencePins = collectResidencePins(members);
   const worldCountries = sideContent.has("worldMap") ? await loadWorldCountries() : [];
 
   const avatarBitmapById = new Map<string, ImageBitmap>();
