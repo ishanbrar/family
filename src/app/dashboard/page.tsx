@@ -93,6 +93,7 @@ export default function DashboardPage() {
   const [showBirthYear, setShowBirthYear] = useState(true);
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
+  const [showCurrentCountryFlag, setShowCurrentCountryFlag] = useState(false);
   const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -977,6 +978,8 @@ export default function DashboardPage() {
                     onShowDeathYearChange={setShowDeathYear}
                     showBirthCountryFlag={showBirthCountryFlag}
                     onShowBirthCountryFlagChange={setShowBirthCountryFlag}
+                    showCurrentCountryFlag={showCurrentCountryFlag}
+                    onShowCurrentCountryFlagChange={setShowCurrentCountryFlag}
                     onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
                   />
                 </div>
@@ -1011,6 +1014,7 @@ export default function DashboardPage() {
                 showBirthYear={showBirthYear}
                 showDeathYear={showDeathYear}
                 showBirthCountryFlag={showBirthCountryFlag}
+                showCurrentCountryFlag={showCurrentCountryFlag}
                 viewResetSignal={treeViewResetSignal}
                 onMemberClick={(id) => navigateToProfile(id)}
                 canvasWidth={treeLayout.width}

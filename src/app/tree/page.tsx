@@ -84,6 +84,7 @@ export default function TreeExplorerPage() {
   const [showBirthYear, setShowBirthYear] = useState(true);
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
+  const [showCurrentCountryFlag, setShowCurrentCountryFlag] = useState(false);
   const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
@@ -569,6 +570,8 @@ export default function TreeExplorerPage() {
               onShowDeathYearChange={setShowDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
               onShowBirthCountryFlagChange={setShowBirthCountryFlag}
+              showCurrentCountryFlag={showCurrentCountryFlag}
+              onShowCurrentCountryFlagChange={setShowCurrentCountryFlag}
               onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
             />
           </div>
@@ -606,6 +609,7 @@ export default function TreeExplorerPage() {
               showBirthYear={showBirthYear}
               showDeathYear={showDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
+              showCurrentCountryFlag={showCurrentCountryFlag}
               viewResetSignal={treeViewResetSignal}
               showHoverCard
               onMemberClick={handleMemberClick}

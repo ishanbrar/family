@@ -6,12 +6,12 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useCallback, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Users,
   GitBranch,
   Filter,
-  X,
   ChevronDown,
   MoreHorizontal,
   Download,
@@ -51,6 +51,7 @@ export default function DemoPage() {
   const [showBirthYear, setShowBirthYear] = useState(true);
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
+  const [showCurrentCountryFlag, setShowCurrentCountryFlag] = useState(false);
   const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [exportingTree, setExportingTree] = useState(false);
@@ -171,9 +172,9 @@ export default function DemoPage() {
           className="mb-6 px-4 py-3 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p className="text-xs text-white/50">
             You&apos;re viewing the <span className="text-gold-300 font-medium">Montague</span> sample family.{" "}
-            <a href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Join</a>
+            <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Join</Link>
             {" "}or{" "}
-            <a href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create</a>
+            <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create</Link>
             {" "}your own family to get started.
           </p>
           <span className="text-[10px] text-white/20 bg-white/5 px-2 py-0.5 rounded-lg">DEMO</span>
@@ -218,6 +219,8 @@ export default function DemoPage() {
                   onShowDeathYearChange={setShowDeathYear}
                   showBirthCountryFlag={showBirthCountryFlag}
                   onShowBirthCountryFlagChange={setShowBirthCountryFlag}
+                  showCurrentCountryFlag={showCurrentCountryFlag}
+                  onShowCurrentCountryFlagChange={setShowCurrentCountryFlag}
                   onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
                 />
 
@@ -295,6 +298,7 @@ export default function DemoPage() {
               showBirthYear={showBirthYear}
               showDeathYear={showDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
+              showCurrentCountryFlag={showCurrentCountryFlag}
               viewResetSignal={treeViewResetSignal}
               onMemberClick={(id) => navigateToProfile(id)}
               canvasWidth={treeLayout?.width}

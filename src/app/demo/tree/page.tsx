@@ -6,6 +6,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   GitBranch,
@@ -77,6 +78,7 @@ export default function DemoTreePage() {
   const [showBirthYear, setShowBirthYear] = useState(true);
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
+  const [showCurrentCountryFlag, setShowCurrentCountryFlag] = useState(false);
   const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [exportingTree, setExportingTree] = useState(false);
@@ -207,9 +209,9 @@ export default function DemoTreePage() {
         >
           <p className="text-xs text-white/50">
             Explore the full <span className="text-gold-300 font-medium">Montague</span> family tree — filters, member details, and export work in demo.{" "}
-            <a href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Join</a>
+            <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Join</Link>
             {" "}or{" "}
-            <a href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create</a>
+            <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create</Link>
             {" "}your own to edit members and relationships.
           </p>
           <span className="text-[10px] text-white/20 bg-white/5 px-2 py-0.5 rounded-lg shrink-0">DEMO</span>
@@ -285,6 +287,8 @@ export default function DemoTreePage() {
               onShowDeathYearChange={setShowDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
               onShowBirthCountryFlagChange={setShowBirthCountryFlag}
+              showCurrentCountryFlag={showCurrentCountryFlag}
+              onShowCurrentCountryFlagChange={setShowCurrentCountryFlag}
               onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
             />
           </div>
@@ -334,6 +338,7 @@ export default function DemoTreePage() {
               showBirthYear={showBirthYear}
               showDeathYear={showDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
+              showCurrentCountryFlag={showCurrentCountryFlag}
               viewResetSignal={treeViewResetSignal}
               showHoverCard
               onMemberClick={handleMemberClick}

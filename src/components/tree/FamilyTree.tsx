@@ -49,6 +49,7 @@ interface FamilyTreeProps {
   showBirthYear?: boolean;
   showDeathYear?: boolean;
   showBirthCountryFlag?: boolean;
+  showCurrentCountryFlag?: boolean;
   onMemberClick?: (id: string) => void;
   onMemberHover?: (id: string | null) => void;
   onBackgroundClick?: () => void;
@@ -76,6 +77,7 @@ export function FamilyTree({
   showBirthYear = false,
   showDeathYear = false,
   showBirthCountryFlag = false,
+  showCurrentCountryFlag = false,
   onMemberClick,
   onMemberHover,
   onBackgroundClick,
@@ -658,6 +660,10 @@ export function FamilyTree({
             member.profile.country_code ||
             inferCountryCodeFromCity(member.profile.location_city || "");
           const birthFlag = birthCountryCode ? countryFlag(birthCountryCode) : null;
+          const currentCountryCode =
+            member.profile.country_code ||
+            inferCountryCodeFromCity(member.profile.location_city || "");
+          const currentFlag = currentCountryCode ? countryFlag(currentCountryCode) : null;
 
           return (
             <motion.div
@@ -751,6 +757,11 @@ export function FamilyTree({
                   {showBirthCountryFlag && birthFlag && (
                     <p className="text-[11px] text-white/55 mt-0.5">
                       {birthFlag}
+                    </p>
+                  )}
+                  {showCurrentCountryFlag && currentFlag && (
+                    <p className="text-[11px] text-white/55 mt-0.5">
+                      {currentFlag}
                     </p>
                   )}
                   {showBirthYear && (
