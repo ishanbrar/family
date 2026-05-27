@@ -23,6 +23,11 @@ import { feature } from "topojson-client";
 import { Globe2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { buildLocationTickerItems } from "@/lib/location-summary";
+import {
+  hasCoreTerritoryFilter,
+  isPointInCountryCoreTerritory,
+  resolveCountryCodeFromFeature,
+} from "@/lib/country-map-geometry";
 import { getProfileLocationPoints, type ProfileLocationPoint } from "@/lib/profile-locations";
 import type { Profile } from "@/lib/types";
 import { inferCountryCodeFromCity, getCityCoordinates } from "@/lib/cities";
@@ -354,12 +359,16 @@ export function InteractiveGlobe({
       }
       for (const country of countries) {
         try {
-          if (
-            geoContains(country as unknown as GeoPermissibleObjects, [
-              member.lng,
-              member.lat,
-            ])
-          ) {
+          const countryCode = resolveCountryCodeFromFeature({
+            id: country.id,
+            properties: country.properties,
+          });
+          const contains =
+            countryCode && hasCoreTerritoryFilter(countryCode)
+              ? isPointInCountryCoreTerritory(member.lng, member.lat, countryCode)
+              : geoContains(country as unknown as GeoPermissibleObjects, [member.lng, member.lat]);
+
+          if (contains) {
             memberCountryByLocationKey.set(member.key, country.id);
             memberCountryIds.add(country.id);
             break;

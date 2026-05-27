@@ -48,10 +48,6 @@ export const PROFILE_MAP_SOURCE_ORDER: ProfileLocationSource[] = [
   "address",
 ];
 
-function normalizeLocationKey(city: string, countryCode: string | null): string {
-  return `${city.trim().toLowerCase()}::${countryCode || ""}`;
-}
-
 function resolveLatLng(city: string, lat?: number | null, lng?: number | null): [number, number] | null {
   if (lat != null && lng != null) {
     return [lat, lng];
@@ -149,9 +145,8 @@ export function getProfileLocationPoints(
 
   const maybePush = (point: ProfileLocationPoint | null) => {
     if (!point) return;
-    const dedupeKey = normalizeLocationKey(point.city, point.countryCode);
-    if (seen.has(dedupeKey)) return;
-    seen.add(dedupeKey);
+    if (seen.has(point.key)) return;
+    seen.add(point.key);
     points.push(point);
   };
 

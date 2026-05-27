@@ -25,8 +25,6 @@ export function WorldPageContent({ members, profileBasePath }: WorldPageContentP
   const router = useRouter();
   const globeHostRef = useRef<HTMLDivElement | null>(null);
   const [globeSize, setGlobeSize] = useState(360);
-  const [focusedCountryCode, setFocusedCountryCode] = useState<string | null>(null);
-  const [focusSignal, setFocusSignal] = useState(0);
   const [selectedCountry, setSelectedCountry] = useState<WorldCountrySummary | null>(null);
   const [countryModalOpen, setCountryModalOpen] = useState(false);
 
@@ -50,18 +48,17 @@ export function WorldPageContent({ members, profileBasePath }: WorldPageContentP
     return () => observer.disconnect();
   }, []);
 
-  const handleFocusCountry = useCallback((code: string) => {
-    setFocusedCountryCode(code);
-    setFocusSignal((prev) => prev + 1);
+  const handleCountrySelect = useCallback((country: WorldCountrySummary) => {
+    setSelectedCountry(country);
+    setCountryModalOpen(true);
   }, []);
 
-  const handleCountrySelect = useCallback(
-    (country: WorldCountrySummary) => {
-      setSelectedCountry(country);
-      setCountryModalOpen(true);
-      handleFocusCountry(country.code);
+  const handleGlobeCountryClick = useCallback(
+    (code: string) => {
+      const country = countrySummaries.find((entry) => entry.code === code.toUpperCase());
+      if (country) handleCountrySelect(country);
     },
-    [handleFocusCountry]
+    [countrySummaries, handleCountrySelect]
   );
 
   const navigateToProfile = useCallback(
@@ -96,16 +93,14 @@ export function WorldPageContent({ members, profileBasePath }: WorldPageContentP
         <GlassCard className="p-4 sm:p-5 xl:p-6">
           <div className="mb-4">
             <h2 className="font-serif text-lg text-white/92">Family Globe</h2>
-            <p className="text-xs text-white/35">Spin the globe or double-click to zoom into the flat map view.</p>
+            <p className="text-xs text-white/35">Spin the globe, then click a highlighted country to open its places.</p>
           </div>
           <div ref={globeHostRef} className="flex min-w-0 max-w-full flex-col items-center overflow-hidden">
             <InteractiveGlobe
               members={members}
               size={globeSize}
-              focusCountryCode={focusedCountryCode}
-              focusSignal={focusSignal}
               onMemberClick={(member) => navigateToProfile(member.id)}
-              onCountryClick={handleFocusCountry}
+              onCountryClick={handleGlobeCountryClick}
             />
           </div>
         </GlassCard>

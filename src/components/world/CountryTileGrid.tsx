@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { MapPin } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -14,6 +15,16 @@ interface CountryTileGridProps {
 }
 
 export function CountryTileGrid({ countries, selectedCode, onSelect, className }: CountryTileGridProps) {
+  const tileRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  useEffect(() => {
+    if (!selectedCode) return;
+    tileRefs.current.get(selectedCode)?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [selectedCode]);
+
   if (countries.length === 0) {
     return (
       <div className={cn("rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-8 text-center", className)}>
@@ -33,6 +44,10 @@ export function CountryTileGrid({ countries, selectedCode, onSelect, className }
         return (
           <motion.button
             key={country.code}
+            ref={(node) => {
+              if (node) tileRefs.current.set(country.code, node);
+              else tileRefs.current.delete(country.code);
+            }}
             type="button"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}

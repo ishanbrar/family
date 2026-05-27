@@ -127,6 +127,30 @@ export function shouldLinkLocationToGoogleMaps(location: WorldCountryPin): boole
   return location.source === "address";
 }
 
+export function filterWorldCountryLocations(
+  country: WorldCountrySummary,
+  activeSources: ReadonlySet<ProfileLocationSource>
+): WorldCountryPin[] {
+  return country.locations.filter((location) => activeSources.has(location.source));
+}
+
+export function filterWorldCountryMemberGroups(
+  country: WorldCountrySummary,
+  activeSources: ReadonlySet<ProfileLocationSource>
+): WorldCountryMemberGroup[] {
+  const filtered = filterWorldCountryLocations(country, activeSources);
+  if (filtered.length === 0) return [];
+
+  const filteredCountry: WorldCountrySummary = {
+    ...country,
+    locations: filtered,
+    locationCount: filtered.length,
+    memberCount: new Set(filtered.map((location) => location.memberId)).size,
+  };
+
+  return groupWorldCountryByMember(filteredCountry);
+}
+
 export function buildFarAndWideRows(members: Profile[]): FarAndWideRow[] {
   return members
     .map((member) => {

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { buildFarAndWideRows, buildWorldCountrySummaries } from "../world-locations";
+import { buildFarAndWideRows, buildWorldCountrySummaries, filterWorldCountryMemberGroups } from "../world-locations";
 import { inferCountryCodeFromLocation } from "../country-utils";
+import { LOCATION_SOURCE_ORDER } from "../location-source-meta";
 import { MOCK_PROFILES } from "../mock-data";
 import type { Profile } from "../types";
 
@@ -73,6 +74,32 @@ describe("inferCountryCodeFromLocation", () => {
     expect(inferCountryCodeFromLocation("Cleveland, OH, USA")).toBe("USA");
     expect(inferCountryCodeFromLocation("Inverness, United Kingdom")).toBe("GBR");
     expect(inferCountryCodeFromLocation("Singapore")).toBe("SGP");
+  });
+});
+
+describe("filterWorldCountryMemberGroups", () => {
+  it("filters locations and member groups by active source types", () => {
+    const summaries = buildWorldCountrySummaries([
+      makeProfile({
+        id: "1",
+        first_name: "Alex",
+        place_of_birth: "London, United Kingdom",
+        location_city: "New York, NY, USA",
+        address: "184 Kent Avenue, Brooklyn, NY 11249, USA",
+        country_code: "USA",
+      }),
+    ]);
+    const usa = summaries.find((entry) => entry.code === "USA");
+    expect(usa).toBeDefined();
+    if (!usa) return;
+
+    const addressOnly = filterWorldCountryMemberGroups(usa, new Set(["address"]));
+    expect(addressOnly).toHaveLength(1);
+    expect(addressOnly[0]?.locations).toHaveLength(1);
+    expect(addressOnly[0]?.locations[0]?.source).toBe("address");
+
+    const allSources = filterWorldCountryMemberGroups(usa, new Set(LOCATION_SOURCE_ORDER));
+    expect(allSources[0]?.locations.length).toBeGreaterThan(1);
   });
 });
 

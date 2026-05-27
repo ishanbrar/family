@@ -1,16 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ExternalLink, X } from "lucide-react";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 import { googleMapsHrefFor } from "@/lib/maps";
+import { PROFILE_MAP_SOURCE_ACCENTS } from "@/lib/profile-locations";
 import { LOCATION_SOURCE_META, LOCATION_SOURCE_ORDER } from "@/lib/location-source-meta";
 import {
-  groupWorldCountryByMember,
+  filterWorldCountryLocations,
+  filterWorldCountryMemberGroups,
   shouldLinkLocationToGoogleMaps,
   type WorldCountrySummary,
 } from "@/lib/world-locations";
+import type { ProfileMapLocationSource } from "@/lib/types";
 import { CountryLocationMap } from "./CountryLocationMap";
 import { cn } from "@/lib/cn";
 
@@ -57,20 +60,34 @@ function MemberHeadshot({
   );
 }
 
-function LocationLegend() {
+function LocationLegend({
+  activeSources,
+  onToggle,
+}: {
+  activeSources: ReadonlySet<ProfileMapLocationSource>;
+  onToggle: (source: ProfileMapLocationSource) => void;
+}) {
   return (
     <div className="mt-3 flex flex-wrap gap-2">
       {LOCATION_SOURCE_ORDER.map((source) => {
         const meta = LOCATION_SOURCE_META[source];
         const Icon = meta.icon;
+        const active = activeSources.has(source);
         return (
-          <span
+          <button
             key={source}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/55"
+            type="button"
+            aria-pressed={active}
+            onClick={() => onToggle(source)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-all",
+              PROFILE_MAP_SOURCE_ACCENTS[source],
+              active ? "ring-1 ring-current/25 opacity-100" : "opacity-40 hover:opacity-60"
+            )}
           >
-            <Icon size={12} className="shrink-0 opacity-80" />
+            <Icon size={12} className={cn("shrink-0", active ? "opacity-80" : "opacity-45")} />
             {meta.label}
-          </span>
+          </button>
         );
       })}
     </div>
@@ -80,11 +97,43 @@ function LocationLegend() {
 export function CountryLocationModal({ country, isOpen, onClose, onProfileClick }: CountryLocationModalProps) {
   const { dialogRef } = useAccessibleDialog({ isOpen, onClose });
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
+  const [activeSources, setActiveSources] = useState<Set<ProfileMapLocationSource>>(
+    () => new Set(LOCATION_SOURCE_ORDER)
+  );
+
+  useEffect(() => {
+    if (!country) return;
+    setActiveSources(new Set(LOCATION_SOURCE_ORDER));
+    setExpandedMemberId(null);
+  }, [country?.code]);
+
+  const filteredLocations = useMemo(
+    () => (country ? filterWorldCountryLocations(country, activeSources) : []),
+    [country, activeSources]
+  );
 
   const memberGroups = useMemo(
-    () => (country ? groupWorldCountryByMember(country) : []),
-    [country]
+    () => (country ? filterWorldCountryMemberGroups(country, activeSources) : []),
+    [country, activeSources]
   );
+
+  const filteredMemberCount = useMemo(
+    () => new Set(filteredLocations.map((location) => location.memberId)).size,
+    [filteredLocations]
+  );
+
+  const toggleSource = (source: ProfileMapLocationSource) => {
+    setActiveSources((current) => {
+      const next = new Set(current);
+      if (next.has(source)) {
+        next.delete(source);
+      } else {
+        next.add(source);
+      }
+      return next;
+    });
+    setExpandedMemberId(null);
+  };
 
   return (
     <AnimatePresence>
@@ -131,12 +180,12 @@ export function CountryLocationModal({ country, isOpen, onClose, onProfileClick 
                       {country.name}
                     </h2>
                     <p className="text-xs text-white/40">
-                      {country.memberCount} family member{country.memberCount === 1 ? "" : "s"} ·{" "}
-                      {country.locationCount} saved location{country.locationCount === 1 ? "" : "s"}
+                      {filteredMemberCount} family member{filteredMemberCount === 1 ? "" : "s"} ·{" "}
+                      {filteredLocations.length} saved location{filteredLocations.length === 1 ? "" : "s"}
                     </p>
                   </div>
                 </div>
-                <LocationLegend />
+                <LocationLegend activeSources={activeSources} onToggle={toggleSource} />
               </div>
               <button
                 type="button"
@@ -148,130 +197,138 @@ export function CountryLocationModal({ country, isOpen, onClose, onProfileClick 
             </div>
 
             <div className="overflow-y-auto px-5 py-5 sm:px-6">
-              <CountryLocationMap countryCode={country.code} pins={country.locations} />
+              <CountryLocationMap countryCode={country.code} pins={filteredLocations} />
 
-              <div className="mt-5 space-y-2">
-                {memberGroups.map((group) => {
-                  const expanded = expandedMemberId === group.memberId;
-                  return (
-                    <div
-                      key={group.memberId}
-                      className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] transition-colors hover:bg-white/[0.03]"
-                    >
-                      <div className="flex w-full items-center gap-3 px-4 py-3.5">
-                        <MemberHeadshot
-                          name={group.memberName}
-                          avatarUrl={group.memberAvatarUrl}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onProfileClick?.(group.memberId);
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedMemberId(expanded ? null : group.memberId)
-                          }
-                          className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors hover:opacity-90"
-                          aria-expanded={expanded}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium text-white/88">{group.memberName}</p>
-                            <p className="mt-0.5 text-[11px] text-white/40">
-                              {group.locations.length} connection{group.locations.length === 1 ? "" : "s"} in{" "}
-                              {country.name}
-                            </p>
-                          </div>
+              {memberGroups.length === 0 ? (
+                <div className="mt-5 rounded-2xl border border-white/[0.08] bg-white/[0.02] px-4 py-8 text-center">
+                  <p className="text-sm text-white/45">No locations match the selected filters.</p>
+                </div>
+              ) : (
+                <div className="mt-5 space-y-2">
+                  {memberGroups.map((group) => {
+                    const expanded = expandedMemberId === group.memberId;
+                    const visibleSources = group.sources.filter((source) => activeSources.has(source));
 
-                          <div className="flex shrink-0 items-center gap-1.5">
-                            {LOCATION_SOURCE_ORDER.filter((source) => group.sources.includes(source)).map(
-                              (source) => {
-                                const meta = LOCATION_SOURCE_META[source];
-                                const Icon = meta.icon;
-                                return (
-                                  <span
-                                    key={source}
-                                    title={meta.label}
-                                    className={cn(
-                                      "inline-flex h-7 w-7 items-center justify-center rounded-full border",
-                                      group.locations.find((entry) => entry.source === source)?.accentClass
-                                    )}
-                                  >
-                                    <Icon size={13} />
-                                  </span>
-                                );
-                              }
-                            )}
-                          </div>
-
-                          <ChevronDown
-                            size={16}
-                            className={cn(
-                              "shrink-0 text-white/30 transition-transform",
-                              expanded && "rotate-180"
-                            )}
+                    return (
+                      <div
+                        key={group.memberId}
+                        className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] transition-colors hover:bg-white/[0.03]"
+                      >
+                        <div className="flex w-full items-center gap-3 px-4 py-3.5">
+                          <MemberHeadshot
+                            name={group.memberName}
+                            avatarUrl={group.memberAvatarUrl}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onProfileClick?.(group.memberId);
+                            }}
                           />
-                        </button>
-                      </div>
-
-                      <AnimatePresence initial={false}>
-                        {expanded && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="overflow-hidden"
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedMemberId(expanded ? null : group.memberId)
+                            }
+                            className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors hover:opacity-90"
+                            aria-expanded={expanded}
                           >
-                            <div className="space-y-2 border-t border-white/[0.06] px-4 py-3">
-                              {group.locations.map((location) => {
-                                const meta = LOCATION_SOURCE_META[location.source];
-                                const Icon = meta.icon;
-                                const mapsUrl = shouldLinkLocationToGoogleMaps(location)
-                                  ? googleMapsHrefFor(location.query)
-                                  : null;
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-white/88">{group.memberName}</p>
+                              <p className="mt-0.5 text-[11px] text-white/40">
+                                {group.locations.length} connection{group.locations.length === 1 ? "" : "s"} in{" "}
+                                {country.name}
+                              </p>
+                            </div>
 
-                                return (
-                                  <div
-                                    key={location.id}
-                                    className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5"
-                                  >
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              {LOCATION_SOURCE_ORDER.filter((source) => visibleSources.includes(source)).map(
+                                (source) => {
+                                  const meta = LOCATION_SOURCE_META[source];
+                                  const Icon = meta.icon;
+                                  return (
                                     <span
+                                      key={source}
+                                      title={meta.label}
                                       className={cn(
-                                        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
-                                        location.accentClass
+                                        "inline-flex h-7 w-7 items-center justify-center rounded-full border",
+                                        group.locations.find((entry) => entry.source === source)?.accentClass
                                       )}
                                     >
-                                      <Icon size={14} />
+                                      <Icon size={13} />
                                     </span>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-[11px] font-medium uppercase tracking-wider text-white/45">
-                                        {meta.label}
-                                      </p>
-                                      <p className="mt-1 text-sm text-white/78 break-words">{location.city}</p>
-                                    </div>
-                                    {mapsUrl && (
-                                      <a
-                                        href={mapsUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-gold-300 transition-colors hover:bg-gold-400/10"
-                                        aria-label={`Open ${location.city} in Google Maps`}
-                                      >
-                                        <ExternalLink size={14} />
-                                      </a>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                                  );
+                                }
+                              )}
                             </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-              </div>
+
+                            <ChevronDown
+                              size={16}
+                              className={cn(
+                                "shrink-0 text-white/30 transition-transform",
+                                expanded && "rotate-180"
+                              )}
+                            />
+                          </button>
+                        </div>
+
+                        <AnimatePresence initial={false}>
+                          {expanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="space-y-2 border-t border-white/[0.06] px-4 py-3">
+                                {group.locations.map((location) => {
+                                  const meta = LOCATION_SOURCE_META[location.source];
+                                  const Icon = meta.icon;
+                                  const mapsUrl = shouldLinkLocationToGoogleMaps(location)
+                                    ? googleMapsHrefFor(location.query)
+                                    : null;
+
+                                  return (
+                                    <div
+                                      key={location.id}
+                                      className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5"
+                                    >
+                                      <span
+                                        className={cn(
+                                          "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border",
+                                          location.accentClass
+                                        )}
+                                      >
+                                        <Icon size={14} />
+                                      </span>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-[11px] font-medium uppercase tracking-wider text-white/45">
+                                          {meta.label}
+                                        </p>
+                                        <p className="mt-1 break-words text-sm text-white/78">{location.city}</p>
+                                      </div>
+                                      {mapsUrl && (
+                                        <a
+                                          href={mapsUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] bg-white/[0.03] text-gold-300 transition-colors hover:bg-gold-400/10"
+                                          aria-label={`Open ${location.city} in Google Maps`}
+                                        >
+                                          <ExternalLink size={14} />
+                                        </a>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>

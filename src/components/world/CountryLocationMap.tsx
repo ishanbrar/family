@@ -1,22 +1,31 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { geoContains, geoMercator, geoPath } from "d3-geo";
+import { geoAlbersUsa, geoMercator, geoPath } from "d3-geo";
 import { cn } from "@/lib/cn";
 import { getCityCoordinates } from "@/lib/cities";
 import { countryName } from "@/lib/country-utils";
+import { isPointInCountryMapTerritory } from "@/lib/country-map-geometry";
 import {
   loadWorldTopology,
-  resolveCountryFeatureByCode,
+  resolveCountryMapFeatureByCode,
   type WorldCountryFeature,
 } from "@/lib/world-topology";
 import type { WorldCountryPin } from "@/lib/world-locations";
+import type { ProfileMapLocationSource } from "@/lib/types";
 
-const PIN_COLORS: Record<string, string> = {
+const PIN_COLORS: Record<ProfileMapLocationSource, string> = {
   birthplace: "var(--location-birthplace-fg)",
   current_home: "var(--location-current-fg)",
   secondary_home: "var(--location-secondary-fg)",
   address: "var(--location-address-fg)",
+};
+
+const PIN_OFFSETS: Record<ProfileMapLocationSource, [number, number]> = {
+  birthplace: [-8, -8],
+  current_home: [8, -8],
+  secondary_home: [-8, 8],
+  address: [8, 8],
 };
 
 interface ResolvedPin extends WorldCountryPin {
@@ -63,8 +72,12 @@ export function CountryLocationMap({ countryCode, pins, className }: CountryLoca
     };
   }, []);
 
+  useEffect(() => {
+    setHoveredPinId(null);
+  }, [pins]);
+
   const countryFeature = useMemo(
-    () => resolveCountryFeatureByCode(countries, countryCode),
+    () => resolveCountryMapFeatureByCode(countries, countryCode),
     [countries, countryCode]
   );
 
@@ -72,18 +85,12 @@ export function CountryLocationMap({ countryCode, pins, className }: CountryLoca
     const width = 960;
     const height = 560;
     const padding = 20;
+    const normalizedCode = countryCode.toUpperCase();
 
     const resolved = pins
       .map(resolvePinCoordinates)
       .filter((pin): pin is ResolvedPin => pin !== null)
-      .filter((pin) => {
-        if (!countryFeature) return true;
-        try {
-          return geoContains(countryFeature as unknown as GeoJSON.Feature, [pin.lng, pin.lat]);
-        } catch {
-          return true;
-        }
-      });
+      .filter((pin) => isPointInCountryMapTerritory(pin.lng, pin.lat, normalizedCode, countryFeature));
 
     if (!countryFeature) {
       return {
@@ -94,13 +101,22 @@ export function CountryLocationMap({ countryCode, pins, className }: CountryLoca
       };
     }
 
-    const projection = geoMercator().fitExtent(
-      [
-        [padding, padding],
-        [width - padding, height - padding],
-      ],
-      countryFeature as unknown as GeoJSON.Feature
-    );
+    const projection =
+      normalizedCode === "USA"
+        ? geoAlbersUsa().fitExtent(
+            [
+              [padding, padding],
+              [width - padding, height - padding],
+            ],
+            countryFeature as unknown as GeoJSON.Feature
+          )
+        : geoMercator().fitExtent(
+            [
+              [padding, padding],
+              [width - padding, height - padding],
+            ],
+            countryFeature as unknown as GeoJSON.Feature
+          );
     const pathGenerator = geoPath(projection);
     const pathD = pathGenerator(countryFeature as unknown as GeoJSON.Feature) || "";
 
@@ -108,12 +124,13 @@ export function CountryLocationMap({ countryCode, pins, className }: CountryLoca
       .map((pin) => {
         const point = projection([pin.lng, pin.lat]);
         if (!point) return null;
-        return { pin, x: point[0], y: point[1] };
+        const [offsetX, offsetY] = PIN_OFFSETS[pin.source] || [0, 0];
+        return { pin, x: point[0] + offsetX, y: point[1] + offsetY };
       })
       .filter((entry): entry is { pin: ResolvedPin; x: number; y: number } => entry !== null);
 
     return { width, height, pathD, projectedPins };
-  }, [countryFeature, pins]);
+  }, [countryFeature, countryCode, pins]);
 
   const hoveredPin = hoveredPinId
     ? mapData.projectedPins.find((entry) => entry.pin.id === hoveredPinId) ?? null
@@ -176,13 +193,7 @@ export function CountryLocationMap({ countryCode, pins, className }: CountryLoca
               role="button"
               aria-label={`${pin.memberName}, ${pin.sourceLabel}: ${pin.city}`}
             >
-              <circle
-                cx={x}
-                cy={y}
-                r={active ? 18 : 14}
-                fill={color}
-                opacity={0.18}
-              />
+              <circle cx={x} cy={y} r={active ? 18 : 14} fill={color} opacity={0.18} />
               <circle
                 cx={x}
                 cy={y}

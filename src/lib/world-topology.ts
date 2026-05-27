@@ -1,5 +1,6 @@
 import { feature } from "topojson-client";
 import { countryName } from "./country-utils";
+import { prepareCountryMapFeature } from "./country-map-geometry";
 
 export const WORLD_TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json";
 export const WORLD_TOPO_FALLBACK_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
@@ -69,6 +70,15 @@ export function resolveCountryFeatureByCode(
   }
 
   return null;
+}
+
+export function resolveCountryMapFeatureByCode(
+  countries: WorldCountryFeature[],
+  code: string
+): WorldCountryFeature | null {
+  const featureMatch = resolveCountryFeatureByCode(countries, code);
+  if (!featureMatch) return null;
+  return prepareCountryMapFeature(featureMatch, code);
 }
 
 export async function loadWorldTopology(): Promise<WorldCountryFeature[]> {
