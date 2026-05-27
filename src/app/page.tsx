@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Lock } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -320,28 +320,35 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Privacy – Honest + strong */}
+        {/* Privacy */}
         <section className="mt-16 lg:mt-20 max-w-6xl mx-auto">
           <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
             <div className="max-w-3xl">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
+                  <Lock size={18} className="text-gold-300/85" aria-hidden />
+                </div>
+                <div>
+                  <p
+                    className="text-xs uppercase tracking-widest text-white/45"
+                    style={{ fontFamily: "var(--font-source-sans)" }}
+                  >
+                    Privacy-first by design
+                  </p>
+                  <h2
+                    className="mt-2 text-2xl lg:text-3xl text-white/95 font-semibold"
+                    style={{ fontFamily: "var(--font-source-serif)" }}
+                  >
+                    Built for families, not for data brokers
+                  </h2>
+                </div>
+              </div>
               <p
-                className="text-xs uppercase tracking-widest text-white/45"
+                className="mt-4 text-sm lg:text-base text-white/55 leading-relaxed"
                 style={{ fontFamily: "var(--font-source-sans)" }}
               >
-                Privacy-first by design
-              </p>
-              <h2
-                className="mt-2 text-2xl lg:text-3xl text-white/95 font-semibold"
-                style={{ fontFamily: "var(--font-source-serif)" }}
-              >
-                Built for families, not for data brokers
-              </h2>
-              <p
-                className="mt-3 text-sm lg:text-base text-white/55 leading-relaxed"
-                style={{ fontFamily: "var(--font-source-sans)" }}
-              >
-                Legatree is invite-only and family-scoped. Your family data is protected by database-enforced access
-                controls, and we don&apos;t sell your family&apos;s information.
+                Legatree is invite-only and family-scoped. Your family data stays in your private database on
+                Supabase. We run no ads, never sell your information, and never share it with third parties.
               </p>
             </div>
 
@@ -349,19 +356,19 @@ export default function LandingPage() {
               {[
                 {
                   title: "Invite-only families",
-                  body: "Joining requires an invite flow—your family stays private by default.",
+                  body: "Joining requires an invite. Your family stays private by default.",
                 },
                 {
-                  title: "Database-enforced access",
-                  body: "Family data is protected with Row Level Security (RLS) rules in Supabase.",
+                  title: "Your private database",
+                  body: "Family records stay in your secured database with row-level access controls.",
                 },
                 {
                   title: "Private galleries",
-                  body: "Family photos live in a private storage bucket with family-scoped access rules.",
+                  body: "Photos live in private storage with family-scoped access rules.",
                 },
                 {
-                  title: "No data broker business model",
-                  body: "We don&apos;t sell your family data—period.",
+                  title: "No ads. No third parties.",
+                  body: "We don't sell data, we don't run ads, and your family information never leaves your private server and database.",
                 },
               ].map((item) => (
                 <div

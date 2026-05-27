@@ -489,7 +489,6 @@ export default function DashboardPage() {
   const totalMembers = members.length;
   const totalGenerations = generationAnalytics.totalGenerations;
   const visibleViewerName = formatDisplayText(viewer.first_name);
-  const welcomeBackText = `Welcome back, ${visibleViewerName}`;
   const familyTreeTitle = formatFamilyTreeTitle(family?.name, viewer.last_name);
   const yearsLivedSummary = calculateAggregateYearsLived(members);
   const filterMember = relatedByFilter ? members.find((p) => p.id === relatedByFilter) : null;
@@ -786,28 +785,15 @@ export default function DashboardPage() {
         >
           <div className="min-w-0">
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white/95">
-              <span className="sr-only">{welcomeBackText}</span>
-              <span aria-hidden="true" className="block">
-                <span
-                  key={welcomeBackText}
-                  className="scribe-greeting"
-                  style={{
-                    ["--scribe-ch" as never]: welcomeBackText.length,
-                    ["--scribe-steps" as never]: Math.max(14, welcomeBackText.length),
-                    ["--scribe-duration" as never]: "3.4s",
-                  }}
-                >
-                  <span className="text-white/92">Welcome back, </span>
-                  <span
-                    style={{
-                      background: "linear-gradient(135deg, var(--accent-300), var(--accent-200))",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                    }}
-                  >
-                    {visibleViewerName}
-                  </span>
-                </span>
+              Welcome back,{" "}
+              <span
+                style={{
+                  background: "linear-gradient(135deg, var(--accent-300), var(--accent-200))",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                {visibleViewerName}
               </span>
             </h1>
           </div>

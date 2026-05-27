@@ -13,10 +13,10 @@ export function SiteFooter({ variant = "app" }: SiteFooterProps) {
   return (
     <div className={wrapperClass}>
       <div>
-        <div className="inline-flex items-center">
+        <div className="inline-flex items-center mb-3">
           <LegatreeBrandLink
             destination={variant === "public" ? "public" : "app"}
-            size="sm"
+            size="lg"
             variant="plain"
             showText={false}
             ariaLabel="Legatree home"
