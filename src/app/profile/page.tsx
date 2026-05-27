@@ -6,6 +6,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { LegatreeLoader } from "@/components/ui/LegatreeLoader";
 import { useFamilyData } from "@/hooks/use-family-data";
 
 export default function ProfileRedirect() {
@@ -29,9 +30,5 @@ export default function ProfileRedirect() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
-      <div className="w-5 h-5 border border-gold-400/30 border-t-gold-400 rounded-full animate-spin" />
-    </div>
-  );
+  return <LegatreeLoader fullScreen label="Opening your profile..." />;
 }

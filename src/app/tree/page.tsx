@@ -21,6 +21,7 @@ import {
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { LegatreeLoader } from "@/components/ui/LegatreeLoader";
 import { FamilyTree } from "@/components/tree/FamilyTree";
 import { AddMemberModal } from "@/components/ui/AddMemberModal";
 import { ManageTreeModal } from "@/components/ui/ManageTreeModal";
@@ -254,11 +255,7 @@ export default function TreeExplorerPage() {
   }, [viewer, family?.name, members, relationships, exportOptions]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
-        <Loader2 size={24} className="text-gold-400 animate-spin" />
-      </div>
-    );
+    return <LegatreeLoader fullScreen label="Loading family tree..." />;
   }
 
   if (!viewer) {

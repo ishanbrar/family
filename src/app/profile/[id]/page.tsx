@@ -26,6 +26,7 @@ import {
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { LegatreeLoader } from "@/components/ui/LegatreeLoader";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { SocialDock } from "@/components/ui/SocialDock";
 import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
@@ -88,11 +89,7 @@ export default function MemberProfilePage({
   const resolvedGalleryPhotos = useResolvedGalleryPhotos(member?.gallery_photos || []);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
-        <Loader2 size={24} className="text-gold-400 animate-spin" />
-      </div>
-    );
+    return <LegatreeLoader fullScreen label="Loading profile..." />;
   }
 
   if (!viewer) {

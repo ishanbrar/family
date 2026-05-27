@@ -23,6 +23,7 @@ import {
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { LegatreeLoader } from "@/components/ui/LegatreeLoader";
 import { ProfileCard } from "@/components/ui/ProfileCard";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { InteractiveGlobe } from "@/components/globe/InteractiveGlobe";
@@ -469,14 +470,7 @@ export default function DashboardPage() {
   }, [exportModalOpen]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 size={24} className="text-gold-400 animate-spin" />
-          <p className="text-xs text-white/30">Loading family data...</p>
-        </div>
-      </div>
-    );
+    return <LegatreeLoader fullScreen label="Loading family data..." />;
   }
 
   if (!viewer) {
@@ -790,13 +784,20 @@ export default function DashboardPage() {
         >
           <div className="min-w-0">
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white/95">
-              Welcome back,{" "}
-              <span style={{
-                background: "linear-gradient(135deg, var(--accent-300), var(--accent-200))",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}>
-                {visibleViewerName}
+              <span className="sr-only">Welcome back, {visibleViewerName}</span>
+              <span aria-hidden="true" className="block">
+                <span>Welcome back, </span>
+                <span
+                  key={visibleViewerName}
+                  className="scribe-greeting"
+                  style={{
+                    background: "linear-gradient(135deg, var(--accent-300), var(--accent-200))",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  {visibleViewerName}
+                </span>
               </span>
             </h1>
           </div>

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, CheckCircle2, Loader2, UserCheck, UserPlus } from "lucide-react";
+import { LegatreeLoader } from "@/components/ui/LegatreeLoader";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { FamilyTree } from "@/components/tree/FamilyTree";
 import { createClient } from "@/lib/supabase/client";
@@ -251,14 +252,7 @@ function JoinFamilyPageContent() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
-        <div className="flex items-center gap-2 text-white/50 text-sm">
-          <Loader2 size={16} className="animate-spin text-gold-400" />
-          Preparing family join flow...
-        </div>
-      </div>
-    );
+    return <LegatreeLoader fullScreen label="Preparing family join flow..." />;
   }
 
   return (
@@ -427,14 +421,7 @@ function JoinFamilyPageContent() {
 }
 
 function JoinFamilyFallback() {
-  return (
-    <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
-      <div className="flex items-center gap-2 text-white/50 text-sm">
-        <Loader2 size={16} className="animate-spin text-gold-400" />
-        Preparing family join flow...
-      </div>
-    </div>
-  );
+  return <LegatreeLoader fullScreen label="Preparing family join flow..." />;
 }
 
 export default function JoinFamilyPage() {

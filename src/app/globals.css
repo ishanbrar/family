@@ -406,6 +406,67 @@ html.dark .app-input option {
   background: var(--overlay-bg);
 }
 
+.legatree-loader-mark {
+  animation: legatree-loader-ink 1.45s ease-in-out infinite;
+}
+
+@keyframes legatree-loader-ink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: saturate(1);
+  }
+  50% {
+    opacity: 0.34;
+    transform: scale(0.985);
+    filter: saturate(0.86);
+  }
+}
+
+.scribe-greeting {
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 0;
+  vertical-align: bottom;
+  animation: scribe-write 1.65s cubic-bezier(0.55, 0.02, 0.2, 1) 0.12s forwards;
+}
+
+.scribe-greeting::after {
+  content: "";
+  display: inline-block;
+  width: 0.08em;
+  height: 0.9em;
+  margin-left: 0.08em;
+  vertical-align: -0.08em;
+  border-radius: 999px;
+  background: var(--accent-300);
+  box-shadow: 0 0 10px rgb(var(--accent-rgb) / 0.32);
+  animation: scribe-pen-lift 1.65s cubic-bezier(0.55, 0.02, 0.2, 1) 0.12s forwards;
+}
+
+@keyframes scribe-write {
+  from {
+    max-width: 0;
+    opacity: 0.82;
+  }
+  to {
+    max-width: 24ch;
+    opacity: 1;
+  }
+}
+
+@keyframes scribe-pen-lift {
+  0%,
+  82% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* iOS: smooth scroll in overflow containers */
 @media (hover: none) and (pointer: coarse) {
   .overflow-auto,

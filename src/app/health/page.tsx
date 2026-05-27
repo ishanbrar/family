@@ -16,11 +16,11 @@ import {
   Eye,
   EyeOff,
   AlertTriangle,
-  Loader2,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
+import { LegatreeLoader } from "@/components/ui/LegatreeLoader";
 import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
 import { CommandSearch } from "@/components/ui/CommandSearch";
 import { FamilyTree } from "@/components/tree/FamilyTree";
@@ -87,11 +87,7 @@ export default function HealthPage() {
   );
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
-        <Loader2 size={24} className="text-gold-400 animate-spin" />
-      </div>
-    );
+    return <LegatreeLoader fullScreen label="Loading health view..." />;
   }
 
   if (!viewer) {
