@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
+import { AddressSearch } from "./AddressSearch";
 import { ManualDateInput } from "./ManualDateInput";
 import type { Profile, RelationshipType, Gender } from "@/lib/types";
 import { inferCountryCodeFromCity } from "@/lib/cities";
@@ -89,6 +90,10 @@ export function AddMemberModal({
   const [profession, setProfession] = useState("");
   const [petsText, setPetsText] = useState("");
   const [locationCity, setLocationCity] = useState("");
+  const [secondaryLocationCity, setSecondaryLocationCity] = useState("");
+  const [address, setAddress] = useState("");
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLng, setLocationLng] = useState<number | null>(null);
   const [dob, setDob] = useState("");
   const [placeOfBirth, setPlaceOfBirth] = useState("");
   const [aboutMe, setAboutMe] = useState("");
@@ -200,8 +205,11 @@ export function AddMemberModal({
           place_of_birth: placeOfBirth || null,
           profession: profession || null,
           location_city: locationCity || null,
-          location_lat: null,
-          location_lng: null,
+          secondary_location_city: secondaryLocationCity || null,
+          address: address || null,
+          location_lat: locationLat,
+          location_lng: locationLng,
+          map_location_source: address ? "address" : "current_home",
           pets: parsedPets,
           social_links: {},
           about_me: aboutMe || null,
@@ -225,6 +233,10 @@ export function AddMemberModal({
       setProfession("");
       setPetsText("");
       setLocationCity("");
+      setSecondaryLocationCity("");
+      setAddress("");
+      setLocationLat(null);
+      setLocationLng(null);
       setDob("");
       setPlaceOfBirth("");
       setAboutMe("");
@@ -436,6 +448,37 @@ export function AddMemberModal({
                       setAllowDuplicateAdd(false);
                     }}
                     placeholder="Search a city..."
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">
+                    Secondary Home
+                  </label>
+                  <CitySearch
+                    value={secondaryLocationCity}
+                    onChange={setSecondaryLocationCity}
+                    placeholder="Add a second home city..."
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">
+                    Street Address
+                  </label>
+                  <AddressSearch
+                    value={address}
+                    onChange={(nextAddress) => {
+                      setAddress(nextAddress);
+                      if (!nextAddress.trim()) {
+                        setLocationLat(null);
+                        setLocationLng(null);
+                      }
+                    }}
+                    onSelect={(selection) => {
+                      setAddress(selection.address);
+                      setLocationLat(selection.lat);
+                      setLocationLng(selection.lng);
+                    }}
+                    placeholder="Start typing an address..."
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

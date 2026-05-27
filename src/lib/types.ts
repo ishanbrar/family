@@ -21,7 +21,7 @@ export type RelationshipType =
   | "niece_nephew"
   | "cousin";
 
-export type ProfileMapLocationSource = "birthplace" | "current_home" | "secondary_home";
+export type ProfileMapLocationSource = "birthplace" | "current_home" | "secondary_home" | "address";
 
 export type ConditionSeverity = "mild" | "moderate" | "severe";
 

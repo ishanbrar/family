@@ -3,20 +3,15 @@
 import { ExternalLink, MapPin } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { buildGoogleMapsEmbedUrl, buildGoogleMapsSearchUrl } from "@/lib/maps";
-import { type ProfileLocationSource } from "@/lib/profile-locations";
+import {
+  PROFILE_MAP_SOURCE_ACCENTS,
+  PROFILE_MAP_SOURCE_LABELS,
+  PROFILE_MAP_SOURCE_ORDER,
+  getProfileMapLocations,
+  resolveProfileMapLocation,
+  type ProfileLocationSource,
+} from "@/lib/profile-locations";
 import type { Profile } from "@/lib/types";
-
-const SOURCE_LABELS: Record<ProfileLocationSource, string> = {
-  birthplace: "Born in",
-  current_home: "Lives in",
-  secondary_home: "Second home",
-};
-
-const SOURCE_ACCENTS: Record<ProfileLocationSource, string> = {
-  birthplace: "bg-gold-400/18 text-gold-200 border-gold-400/25",
-  current_home: "bg-emerald-400/12 text-emerald-200 border-emerald-400/20",
-  secondary_home: "bg-sky-400/12 text-sky-200 border-sky-400/20",
-};
 
 interface ProfilePlacesCardProps {
   profile: Profile;
@@ -25,29 +20,22 @@ interface ProfilePlacesCardProps {
 }
 
 export function ProfilePlacesCard({ profile, canEdit = false, onMapLocationSourceChange }: ProfilePlacesCardProps) {
-  const birthplace = profile.place_of_birth?.trim() || null;
-  const locationChips = [
-    { key: "birthplace", source: "birthplace" as const, city: birthplace },
-    { key: "current_home", source: "current_home" as const, city: profile.location_city },
-    { key: "secondary_home", source: "secondary_home" as const, city: profile.secondary_location_city || null },
-  ].filter((entry): entry is { key: string; source: ProfileLocationSource; city: string } => Boolean(entry.city?.trim()));
-  const availableSources = new Set(locationChips.map((entry) => entry.source));
-  const preferredSource = profile.map_location_source || "current_home";
-  const selectedPlace =
-    locationChips.find((entry) => entry.source === preferredSource) ||
-    locationChips.find((entry) => entry.source === "current_home") ||
-    locationChips[0] ||
-    null;
+  const locations = getProfileMapLocations(profile);
+  const availableSources = new Set(locations.map((entry) => entry.source));
+  const selectedPlace = resolveProfileMapLocation(profile);
 
-  if (!birthplace && locationChips.length === 0) {
+  if (locations.length === 0) {
     return (
       <GlassCard className="p-6">
         <h3 className="font-serif text-lg font-semibold text-white/90">Profile Map</h3>
-        <p className="mt-4 text-sm text-white/35 text-center">No location details recorded yet.</p>
+        <p className="mt-4 text-sm text-white/35 text-center">
+          Add a city, birthplace, or street address to show a location on the map.
+        </p>
       </GlassCard>
     );
   }
-  const embedQuery = selectedPlace?.city || "";
+
+  const embedQuery = selectedPlace?.query || "";
   const mapUrl = embedQuery ? buildGoogleMapsSearchUrl(embedQuery) : null;
 
   return (
@@ -56,11 +44,13 @@ export function ProfilePlacesCard({ profile, canEdit = false, onMapLocationSourc
         <div>
           <h3 className="font-serif text-lg font-semibold text-white/90">Profile Map</h3>
           <p className="mt-1 text-xs text-white/38">
-            Satellite view centered on {selectedPlace ? SOURCE_LABELS[selectedPlace.source].toLowerCase() : "their selected place"}.
+            {canEdit
+              ? "Choose which saved place appears on this map."
+              : `Showing ${selectedPlace?.label.toLowerCase() || "their selected place"}.`}
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {(["current_home", "birthplace", "secondary_home"] as ProfileLocationSource[]).map((source) => {
+          {PROFILE_MAP_SOURCE_ORDER.map((source) => {
             const disabled = !availableSources.has(source);
             const selected = selectedPlace?.source === source;
             return (
@@ -71,12 +61,16 @@ export function ProfilePlacesCard({ profile, canEdit = false, onMapLocationSourc
                 onClick={() => void onMapLocationSourceChange?.(source)}
                 className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                   selected
-                    ? SOURCE_ACCENTS[source]
+                    ? PROFILE_MAP_SOURCE_ACCENTS[source]
                     : "border-white/[0.08] bg-white/[0.03] text-white/48 hover:bg-white/[0.06] hover:text-white/72"
                 } disabled:cursor-default ${disabled ? "disabled:opacity-45" : ""}`}
-                title={disabled ? "Add this location to enable it" : `Show ${SOURCE_LABELS[source].toLowerCase()} on the map`}
+                title={
+                  disabled
+                    ? "Add this location in Edit Profile to enable it"
+                    : `Show ${PROFILE_MAP_SOURCE_LABELS[source].toLowerCase()} on the map`
+                }
               >
-                {SOURCE_LABELS[source]}
+                {PROFILE_MAP_SOURCE_LABELS[source]}
               </button>
             );
           })}
@@ -87,7 +81,7 @@ export function ProfilePlacesCard({ profile, canEdit = false, onMapLocationSourc
         {embedQuery ? (
           <iframe
             title={`${profile.first_name} ${profile.last_name} profile map`}
-            src={buildGoogleMapsEmbedUrl(embedQuery, { satellite: true, zoom: 11 })}
+            src={buildGoogleMapsEmbedUrl(embedQuery, { satellite: true, zoom: selectedPlace?.source === "address" ? 15 : 11 })}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
             className="h-[320px] w-full"
@@ -108,22 +102,28 @@ export function ProfilePlacesCard({ profile, canEdit = false, onMapLocationSourc
             className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-gold-200 transition-colors hover:bg-white/[0.06]"
           >
             <ExternalLink size={12} />
-            Open {embedQuery} in Google Maps
+            Open in Google Maps
           </a>
         </div>
       )}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {locationChips.map((point) => (
-          <div
-            key={point.key}
-            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${SOURCE_ACCENTS[point.source]}`}
-          >
-            <MapPin size={12} />
-            <span className="font-medium">{SOURCE_LABELS[point.source]}</span>
-            <span className="text-white/80">{point.city}</span>
-          </div>
-        ))}
+        {locations.map((point) => {
+          const href = buildGoogleMapsSearchUrl(point.query);
+          return (
+            <a
+              key={point.source}
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors hover:brightness-110 ${PROFILE_MAP_SOURCE_ACCENTS[point.source]}`}
+            >
+              <MapPin size={12} />
+              <span className="font-medium">{point.label}</span>
+              <span className="text-white/80">{point.query}</span>
+            </a>
+          );
+        })}
       </div>
     </GlassCard>
   );

@@ -1,7 +1,13 @@
 import { getCityCoordinates, inferCountryCodeFromCity } from "./cities";
-import type { Profile } from "./types";
+import type { Profile, ProfileMapLocationSource } from "./types";
 
-export type ProfileLocationSource = "birthplace" | "current_home" | "secondary_home";
+export type ProfileLocationSource = ProfileMapLocationSource;
+
+export interface ProfileMapLocation {
+  source: ProfileLocationSource;
+  label: string;
+  query: string;
+}
 
 export interface ProfileLocationPoint {
   key: string;
@@ -17,7 +23,29 @@ interface GetProfileLocationPointsOptions {
   includeBirthplace?: boolean;
   includeCurrent?: boolean;
   includeSecondary?: boolean;
+  includeAddress?: boolean;
 }
+
+export const PROFILE_MAP_SOURCE_LABELS: Record<ProfileLocationSource, string> = {
+  birthplace: "Born in",
+  current_home: "Lives in",
+  secondary_home: "Second home",
+  address: "Home address",
+};
+
+export const PROFILE_MAP_SOURCE_ACCENTS: Record<ProfileLocationSource, string> = {
+  birthplace: "bg-gold-400/18 text-gold-200 border-gold-400/25",
+  current_home: "bg-emerald-400/12 text-emerald-200 border-emerald-400/20",
+  secondary_home: "bg-sky-400/12 text-sky-200 border-sky-400/20",
+  address: "bg-violet-400/12 text-violet-200 border-violet-400/20",
+};
+
+export const PROFILE_MAP_SOURCE_ORDER: ProfileLocationSource[] = [
+  "current_home",
+  "birthplace",
+  "secondary_home",
+  "address",
+];
 
 function normalizeLocationKey(city: string, countryCode: string | null): string {
   return `${city.trim().toLowerCase()}::${countryCode || ""}`;
@@ -54,11 +82,67 @@ function createPoint(
   };
 }
 
+export function getProfileMapLocations(profile: Profile): ProfileMapLocation[] {
+  const locations: ProfileMapLocation[] = [];
+
+  if (profile.location_city?.trim()) {
+    locations.push({
+      source: "current_home",
+      label: PROFILE_MAP_SOURCE_LABELS.current_home,
+      query: profile.location_city.trim(),
+    });
+  }
+
+  if (profile.place_of_birth?.trim()) {
+    locations.push({
+      source: "birthplace",
+      label: PROFILE_MAP_SOURCE_LABELS.birthplace,
+      query: profile.place_of_birth.trim(),
+    });
+  }
+
+  if (profile.secondary_location_city?.trim()) {
+    locations.push({
+      source: "secondary_home",
+      label: PROFILE_MAP_SOURCE_LABELS.secondary_home,
+      query: profile.secondary_location_city.trim(),
+    });
+  }
+
+  if (profile.address?.trim()) {
+    locations.push({
+      source: "address",
+      label: PROFILE_MAP_SOURCE_LABELS.address,
+      query: profile.address.trim(),
+    });
+  }
+
+  return locations;
+}
+
+export function resolveProfileMapLocation(profile: Profile): ProfileMapLocation | null {
+  const locations = getProfileMapLocations(profile);
+  if (locations.length === 0) return null;
+
+  const preferred = profile.map_location_source || "current_home";
+  return (
+    locations.find((entry) => entry.source === preferred) ||
+    locations.find((entry) => entry.source === "current_home") ||
+    locations.find((entry) => entry.source === "address") ||
+    locations[0]
+  );
+}
+
 export function getProfileLocationPoints(
   member: Profile,
   options: GetProfileLocationPointsOptions = {}
 ): ProfileLocationPoint[] {
-  const { includeBirthplace = false, includeCurrent = true, includeSecondary = false } = options;
+  const {
+    includeBirthplace = false,
+    includeCurrent = true,
+    includeSecondary = false,
+    includeAddress = false,
+  } = options;
   const seen = new Set<string>();
   const points: ProfileLocationPoint[] = [];
 
@@ -90,6 +174,20 @@ export function getProfileLocationPoints(
 
   if (includeSecondary) {
     maybePush(createPoint(member, "secondary_home", member.secondary_location_city));
+  }
+
+  if (includeAddress) {
+    maybePush(
+      createPoint(
+        member,
+        "address",
+        member.address,
+        member.location_lat,
+        member.location_lng,
+        member.country_code,
+        member.address
+      )
+    );
   }
 
   return points;

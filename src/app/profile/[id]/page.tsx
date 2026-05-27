@@ -42,7 +42,7 @@ import {
   formatGenderLabel,
   formatPersonName,
 } from "@/lib/display-format";
-import { buildGoogleMapsSearchUrl } from "@/lib/maps";
+import { googleMapsHrefFor } from "@/lib/maps";
 import type { ProfileLocationSource } from "@/lib/profile-locations";
 import type { Profile } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
@@ -145,7 +145,7 @@ export default function MemberProfilePage({
         (rel.relative_id === member.id && rel.user_id !== member.id))
   );
   const marriageDate = spouseRelation?.marriage_date || null;
-  const addressUrl = member.address ? buildGoogleMapsSearchUrl(member.address) : null;
+  const addressUrl = googleMapsHrefFor(member.address);
   const websiteUrl =
     typeof member.social_links?.website === "string" && member.social_links.website.trim()
       ? (/^[a-z][a-z0-9+.-]*:\/\//i.test(member.social_links.website.trim())
@@ -279,8 +279,8 @@ export default function MemberProfilePage({
                   },
                   { icon: Briefcase, label: "Profession", value: member.profession },
                   { icon: PawPrint, label: "Pets", value: member.pets.length > 0 ? member.pets.join(", ") : null },
-                  { icon: MapPin, label: "Location", value: member.location_city },
-                  { icon: MapPin, label: "Secondary Home", value: member.secondary_location_city || null },
+                  { icon: MapPin, label: "Location", value: member.location_city, href: googleMapsHrefFor(member.location_city) },
+                  { icon: MapPin, label: "Secondary Home", value: member.secondary_location_city || null, href: googleMapsHrefFor(member.secondary_location_city) },
                   { icon: MapPin, label: "Address", value: member.address, href: addressUrl },
                   { icon: User, label: "Website", value: member.social_links?.website || null, href: websiteUrl },
                   {
@@ -289,7 +289,7 @@ export default function MemberProfilePage({
                       ? `${formatDateOnly(member.date_of_birth) ?? "Not set"}${age !== null ? ` (${age})` : ""}`
                       : null,
                   },
-                  { icon: MapPin, label: "Place of Birth", value: member.place_of_birth },
+                  { icon: MapPin, label: "Place of Birth", value: member.place_of_birth, href: googleMapsHrefFor(member.place_of_birth) },
                   {
                     icon: Calendar,
                     label: "Marriage / Anniversary",

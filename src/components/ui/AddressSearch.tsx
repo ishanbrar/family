@@ -21,6 +21,9 @@ interface PhotonFeatureProperties {
 }
 
 interface PhotonFeature {
+  geometry?: {
+    coordinates?: [number, number];
+  };
   properties?: PhotonFeatureProperties;
 }
 
@@ -28,17 +31,25 @@ interface PhotonResponse {
   features?: PhotonFeature[];
 }
 
+export interface AddressSelection {
+  address: string;
+  lat: number;
+  lng: number;
+}
+
 interface AddressSearchProps {
   value: string;
   onChange: (address: string) => void;
+  onSelect?: (selection: AddressSelection) => void;
   onBlur?: (currentValue: string) => void;
   placeholder?: string;
   className?: string;
 }
 
-function formatSuggestion(feature: PhotonFeature): AddressSuggestion | null {
+function formatSuggestion(feature: PhotonFeature): (AddressSuggestion & { lat: number; lng: number }) | null {
   const properties = feature.properties;
-  if (!properties) return null;
+  const coordinates = feature.geometry?.coordinates;
+  if (!properties || !coordinates || coordinates.length < 2) return null;
 
   const primaryParts = [
     [properties.housenumber, properties.street].filter(Boolean).join(" ").trim(),
@@ -55,12 +66,15 @@ function formatSuggestion(feature: PhotonFeature): AddressSuggestion | null {
   return {
     label: secondaryParts.length > 0 ? `${label}, ${secondaryParts.join(", ")}` : label,
     secondary: secondaryParts.length > 0 ? secondaryParts.join(", ") : null,
+    lat: coordinates[1],
+    lng: coordinates[0],
   };
 }
 
 export function AddressSearch({
   value,
   onChange,
+  onSelect,
   onBlur,
   placeholder = "Start typing an address...",
   className,
@@ -98,7 +112,7 @@ export function AddressSearch({
         const data = (await response.json()) as PhotonResponse;
         const nextResults = (data.features || [])
           .map(formatSuggestion)
-          .filter((entry): entry is AddressSuggestion => Boolean(entry))
+          .filter((entry): entry is AddressSuggestion & { lat: number; lng: number } => Boolean(entry))
           .filter((entry, index, array) => array.findIndex((candidate) => candidate.label === entry.label) === index);
         setResults(nextResults);
         setIsOpen(nextResults.length > 0);
@@ -120,14 +134,19 @@ export function AddressSearch({
   }, [isFocused, query]);
 
   const handleSelect = useCallback(
-    (suggestion: AddressSuggestion) => {
+    (suggestion: AddressSuggestion & { lat: number; lng: number }) => {
       justSelectedRef.current = true;
       setQuery(suggestion.label);
       onChange(suggestion.label);
+      onSelect?.({
+        address: suggestion.label,
+        lat: suggestion.lat,
+        lng: suggestion.lng,
+      });
       setResults([]);
       setIsOpen(false);
     },
-    [onChange]
+    [onChange, onSelect]
   );
 
   const showSearchHint = useMemo(

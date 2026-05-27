@@ -29,7 +29,7 @@ import {
 import { calculateGeneticMatch } from "@/lib/genetic-match";
 import { formatGenderLabel } from "@/lib/display-format";
 import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
-import { buildGoogleMapsSearchUrl } from "@/lib/maps";
+import { googleMapsHrefFor } from "@/lib/maps";
 
 export default function DemoProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -87,7 +87,7 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
         (rel.relative_id === member.id && rel.user_id !== member.id))
   );
   const marriageDate = spouseRelation?.marriage_date || null;
-  const addressUrl = member.address ? buildGoogleMapsSearchUrl(member.address) : null;
+  const addressUrl = googleMapsHrefFor(member.address);
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">
@@ -168,12 +168,12 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
                   { icon: User, label: "Gender", value: formatGenderLabel(member.gender) },
                   { icon: Briefcase, label: "Profession", value: member.profession },
                   { icon: PawPrint, label: "Pets", value: member.pets.length > 0 ? member.pets.join(", ") : null },
-                  { icon: MapPin, label: "Location", value: member.location_city },
-                  { icon: MapPin, label: "Secondary Home", value: member.secondary_location_city || null },
+                  { icon: MapPin, label: "Location", value: member.location_city, href: googleMapsHrefFor(member.location_city) },
+                  { icon: MapPin, label: "Secondary Home", value: member.secondary_location_city || null, href: googleMapsHrefFor(member.secondary_location_city) },
                   { icon: MapPin, label: "Address", value: member.address, href: addressUrl },
                   { icon: Calendar, label: "Date of Birth", value: member.date_of_birth
                     ? `${new Date(member.date_of_birth).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}${age !== null ? ` (${age})` : ""}` : null },
-                  { icon: MapPin, label: "Place of Birth", value: member.place_of_birth },
+                  { icon: MapPin, label: "Place of Birth", value: member.place_of_birth, href: googleMapsHrefFor(member.place_of_birth) },
                   {
                     icon: Calendar,
                     label: "Marriage / Anniversary",

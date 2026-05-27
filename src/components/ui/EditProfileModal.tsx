@@ -6,7 +6,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   X,
   Camera,
@@ -27,7 +27,8 @@ import { cn } from "@/lib/cn";
 import { CitySearch } from "./CitySearch";
 import { AddressSearch } from "./AddressSearch";
 import { ManualDateInput } from "./ManualDateInput";
-import type { Profile, SocialLinks, Gender } from "@/lib/types";
+import type { Profile, ProfileMapLocationSource, SocialLinks, Gender } from "@/lib/types";
+import { PROFILE_MAP_SOURCE_LABELS } from "@/lib/profile-locations";
 import { inferCountryCodeFromCity } from "@/lib/cities";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
@@ -70,6 +71,11 @@ export function EditProfileModal({
   const [locationCity, setLocationCity] = useState(profile.location_city || "");
   const [secondaryLocationCity, setSecondaryLocationCity] = useState(profile.secondary_location_city || "");
   const [address, setAddress] = useState(profile.address || "");
+  const [locationLat, setLocationLat] = useState<number | null>(profile.location_lat ?? null);
+  const [locationLng, setLocationLng] = useState<number | null>(profile.location_lng ?? null);
+  const [mapLocationSource, setMapLocationSource] = useState<ProfileMapLocationSource>(
+    profile.map_location_source || "current_home"
+  );
   const [petsText, setPetsText] = useState((profile.pets || []).join(", "));
   const [dob, setDob] = useState(profile.date_of_birth || "");
   const [placeOfBirth, setPlaceOfBirth] = useState(profile.place_of_birth || "");
@@ -100,6 +106,9 @@ export function EditProfileModal({
     setLocationCity(profile.location_city || "");
     setSecondaryLocationCity(profile.secondary_location_city || "");
     setAddress(profile.address || "");
+    setLocationLat(profile.location_lat ?? null);
+    setLocationLng(profile.location_lng ?? null);
+    setMapLocationSource(profile.map_location_source || "current_home");
     setPetsText((profile.pets || []).join(", "));
     setDob(profile.date_of_birth || "");
     setPlaceOfBirth(profile.place_of_birth || "");
@@ -114,6 +123,22 @@ export function EditProfileModal({
     setSaving(false);
     setSaveError(null);
   }, [isOpen, profile]);
+
+  const mapSourceOptions = useMemo(() => {
+    const options: ProfileMapLocationSource[] = [];
+    if (locationCity.trim()) options.push("current_home");
+    if (placeOfBirth.trim()) options.push("birthplace");
+    if (secondaryLocationCity.trim()) options.push("secondary_home");
+    if (address.trim()) options.push("address");
+    return options;
+  }, [address, locationCity, placeOfBirth, secondaryLocationCity]);
+
+  useEffect(() => {
+    if (mapSourceOptions.length === 0) return;
+    if (!mapSourceOptions.includes(mapLocationSource)) {
+      setMapLocationSource(mapSourceOptions[0]);
+    }
+  }, [mapLocationSource, mapSourceOptions]);
 
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -178,6 +203,11 @@ export function EditProfileModal({
         location_city: locationCity.trim() || null,
         secondary_location_city: secondaryLocationCity.trim() || null,
         address: address.trim() || null,
+        location_lat: locationLat,
+        location_lng: locationLng,
+        map_location_source: mapSourceOptions.includes(mapLocationSource)
+          ? mapLocationSource
+          : mapSourceOptions[0] || "current_home",
         pets: parsedPets,
         date_of_birth: dob ? String(dob).slice(0, 10) : null,
         place_of_birth: placeOfBirth.trim() || null,
@@ -430,17 +460,53 @@ export function EditProfileModal({
 
                 <div>
                   <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">
-                    Address
+                    Street Address
                   </label>
                   <AddressSearch
                     value={address}
-                    onChange={setAddress}
+                    onChange={(nextAddress) => {
+                      setAddress(nextAddress);
+                      if (!nextAddress.trim()) {
+                        setLocationLat(null);
+                        setLocationLng(null);
+                      }
+                    }}
+                    onSelect={(selection) => {
+                      setAddress(selection.address);
+                      setLocationLat(selection.lat);
+                      setLocationLng(selection.lng);
+                      setMapLocationSource("address");
+                    }}
                     placeholder="Start typing your address..."
                   />
                   <p className="mt-1 text-[10px] text-white/25">
-                    Selecting an address will make it easy to open this home in Google Maps.
+                    Use the address lookup, then choose which saved place appears on your profile map below.
                   </p>
                 </div>
+
+                {mapSourceOptions.length > 0 && (
+                  <div>
+                    <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">
+                      Profile Map Location
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {mapSourceOptions.map((source) => (
+                        <button
+                          key={source}
+                          type="button"
+                          onClick={() => setMapLocationSource(source)}
+                          className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                            mapLocationSource === source
+                              ? "border-gold-400/30 bg-gold-400/12 text-gold-200"
+                              : "border-white/[0.08] bg-white/[0.03] text-white/55 hover:bg-white/[0.06] hover:text-white/75"
+                          }`}
+                        >
+                          {PROFILE_MAP_SOURCE_LABELS[source]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
