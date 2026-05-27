@@ -1,3 +1,5 @@
+import { geoGraticule10, geoNaturalEarth1, geoPath } from "d3-geo";
+import { feature } from "topojson-client";
 import { findCityByInput, getCityCoordinates } from "@/lib/cities";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { formatDateOnly, formatGenderLabel } from "@/lib/display-format";
@@ -29,6 +31,16 @@ interface ExportFamilyTreeImageOptions {
   exportOptions?: Partial<FamilyTreeExportOptions>;
 }
 
+type CountryFeature = {
+  type: "Feature";
+  id?: string | number;
+  properties?: Record<string, unknown>;
+  geometry: unknown;
+};
+
+const WORLD_TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+let worldCountriesPromise: Promise<CountryFeature[]> | null = null;
+
 function formatFullName(member: Profile): string {
   return `${member.first_name} ${member.last_name}`.trim();
 }
@@ -38,14 +50,15 @@ function formatExportName(member: Profile, mode: ExportNameMode): string {
   return formatFullName(member);
 }
 
-function formatBirthDateLabel(member: Profile): string {
-  return member.date_of_birth ? `b. ${formatDateOnly(member.date_of_birth) ?? "unknown"}` : "Birth date unknown";
+function formatBirthDateLabel(member: Profile): string | null {
+  const date = formatDateOnly(member.date_of_birth);
+  return date ? `b. ${date}` : null;
 }
 
 function formatDeathDateLabel(member: Profile): string | null {
   if (member.is_alive) return null;
-  if (!member.date_of_death) return "d. unknown";
-  return `d. ${formatDateOnly(member.date_of_death) ?? "unknown"}`;
+  const date = formatDateOnly(member.date_of_death || null);
+  return date ? `d. ${date}` : null;
 }
 
 function sanitizeFileName(name: string): string {
@@ -131,6 +144,22 @@ function drawRoundedRect(
   ctx.arcTo(x, y + height, x, y, r);
   ctx.arcTo(x, y, x + width, y, r);
   ctx.closePath();
+}
+
+async function loadWorldCountries(): Promise<CountryFeature[]> {
+  if (!worldCountriesPromise) {
+    worldCountriesPromise = fetch(WORLD_TOPO_URL, { cache: "force-cache" })
+      .then(async (response) => {
+        if (!response.ok) return [];
+        const topology = await response.json();
+        const countriesObject = topology?.objects?.countries;
+        if (!countriesObject) return [];
+        const geo = feature(topology, countriesObject) as { features?: CountryFeature[] };
+        return Array.isArray(geo.features) ? geo.features : [];
+      })
+      .catch(() => []);
+  }
+  return worldCountriesPromise;
 }
 
 async function loadAvatarBitmap(src: string): Promise<ImageBitmap | null> {
@@ -219,87 +248,110 @@ function drawWorldMapPanel(
   y: number,
   width: number,
   height: number,
-  pins: Array<{ lat: number; lng: number; count: number }>
+  pins: Array<{ lat: number; lng: number; count: number }>,
+  countries: CountryFeature[]
 ) {
   drawPanelShell(ctx, x, y, width, height);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillStyle = "#2c1810";
-  ctx.font = "700 30px Georgia, 'Times New Roman', serif";
-  ctx.fillText("Family Map", x + 24, y + 22);
-  ctx.font = "400 18px Georgia, 'Times New Roman', serif";
+  ctx.font = "700 42px Georgia, 'Times New Roman', serif";
+  ctx.fillText("Family Map", x + 34, y + 30);
+  ctx.font = "400 22px Georgia, 'Times New Roman', serif";
   ctx.fillStyle = "#7a6b58";
-  ctx.fillText("Current homes and secondary residences.", x + 24, y + 60);
+  ctx.fillText("Current homes and secondary residences.", x + 34, y + 80);
 
-  const mapX = x + 24;
-  const mapY = y + 106;
-  const mapW = width - 48;
-  const mapH = height - 136;
-  drawRoundedRect(ctx, mapX, mapY, mapW, mapH, 14);
-  ctx.fillStyle = "#f2eee7";
+  const mapX = x + 34;
+  const mapY = y + 128;
+  const mapW = width - 68;
+  const mapH = height - 168;
+  drawRoundedRect(ctx, mapX, mapY, mapW, mapH, 22);
+  const ocean = ctx.createLinearGradient(mapX, mapY, mapX, mapY + mapH);
+  ocean.addColorStop(0, "#eef4f0");
+  ocean.addColorStop(1, "#e4ece5");
+  ctx.fillStyle = ocean;
   ctx.fill();
   ctx.save();
-  drawRoundedRect(ctx, mapX, mapY, mapW, mapH, 14);
+  drawRoundedRect(ctx, mapX, mapY, mapW, mapH, 22);
   ctx.clip();
 
-  ctx.strokeStyle = "rgba(184,160,128,0.18)";
-  ctx.lineWidth = 1;
-  for (let i = 1; i < 6; i += 1) {
-    const gx = mapX + (mapW * i) / 6;
-    ctx.beginPath();
-    ctx.moveTo(gx, mapY);
-    ctx.lineTo(gx, mapY + mapH);
-    ctx.stroke();
-  }
-  for (let i = 1; i < 4; i += 1) {
-    const gy = mapY + (mapH * i) / 4;
-    ctx.beginPath();
-    ctx.moveTo(mapX, gy);
-    ctx.lineTo(mapX + mapW, gy);
-    ctx.stroke();
-  }
+  const projection = geoNaturalEarth1().fitExtent(
+    [
+      [mapX + 24, mapY + 24],
+      [mapX + mapW - 24, mapY + mapH - 24],
+    ],
+    { type: "Sphere" }
+  );
+  const path = geoPath(projection, ctx);
 
-  const project = (lat: number, lng: number) => ({
-    x: mapX + ((lng + 180) / 360) * mapW,
-    y: mapY + ((90 - lat) / 180) * mapH,
-  });
+  ctx.beginPath();
+  path(geoGraticule10());
+  ctx.strokeStyle = "rgba(92,113,91,0.12)";
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
 
-  const drawLand = (points: Array<[number, number]>) => {
-    if (points.length === 0) return;
-    ctx.beginPath();
-    const first = project(points[0][0], points[0][1]);
-    ctx.moveTo(first.x, first.y);
-    for (const [lat, lng] of points.slice(1)) {
-      const p = project(lat, lng);
-      ctx.lineTo(p.x, p.y);
+  if (countries.length > 0) {
+    for (const country of countries) {
+      ctx.beginPath();
+      path(country as never);
+      ctx.fillStyle = "#d9cdb7";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(96,82,58,0.22)";
+      ctx.lineWidth = 0.75;
+      ctx.stroke();
     }
-    ctx.closePath();
-    ctx.fill();
-  };
+  } else {
+    const fallbackLand = [
+      [[72, -168], [72, -50], [55, -58], [42, -80], [16, -82], [8, -104], [18, -130], [50, -142]],
+      [[13, -82], [9, -42], [-54, -70], [-20, -80]],
+      [[72, -12], [70, 158], [49, 150], [33, 78], [8, 45], [35, 18], [34, -10]],
+      [[34, -18], [31, 50], [-34, 46], [-35, 13], [0, -17]],
+      [[-10, 112], [-10, 154], [-45, 154], [-39, 113]],
+    ];
+    ctx.fillStyle = "#d9cdb7";
+    for (const land of fallbackLand) {
+      ctx.beginPath();
+      const first = projection([land[0][1], land[0][0]]);
+      if (!first) continue;
+      ctx.moveTo(first[0], first[1]);
+      for (const [lat, lng] of land.slice(1)) {
+        const p = projection([lng, lat]);
+        if (p) ctx.lineTo(p[0], p[1]);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
 
-  ctx.fillStyle = "rgba(196,169,125,0.28)";
-  drawLand([[72, -168], [72, -52], [18, -48], [8, -86], [18, -124], [52, -132]]);
-  drawLand([[13, -82], [12, -35], [-55, -66], [-20, -82]]);
-  drawLand([[72, -10], [70, 158], [8, 146], [-10, 44], [32, 28], [34, -12]]);
-  drawLand([[35, -18], [30, 52], [-35, 46], [-35, 12], [0, -16]]);
-  drawLand([[-11, 112], [-10, 154], [-45, 154], [-39, 113]]);
+  ctx.beginPath();
+  path({ type: "Sphere" });
+  ctx.strokeStyle = "rgba(96,82,58,0.26)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
 
   for (const pin of pins) {
-    const p = project(pin.lat, pin.lng);
+    const projected = projection([pin.lng, pin.lat]);
+    if (!projected) continue;
+    const [pinX, pinY] = projected;
+    const radius = pin.count > 1 ? 20 : 15;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, pin.count > 1 ? 13 : 10, 0, Math.PI * 2);
+    ctx.arc(pinX, pinY, radius + 8, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(139,63,47,0.16)";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(pinX, pinY, radius, 0, Math.PI * 2);
     ctx.fillStyle = "#8b3f2f";
     ctx.fill();
     ctx.strokeStyle = "#fff8ee";
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
     ctx.stroke();
     if (pin.count > 1) {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = "700 14px Georgia, serif";
+      ctx.font = "700 18px Georgia, serif";
       ctx.fillStyle = "#fff8ee";
-      ctx.fillText(String(pin.count), p.x, p.y + 0.5);
+      ctx.fillText(String(pin.count), pinX, pinY + 0.5);
     }
   }
 
@@ -313,50 +365,50 @@ function drawCountriesPanel(
   width: number,
   countries: Array<{ country: string; count: number }>
 ): number {
-  const panelHeight = Math.max(240, 112 + countries.length * 40);
+  const panelHeight = Math.max(300, 138 + countries.length * 48);
   drawPanelShell(ctx, x, y, width, panelHeight);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   ctx.fillStyle = "#2c1810";
-  ctx.font = "700 30px Georgia, 'Times New Roman', serif";
-  ctx.fillText("Residences", x + 24, y + 22);
-  ctx.font = "400 18px Georgia, 'Times New Roman', serif";
+  ctx.font = "700 40px Georgia, 'Times New Roman', serif";
+  ctx.fillText("Residences", x + 32, y + 28);
+  ctx.font = "400 22px Georgia, 'Times New Roman', serif";
   ctx.fillStyle = "#7a6b58";
-  ctx.fillText("Countries where the family currently lives.", x + 24, y + 60);
+  ctx.fillText("Countries where the family currently lives.", x + 32, y + 78);
 
-  const tableTop = y + 102;
+  const tableTop = y + 128;
   ctx.strokeStyle = "#d8c4a4";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(x + 24, tableTop);
-  ctx.lineTo(x + width - 24, tableTop);
+  ctx.moveTo(x + 32, tableTop);
+  ctx.lineTo(x + width - 32, tableTop);
   ctx.stroke();
 
-  ctx.font = "600 16px Georgia, 'Times New Roman', serif";
+  ctx.font = "600 18px Georgia, 'Times New Roman', serif";
   ctx.fillStyle = "#7a6b58";
-  ctx.fillText("Country", x + 24, tableTop + 12);
+  ctx.fillText("Country", x + 32, tableTop + 14);
   ctx.textAlign = "right";
-  ctx.fillText("Members", x + width - 24, tableTop + 12);
+  ctx.fillText("Members", x + width - 32, tableTop + 14);
 
-  let rowY = tableTop + 38;
+  let rowY = tableTop + 46;
   for (const entry of countries) {
     ctx.strokeStyle = "rgba(196,169,125,0.28)";
     ctx.beginPath();
-    ctx.moveTo(x + 24, rowY - 10);
-    ctx.lineTo(x + width - 24, rowY - 10);
+    ctx.moveTo(x + 32, rowY - 12);
+    ctx.lineTo(x + width - 32, rowY - 12);
     ctx.stroke();
 
     ctx.textAlign = "left";
-    ctx.font = "500 18px Georgia, 'Times New Roman', serif";
+    ctx.font = "500 23px Georgia, 'Times New Roman', serif";
     ctx.fillStyle = "#3b2a1a";
-    ctx.fillText(entry.country, x + 24, rowY);
+    ctx.fillText(entry.country, x + 32, rowY);
 
     ctx.textAlign = "right";
-    ctx.font = "600 18px Georgia, 'Times New Roman', serif";
+    ctx.font = "600 23px Georgia, 'Times New Roman', serif";
     ctx.fillStyle = "#6b5a4a";
-    ctx.fillText(String(entry.count), x + width - 24, rowY);
-    rowY += 40;
+    ctx.fillText(String(entry.count), x + width - 32, rowY);
+    rowY += 48;
   }
 
   return panelHeight;
@@ -367,44 +419,56 @@ function drawProfilePanel(
   x: number,
   y: number,
   width: number,
+  height: number,
   member: Profile,
   avatarBitmap: ImageBitmap | null
 ): number {
-  const panelHeight = 640;
+  const panelHeight = height;
   drawPanelShell(ctx, x, y, width, panelHeight);
 
   const cx = x + width / 2;
-  const avatarR = 66;
+  const avatarR = 92;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#9a8465";
+  ctx.font = "600 18px Georgia, serif";
+  ctx.fillText("PROFILE", x + 34, y + 30);
+
   ctx.save();
   ctx.beginPath();
-  ctx.arc(cx, y + 92, avatarR, 0, Math.PI * 2);
+  ctx.arc(cx, y + 148, avatarR, 0, Math.PI * 2);
   ctx.clip();
   if (avatarBitmap) {
-    ctx.drawImage(avatarBitmap, cx - avatarR, y + 92 - avatarR, avatarR * 2, avatarR * 2);
+    ctx.drawImage(avatarBitmap, cx - avatarR, y + 148 - avatarR, avatarR * 2, avatarR * 2);
   } else {
     ctx.fillStyle = "#f0ebe3";
-    ctx.fillRect(cx - avatarR, y + 92 - avatarR, avatarR * 2, avatarR * 2);
+    ctx.fillRect(cx - avatarR, y + 148 - avatarR, avatarR * 2, avatarR * 2);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "700 44px Georgia, serif";
+    ctx.font = "700 58px Georgia, serif";
     ctx.fillStyle = "#3b2a1a";
-    ctx.fillText(`${member.first_name[0] || ""}${member.last_name[0] || ""}`.toUpperCase(), cx, y + 94);
+    ctx.fillText(`${member.first_name[0] || ""}${member.last_name[0] || ""}`.toUpperCase(), cx, y + 150);
   }
   ctx.restore();
+  ctx.beginPath();
+  ctx.arc(cx, y + 148, avatarR + 4, 0, Math.PI * 2);
+  ctx.strokeStyle = "#d8c4a4";
+  ctx.lineWidth = 2;
+  ctx.stroke();
 
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.fillStyle = "#2c1810";
-  ctx.font = "700 30px Georgia, 'Times New Roman', serif";
+  ctx.font = "700 40px Georgia, 'Times New Roman', serif";
   wrapTextLines(ctx, formatFullName(member), width - 48).slice(0, 2).forEach((line, index) => {
-    ctx.fillText(line, cx, y + 178 + index * 34);
+    ctx.fillText(line, cx, y + 264 + index * 46);
   });
-  let nextY = y + 248;
+  let nextY = y + 356;
   if (member.display_name) {
-    ctx.font = "italic 400 18px Georgia, serif";
+    ctx.font = "italic 400 24px Georgia, serif";
     ctx.fillStyle = "#7a6b58";
     ctx.fillText(`"${member.display_name}"`, cx, nextY);
-    nextY += 34;
+    nextY += 46;
   }
 
   const rows = [
@@ -419,29 +483,109 @@ function drawProfilePanel(
 
   ctx.textAlign = "left";
   for (const [label, value] of rows.slice(0, 7)) {
-    ctx.font = "600 15px Georgia, serif";
+    ctx.font = "600 17px Georgia, serif";
     ctx.fillStyle = "#9a8465";
-    ctx.fillText(label.toUpperCase(), x + 28, nextY);
-    ctx.font = "500 19px Georgia, serif";
+    ctx.fillText(label.toUpperCase(), x + 34, nextY);
+    ctx.font = "500 23px Georgia, serif";
     ctx.fillStyle = "#3b2a1a";
-    wrapTextLines(ctx, value, width - 56).slice(0, 2).forEach((line, index) => {
-      ctx.fillText(line, x + 28, nextY + 22 + index * 23);
+    const rowLines = wrapTextLines(ctx, value, width - 68).slice(0, 2);
+    rowLines.forEach((line, index) => {
+      ctx.fillText(line, x + 34, nextY + 26 + index * 28);
     });
-    nextY += 70;
+    nextY += 58 + rowLines.length * 24;
   }
 
-  if (member.about_me && nextY < y + panelHeight - 92) {
-    ctx.font = "600 15px Georgia, serif";
+  if (member.about_me && nextY < y + panelHeight - 120) {
+    ctx.font = "600 17px Georgia, serif";
     ctx.fillStyle = "#9a8465";
-    ctx.fillText("ABOUT", x + 28, nextY);
-    ctx.font = "400 18px Georgia, serif";
+    ctx.fillText("ABOUT", x + 34, nextY);
+    ctx.font = "400 22px Georgia, serif";
     ctx.fillStyle = "#4c3b2a";
-    wrapTextLines(ctx, member.about_me, width - 56).slice(0, 6).forEach((line, index) => {
-      ctx.fillText(line, x + 28, nextY + 24 + index * 24);
+    wrapTextLines(ctx, member.about_me, width - 68).slice(0, 9).forEach((line, index) => {
+      ctx.fillText(line, x + 34, nextY + 28 + index * 28);
     });
   }
 
   return panelHeight;
+}
+
+type ExportRenderNode = {
+  profile: Profile;
+  generation: number;
+  x: number;
+  y: number;
+  labelWidth: number;
+};
+
+function measureNodeLabelWidth(
+  ctx: CanvasRenderingContext2D,
+  member: Profile,
+  options: FamilyTreeExportOptions,
+  scale: number,
+  circleR: number
+): number {
+  const nameFontSize = Math.round(Math.max(24, 17 * scale));
+  const maxTextWidth = Math.max(260, circleR * 6.4);
+  ctx.font = `600 ${nameFontSize}px Georgia, serif`;
+  const nameLines = wrapTextLines(ctx, formatExportName(member, options.nameMode), maxTextWidth).slice(0, 2);
+  const measured = nameLines.reduce((max, line) => Math.max(max, ctx.measureText(line).width), 0);
+  let width = Math.max(circleR * 2.5, measured);
+
+  if (options.nameMode === "full" && member.display_name) {
+    const aliasSize = Math.round(Math.max(17, 13 * scale));
+    ctx.font = `italic 400 ${aliasSize}px Georgia, serif`;
+    width = Math.max(width, ctx.measureText(`"${member.display_name}"`).width);
+  }
+
+  const dateSize = Math.round(Math.max(17, 13 * scale));
+  ctx.font = `400 ${dateSize}px Georgia, serif`;
+  const birthDate = options.showBirthDates ? formatBirthDateLabel(member) : null;
+  const deathDate = options.showDeathDates ? formatDeathDateLabel(member) : null;
+  if (birthDate) width = Math.max(width, ctx.measureText(birthDate).width);
+  if (deathDate) width = Math.max(width, ctx.measureText(deathDate).width);
+
+  return width + 56;
+}
+
+function buildExportRenderNodes(
+  ctx: CanvasRenderingContext2D,
+  nodes: Array<{ profile: Profile; x: number; y: number; generation: number }>,
+  scale: number,
+  circleR: number,
+  options: FamilyTreeExportOptions
+): ExportRenderNode[] {
+  const renderNodes = nodes.map((node) => ({
+    profile: node.profile,
+    generation: node.generation,
+    x: node.x * scale,
+    y: node.y * scale,
+    labelWidth: measureNodeLabelWidth(ctx, node.profile, options, scale, circleR),
+  }));
+
+  const rows = new Map<number, ExportRenderNode[]>();
+  for (const node of renderNodes) {
+    const rowKey = Math.round(node.y);
+    if (!rows.has(rowKey)) rows.set(rowKey, []);
+    rows.get(rowKey)!.push(node);
+  }
+
+  for (const rowNodes of rows.values()) {
+    rowNodes.sort((a, b) => a.x - b.x);
+    const originalCenter = (rowNodes[0].x + rowNodes[rowNodes.length - 1].x) / 2;
+    for (let index = 1; index < rowNodes.length; index += 1) {
+      const previous = rowNodes[index - 1];
+      const current = rowNodes[index];
+      const minGap = previous.labelWidth / 2 + current.labelWidth / 2 + 56;
+      if (current.x - previous.x < minGap) {
+        current.x = previous.x + minGap;
+      }
+    }
+    const adjustedCenter = (rowNodes[0].x + rowNodes[rowNodes.length - 1].x) / 2;
+    const centerShift = originalCenter - adjustedCenter;
+    for (const node of rowNodes) node.x += centerShift;
+  }
+
+  return renderNodes;
 }
 
 export async function exportFamilyTreeAsImage({
@@ -474,26 +618,31 @@ export async function exportFamilyTreeAsImage({
     preferAncestorRoot: preferAncestorRoot ?? false,
   });
 
-  const horizontalPadding = 180;
-  const leftSidebarWidth = sideContent.has("worldMap") ? 640 : 0;
-  const rightSidebarWidth = sideContent.has("countries") || sideContent.has("profile") ? 520 : 0;
-  const topPadding = 245;
-  const bottomPadding = 150;
-  const maxCanvasWidth = 5600;
-  const minCanvasWidth = 3880;
-  const targetScale = 2.2;
+  const horizontalPadding = 220;
+  const panelWidth = 1160;
+  const sidePanelGap = 130;
+  const hasLeftPanel = sideContent.has("worldMap");
+  const hasRightPanel = sideContent.has("countries") || sideContent.has("profile");
+  const leftClearance = horizontalPadding + (hasLeftPanel ? panelWidth + sidePanelGap : 0);
+  const rightClearance = horizontalPadding + (hasRightPanel ? panelWidth + sidePanelGap : 0);
+  const topPadding = 370;
+  const bottomPadding = 190;
+  const maxCanvasWidth = 7200;
+  const minCanvasWidth = 5600;
+  const minCanvasHeight = 3150;
+  const targetScale = 2.35;
   const width = Math.max(
     minCanvasWidth,
     Math.min(
       maxCanvasWidth,
-      Math.ceil(tree.width * targetScale + horizontalPadding * 2 + leftSidebarWidth + rightSidebarWidth)
+      Math.ceil(tree.width * targetScale + leftClearance + rightClearance)
     )
   );
   const scale = Math.min(
     targetScale,
-    (width - horizontalPadding * 2 - leftSidebarWidth - rightSidebarWidth) / Math.max(tree.width, 1)
+    (width - leftClearance - rightClearance) / Math.max(tree.width, 1)
   );
-  const height = Math.max(2200, Math.ceil(topPadding + tree.height * scale + bottomPadding));
+  const height = Math.max(minCanvasHeight, Math.ceil(topPadding + tree.height * scale + bottomPadding));
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -546,17 +695,25 @@ export async function exportFamilyTreeAsImage({
   ctx.moveTo(width / 2 - ornW, hdrY + 118);
   ctx.lineTo(width / 2 + ornW, hdrY + 118);
   ctx.stroke();
-  const treeAreaX = horizontalPadding + leftSidebarWidth;
-  const treeAreaWidth = width - horizontalPadding * 2 - leftSidebarWidth - rightSidebarWidth;
-  const treeOffsetX = treeAreaX + Math.max(0, (treeAreaWidth - tree.width * scale) / 2);
+  const circleR = Math.max(46, Math.min(66, 36 * scale));
+  const renderNodes = buildExportRenderNodes(ctx, tree.nodes, scale, circleR, resolvedOptions);
+  const renderNodeById = new Map(renderNodes.map((node) => [node.profile.id, node]));
+  const renderMinX = Math.min(...renderNodes.map((node) => node.x - node.labelWidth / 2));
+  const renderMaxX = Math.max(...renderNodes.map((node) => node.x + node.labelWidth / 2));
+  const renderVisualWidth = renderMaxX - renderMinX;
+  let treeOffsetX = width / 2 - renderVisualWidth / 2 - renderMinX;
+  treeOffsetX = Math.max(leftClearance, Math.min(treeOffsetX, width - rightClearance - renderVisualWidth - renderMinX));
   const treeOffsetY = topPadding;
   const leftSidebarX = horizontalPadding;
-  const sidebarX = width - horizontalPadding - rightSidebarWidth + 18;
-  const sidebarY = topPadding + 8;
+  const sidebarX = width - horizontalPadding - panelWidth;
+  const sidebarY = topPadding + 22;
+  const sideAvailableHeight = height - sidebarY - bottomPadding - 76;
+  const mapPanelHeight = Math.min(1060, Math.max(880, sideAvailableHeight * 0.46));
+  const profilePanelHeight = Math.min(1420, Math.max(1180, sideAvailableHeight * (sideContent.has("countries") ? 0.56 : 0.74)));
   const residenceCountries = collectResidenceCountries(members);
   const residencePins = collectResidencePins(members);
+  const worldCountries = sideContent.has("worldMap") ? await loadWorldCountries() : [];
 
-  const nodesById = new Map(tree.nodes.map((n) => [n.profile.id, n]));
   const avatarBitmapById = new Map<string, ImageBitmap>();
   await Promise.all(
     tree.nodes.map(async (node) => {
@@ -573,10 +730,8 @@ export async function exportFamilyTreeAsImage({
   const profilePanelAvatar = profilePanelMember?.avatar_url
     ? await loadAvatarBitmap(profilePanelMember.avatar_url)
     : null;
-  const mapX = (x: number) => treeOffsetX + x * scale;
-  const mapY = (y: number) => treeOffsetY + y * scale;
-
-  const circleR = Math.max(40, Math.min(58, 37 * scale));
+  const mapX = (node: ExportRenderNode) => treeOffsetX + node.x;
+  const mapY = (node: ExportRenderNode) => treeOffsetY + node.y;
 
   // Generation color palette
   const genPalette = ["#6b4226", "#5b21b6", "#15803d", "#1d4ed8"];
@@ -589,21 +744,21 @@ export async function exportFamilyTreeAsImage({
 
   // Sibship brackets
   for (const sib of tree.sibships) {
-    const pNodes = sib.parents.map((id) => nodesById.get(id)).filter(Boolean) as typeof tree.nodes;
-    const cNodes = sib.children.map((id) => nodesById.get(id)).filter(Boolean) as typeof tree.nodes;
+    const pNodes = sib.parents.map((id) => renderNodeById.get(id)).filter(Boolean) as ExportRenderNode[];
+    const cNodes = sib.children.map((id) => renderNodeById.get(id)).filter(Boolean) as ExportRenderNode[];
     if (cNodes.length === 0) continue;
     if (pNodes.length === 0 && cNodes.length < 2) continue;
 
-    const sortedP = [...pNodes].sort((a, b) => mapX(a.x) - mapX(b.x));
-    const sortedC = [...cNodes].sort((a, b) => mapX(a.x) - mapX(b.x));
-    const cY = sortedC.reduce((s, c) => s + mapY(c.y), 0) / sortedC.length;
+    const sortedP = [...pNodes].sort((a, b) => mapX(a) - mapX(b));
+    const sortedC = [...cNodes].sort((a, b) => mapX(a) - mapX(b));
+    const cY = sortedC.reduce((s, c) => s + mapY(c), 0) / sortedC.length;
 
     const hasCouple = sortedP.length >= 2;
     const hasParents = sortedP.length > 0;
-    const pY = hasParents ? sortedP.reduce((s, p) => s + mapY(p.y), 0) / sortedP.length : cY;
-    const lx = hasParents ? mapX(sortedP[0].x) : mapX(sortedC[0].x);
-    const rx = hasParents ? mapX(sortedP[sortedP.length - 1].x) : mapX(sortedC[sortedC.length - 1].x);
-    const ux = hasCouple ? (lx + rx) / 2 : hasParents ? lx : sortedC.reduce((s, c) => s + mapX(c.x), 0) / sortedC.length;
+    const pY = hasParents ? sortedP.reduce((s, p) => s + mapY(p), 0) / sortedP.length : cY;
+    const lx = hasParents ? mapX(sortedP[0]) : mapX(sortedC[0]);
+    const rx = hasParents ? mapX(sortedP[sortedP.length - 1]) : mapX(sortedC[sortedC.length - 1]);
+    const ux = hasCouple ? (lx + rx) / 2 : hasParents ? lx : sortedC.reduce((s, c) => s + mapX(c), 0) / sortedC.length;
     const dropStart = hasCouple ? pY : pY + circleR;
     const childTop = cY - circleR;
     const railY = hasParents
@@ -627,15 +782,15 @@ export async function exportFamilyTreeAsImage({
       ctx.lineTo(ux, railY);
     }
 
-    const railL = Math.min(ux, ...sortedC.map((c) => mapX(c.x)));
-    const railR = Math.max(ux, ...sortedC.map((c) => mapX(c.x)));
+    const railL = Math.min(ux, ...sortedC.map((c) => mapX(c)));
+    const railR = Math.max(ux, ...sortedC.map((c) => mapX(c)));
     if (railR - railL > 0.5) {
       ctx.moveTo(railL, railY);
       ctx.lineTo(railR, railY);
     }
     for (const c of sortedC) {
-      ctx.moveTo(mapX(c.x), railY);
-      ctx.lineTo(mapX(c.x), childTop);
+      ctx.moveTo(mapX(c), railY);
+      ctx.lineTo(mapX(c), childTop);
     }
     ctx.stroke();
   }
@@ -645,10 +800,10 @@ export async function exportFamilyTreeAsImage({
   ctx.lineWidth = 2.5;
   for (const conn of tree.connections) {
     if (conn.type !== "spouse") continue;
-    const a = nodesById.get(conn.from);
-    const b = nodesById.get(conn.to);
+    const a = renderNodeById.get(conn.from);
+    const b = renderNodeById.get(conn.to);
     if (!a || !b) continue;
-    const ax = mapX(a.x), ay = mapY(a.y), bx = mapX(b.x), by = mapY(b.y);
+    const ax = mapX(a), ay = mapY(a), bx = mapX(b), by = mapY(b);
     ctx.beginPath();
     ctx.moveTo(Math.min(ax, bx) + circleR, (ay + by) / 2);
     ctx.lineTo(Math.max(ax, bx) - circleR, (ay + by) / 2);
@@ -656,9 +811,9 @@ export async function exportFamilyTreeAsImage({
   }
 
   // ── Nodes ──
-  for (const node of tree.nodes) {
-    const cx = mapX(node.x);
-    const cy = mapY(node.y);
+  for (const node of renderNodes) {
+    const cx = mapX(node);
+    const cy = mapY(node);
 
     // Background circle masks lines
     ctx.beginPath();
@@ -699,13 +854,14 @@ export async function exportFamilyTreeAsImage({
     ctx.restore();
 
     // Name
+    ctx.textAlign = "center";
     ctx.textBaseline = "top";
-    const fontSize = Math.round(Math.max(22, 18 * scale));
+    const fontSize = Math.round(Math.max(24, 17 * scale));
     ctx.font = `600 ${fontSize}px Georgia, serif`;
     ctx.fillStyle = "#2c1810";
-    const maxW = Math.max(220, circleR * 5.8);
-    const nameLines = wrapTextLines(ctx, formatExportName(node.profile, resolvedOptions.nameMode), maxW);
-    const nameStartY = cy + circleR + 16;
+    const maxW = Math.max(260, circleR * 6.4);
+    const nameLines = wrapTextLines(ctx, formatExportName(node.profile, resolvedOptions.nameMode), maxW).slice(0, 2);
+    const nameStartY = cy + circleR + 20;
     nameLines.forEach((line, index) => {
       ctx.fillText(line, cx, nameStartY + index * (fontSize + 4));
     });
@@ -714,18 +870,19 @@ export async function exportFamilyTreeAsImage({
 
     // Display name
     if (resolvedOptions.nameMode === "full" && node.profile.display_name) {
-      const aliasSize = Math.round(Math.max(16, 14 * scale));
+      const aliasSize = Math.round(Math.max(17, 13 * scale));
       ctx.font = `italic 400 ${aliasSize}px Georgia, serif`;
       ctx.fillStyle = "#6b5840";
       ctx.fillText(`"${node.profile.display_name}"`, cx, labelY);
       labelY += aliasSize + 6;
     }
 
-    const dateSize = Math.round(Math.max(16, 14 * scale));
+    const dateSize = Math.round(Math.max(17, 13 * scale));
     ctx.font = `400 ${dateSize}px Georgia, serif`;
     ctx.fillStyle = "#8a7a65";
-    if (resolvedOptions.showBirthDates) {
-      ctx.fillText(formatBirthDateLabel(node.profile), cx, labelY);
+    const birthDate = resolvedOptions.showBirthDates ? formatBirthDateLabel(node.profile) : null;
+    if (birthDate) {
+      ctx.fillText(birthDate, cx, labelY);
       labelY += dateSize + 6;
     }
 
@@ -737,13 +894,21 @@ export async function exportFamilyTreeAsImage({
 
   // ── Side panels ──
   if (sideContent.has("worldMap")) {
-    drawWorldMapPanel(ctx, leftSidebarX, sidebarY, leftSidebarWidth - 36, 520, residencePins);
+    drawWorldMapPanel(ctx, leftSidebarX, sidebarY, panelWidth, mapPanelHeight, residencePins, worldCountries);
   }
 
   let rightPanelY = sidebarY;
-  const rightPanelWidth = rightSidebarWidth - 36;
+  const rightPanelWidth = panelWidth;
   if (sideContent.has("profile") && profilePanelMember) {
-    rightPanelY += drawProfilePanel(ctx, sidebarX, rightPanelY, rightPanelWidth, profilePanelMember, profilePanelAvatar) + 28;
+    rightPanelY += drawProfilePanel(
+      ctx,
+      sidebarX,
+      rightPanelY,
+      rightPanelWidth,
+      profilePanelHeight,
+      profilePanelMember,
+      profilePanelAvatar
+    ) + 34;
   }
   if (sideContent.has("countries")) {
     drawCountriesPanel(ctx, sidebarX, rightPanelY, rightPanelWidth, residenceCountries);
