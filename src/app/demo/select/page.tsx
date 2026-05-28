@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 
 import { LegatreeBrandLink } from "@/components/branding/LegatreeBrandLink";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
-import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { DEMO_FAMILY_OPTIONS, setStoredDemoFamily, type DemoFamilyKey } from "@/lib/demo-family";
 
 export default function DemoSelectPage() {
@@ -22,7 +21,6 @@ export default function DemoSelectPage() {
       <PreAuthBackdrop variant="auth" />
       <header className="relative z-10 flex items-center justify-between px-4 py-4 sm:px-6 lg:px-16">
         <LegatreeBrandLink destination="public" size="header" variant="plain" className="text-white/95" />
-        <ThemeToggle placement="inline" />
       </header>
 
       <main className="relative z-10 mx-auto flex min-h-[calc(100vh-88px)] max-w-5xl flex-col justify-center px-4 pb-16 sm:px-6">
