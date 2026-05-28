@@ -52,7 +52,6 @@ export default function DemoPage() {
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
   const [showCurrentCountryFlag, setShowCurrentCountryFlag] = useState(false);
-  const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [exportingTree, setExportingTree] = useState(false);
   const moreActionsRef = useRef<HTMLDivElement | null>(null);
@@ -235,7 +234,6 @@ export default function DemoPage() {
                   onShowBirthCountryFlagChange={setShowBirthCountryFlag}
                   showCurrentCountryFlag={showCurrentCountryFlag}
                   onShowCurrentCountryFlagChange={setShowCurrentCountryFlag}
-                  onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
                 />
 
                 <div className="relative" ref={moreActionsRef}>
@@ -313,7 +311,6 @@ export default function DemoPage() {
               showDeathYear={showDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
               showCurrentCountryFlag={showCurrentCountryFlag}
-              viewResetSignal={treeViewResetSignal}
               onMemberClick={(id) => navigateToProfile(id)}
               canvasWidth={treeLayout?.width}
               canvasHeight={treeLayout?.height} />

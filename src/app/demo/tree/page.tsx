@@ -15,7 +15,6 @@ import {
   Briefcase,
   Calendar,
   User,
-  PawPrint,
   X,
   UserPlus,
   Download,
@@ -25,6 +24,7 @@ import { DemoSidebar } from "@/components/demo/DemoSidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { FamilyTree } from "@/components/tree/FamilyTree";
+import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { TreeControls } from "@/components/tree/TreeControls";
 import { FamilyMembersTable } from "@/components/tree/FamilyMembersTable";
 import { useFamilyStore } from "@/store/family-store";
@@ -33,7 +33,7 @@ import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { createRoyalDemoTreeLayout } from "@/lib/royal-demo-layout";
 import { exportFamilyTreeAsImage } from "@/lib/tree-export";
 import { useSelectedDemoFamily } from "@/lib/demo-family";
-import type { MedicalCondition } from "@/lib/types";
+import type { Profile } from "@/lib/types";
 import { formatGenderLabel } from "@/lib/display-format";
 import { cn } from "@/lib/cn";
 
@@ -55,6 +55,14 @@ function getAge(value: string | null): number | null {
   return years;
 }
 
+function getInitials(first: string, last: string): string {
+  return `${first[0] || ""}${last[0] || ""}`.toUpperCase();
+}
+
+function mapQueryForMember(member: Profile): string | null {
+  return member.location_city || member.place_of_birth || null;
+}
+
 export default function DemoTreePage() {
   const router = useRouter();
   const store = useFamilyStore();
@@ -66,7 +74,6 @@ export default function DemoTreePage() {
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
   const [showCurrentCountryFlag, setShowCurrentCountryFlag] = useState(false);
-  const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [exportingTree, setExportingTree] = useState(false);
 
@@ -119,12 +126,10 @@ export default function DemoTreePage() {
     return calculateGeneticMatch(viewer.id, selectedMember.id, relationships, selectedMember.gender);
   }, [viewer.id, selectedMember, relationships]);
 
-  const selectedConditions = useMemo(() => {
-    if (!selectedMember) return [];
-    return demoFamily.userConditions.filter((uc) => uc.user_id === selectedMember.id)
-      .map((uc) => demoFamily.conditions.find((c) => c.id === uc.condition_id))
-      .filter((c): c is MedicalCondition => !!c);
-  }, [demoFamily.conditions, demoFamily.userConditions, selectedMember]);
+  const selectedMapQuery = useMemo(
+    () => (selectedMember ? mapQueryForMember(selectedMember) : null),
+    [selectedMember]
+  );
 
   const handleMemberClick = useCallback((memberId: string) => {
     setSelectedMemberId(memberId);
@@ -247,7 +252,6 @@ export default function DemoTreePage() {
               onShowBirthCountryFlagChange={setShowBirthCountryFlag}
               showCurrentCountryFlag={showCurrentCountryFlag}
               onShowCurrentCountryFlagChange={setShowCurrentCountryFlag}
-              onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
             />
           </div>
         </motion.div>
@@ -297,7 +301,6 @@ export default function DemoTreePage() {
               showDeathYear={showDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
               showCurrentCountryFlag={showCurrentCountryFlag}
-              viewResetSignal={treeViewResetSignal}
               showHoverCard
               onMemberClick={handleMemberClick}
               onBackgroundClick={() => setSelectedMemberId(null)}
@@ -318,20 +321,7 @@ export default function DemoTreePage() {
                 className="min-w-[280px] w-full lg:w-[320px]"
               >
                 <GlassCard className="p-5 lg:sticky lg:top-6 h-fit">
-                  <div className="flex items-start justify-between gap-2 mb-4">
-                    <motion.div>
-                      <h3 className="font-serif text-xl text-white/93">
-                        {selectedMember.first_name} {selectedMember.last_name}
-                      </h3>
-                      {selectedMember.display_name && (
-                        <p className="text-xs text-gold-300/85 mt-0.5">{selectedMember.display_name}</p>
-                      )}
-                      {selectedMatch && (
-                        <p className="text-xs text-white/48 mt-1">
-                          {selectedMatch.relationship} · {selectedMatch.percentage}% match
-                        </p>
-                      )}
-                    </motion.div>
+                  <div className="flex justify-end mb-2">
                     <button
                       type="button"
                       onClick={() => setSelectedMemberId(null)}
@@ -340,6 +330,28 @@ export default function DemoTreePage() {
                     >
                       <X size={14} className="mx-auto" />
                     </button>
+                  </div>
+
+                  <div className="mb-4 flex flex-col items-center text-center">
+                    <GeneticMatchRing
+                      percentage={selectedMatch?.percentage || 0}
+                      size={104}
+                      strokeWidth={3}
+                      avatarUrl={selectedMember.avatar_url}
+                      initials={getInitials(selectedMember.first_name, selectedMember.last_name)}
+                      showPercentage={false}
+                    />
+                    <h3 className="mt-3 font-serif text-xl text-white/93">
+                      {selectedMember.first_name} {selectedMember.last_name}
+                    </h3>
+                    {selectedMember.display_name && (
+                      <p className="text-xs text-gold-300/85 mt-0.5">{selectedMember.display_name}</p>
+                    )}
+                    {selectedMatch && (
+                      <p className="text-xs text-white/48 mt-1">
+                        {selectedMatch.relationship} · {selectedMatch.percentage}% match
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2.5 text-sm">
@@ -351,12 +363,19 @@ export default function DemoTreePage() {
                       label="Birth"
                       value={`${formatBirthDate(selectedMember.date_of_birth)}${selectedAge !== null ? ` (${selectedAge})` : ""}`}
                     />
-                    <DetailRow
-                      icon={PawPrint}
-                      label="Pets"
-                      value={selectedMember.pets.length ? selectedMember.pets.join(", ") : "None"}
-                    />
                   </div>
+
+                  {selectedMapQuery && (
+                    <div className="mt-4 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]">
+                      <iframe
+                        title={`${selectedMember.first_name} ${selectedMember.last_name} map`}
+                        src={`https://www.google.com/maps?q=${encodeURIComponent(selectedMapQuery)}&output=embed`}
+                        className="h-32 w-full"
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </div>
+                  )}
 
                   {selectedMember.about_me && (
                     <div className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5">
@@ -364,24 +383,6 @@ export default function DemoTreePage() {
                       <p className="text-xs text-white/72 leading-relaxed">{selectedMember.about_me}</p>
                     </div>
                   )}
-
-                  <div className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-2.5">
-                    <p className="text-[10px] uppercase tracking-wider text-white/45 mb-1">Health Conditions</p>
-                    {selectedConditions.length === 0 ? (
-                      <p className="text-xs text-white/50">No recorded conditions</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedConditions.slice(0, 8).map((condition) => (
-                          <span
-                            key={condition.id}
-                            className="px-2 py-1 rounded-lg bg-white/[0.05] border border-white/[0.08] text-[11px] text-white/74"
-                          >
-                            {condition.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
 
                   <button
                     type="button"

@@ -510,6 +510,9 @@ export function FamilyTree({
       onPointerUp={handlePointerEnd}
       onPointerCancel={handlePointerEnd}
       onDoubleClick={handleDoubleClick}
+      onClick={() => {
+        if (!didDragRef.current) onBackgroundClick?.();
+      }}
     >
       <div
         className="absolute right-3 top-3 z-30 flex items-center gap-1.5 rounded-2xl app-surface p-1.5 shadow-lg"
@@ -566,9 +569,6 @@ export function FamilyTree({
           transformOrigin: "0 0",
           transition: isAnimating ? "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)" : "none",
           willChange: "transform",
-        }}
-        onClick={() => {
-          if (!didDragRef.current) onBackgroundClick?.();
         }}
       >
         {/* ── SVG Connection Layer (Orthogonal Routing) ── */}

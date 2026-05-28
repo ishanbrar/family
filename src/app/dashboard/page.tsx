@@ -7,6 +7,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useMemo, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -95,7 +96,6 @@ export default function DashboardPage() {
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
   const [showCurrentCountryFlag, setShowCurrentCountryFlag] = useState(false);
-  const [treeViewResetSignal, setTreeViewResetSignal] = useState(0);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportScope, setExportScope] = useState<"entire" | "related">("entire");
@@ -962,7 +962,12 @@ export default function DashboardPage() {
           <GlassCard className="p-4 sm:p-6">
             <div className="w-full">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-5 gap-3">
-                <h2 className="font-serif text-xl font-semibold text-white/90">{familyTreeTitle}</h2>
+                <Link
+                  href="/tree"
+                  className="font-serif text-xl font-semibold text-white/90 hover:text-gold-300 transition-colors"
+                >
+                  {familyTreeTitle}
+                </Link>
                 <div className="flex w-full sm:w-auto items-center gap-2.5 flex-wrap sm:flex-nowrap sm:justify-end">
                   <TreeControls
                     members={members}
@@ -982,7 +987,6 @@ export default function DashboardPage() {
                     onShowBirthCountryFlagChange={setShowBirthCountryFlag}
                     showCurrentCountryFlag={showCurrentCountryFlag}
                     onShowCurrentCountryFlagChange={setShowCurrentCountryFlag}
-                    onResetView={() => setTreeViewResetSignal((prev) => prev + 1)}
                   />
                 </div>
               </div>
@@ -1017,11 +1021,11 @@ export default function DashboardPage() {
                 showDeathYear={showDeathYear}
                 showBirthCountryFlag={showBirthCountryFlag}
                 showCurrentCountryFlag={showCurrentCountryFlag}
-                viewResetSignal={treeViewResetSignal}
                 onMemberClick={(id) => navigateToProfile(id)}
-              canvasWidth={treeLayout.width}
-              canvasHeight={treeLayout.height}
-              fitPadding={32}
+                onBackgroundClick={() => router.push("/tree")}
+                canvasWidth={treeLayout.width}
+                canvasHeight={treeLayout.height}
+                fitPadding={32}
               />
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {[
