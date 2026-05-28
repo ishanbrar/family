@@ -22,6 +22,7 @@ import { LegatreeTreeIcon } from "@/components/branding/LegatreeTreeIcon";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase/client";
 import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
+import { useIsSuperAdmin } from "@/hooks/use-is-super-admin";
 
 interface NavItem {
   label: string;
@@ -34,41 +35,55 @@ interface NavSection {
   items: NavItem[];
 }
 
-const NAV_SECTIONS: NavSection[] = [
-  {
-    items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
-  },
-  {
-    heading: "Your Tree",
-    items: [
-      { label: "Family Tree", href: "/tree", icon: GitBranch },
-      { label: "World", href: "/world", icon: Globe2 },
-    ],
-  },
-  {
-    items: [
-      { label: "Health DNA", href: "/health", icon: HeartPulse },
-      { label: "Profile", href: "/profile", icon: User },
-      { label: "Settings", href: "/settings", icon: Settings },
-      { label: "Super Admin", href: "/super-admin", icon: Crown },
-    ],
-  },
-];
+const SUPER_ADMIN_NAV_ITEM: NavItem = {
+  label: "Super Admin",
+  href: "/super-admin",
+  icon: Crown,
+};
 
-const NAV_ITEMS = NAV_SECTIONS.flatMap((section) => section.items);
+function buildNavSections(showSuperAdmin: boolean): NavSection[] {
+  return [
+    {
+      items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
+    },
+    {
+      heading: "Your Tree",
+      items: [
+        { label: "Family Tree", href: "/tree", icon: GitBranch },
+        { label: "World", href: "/world", icon: Globe2 },
+      ],
+    },
+    {
+      items: [
+        { label: "Health DNA", href: "/health", icon: HeartPulse },
+        { label: "Profile", href: "/profile", icon: User },
+        { label: "Settings", href: "/settings", icon: Settings },
+        ...(showSuperAdmin ? [SUPER_ADMIN_NAV_ITEM] : []),
+      ],
+    },
+  ];
+}
 
-const MOBILE_NAV_ITEMS = [
-  { label: "Home", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Tree", href: "/tree", icon: GitBranch },
-  { label: "World", href: "/world", icon: Globe2 },
-  { label: "Health", href: "/health", icon: HeartPulse },
-  { label: "Profile", href: "/profile", icon: User },
-  { label: "Settings", href: "/settings", icon: Settings },
-  { label: "Admin", href: "/super-admin", icon: Crown },
-];
+function buildMobileNavItems(showSuperAdmin: boolean): NavItem[] {
+  return [
+    { label: "Home", href: "/dashboard", icon: LayoutDashboard },
+    { label: "Tree", href: "/tree", icon: GitBranch },
+    { label: "World", href: "/world", icon: Globe2 },
+    { label: "Health", href: "/health", icon: HeartPulse },
+    { label: "Profile", href: "/profile", icon: User },
+    { label: "Settings", href: "/settings", icon: Settings },
+    ...(showSuperAdmin
+      ? [{ label: "Admin", href: "/super-admin", icon: Crown }]
+      : []),
+  ];
+}
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { isSuperAdmin } = useIsSuperAdmin();
+  const navSections = buildNavSections(isSuperAdmin);
+  const mobileNavItems = buildMobileNavItems(isSuperAdmin);
+  const navItems = navSections.flatMap((section) => section.items);
 
   const isPathActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -87,7 +102,7 @@ export function Sidebar() {
     window.location.href = "/login";
   };
 
-  const activeDesktopIndex = NAV_ITEMS.findIndex((item, idx) => {
+  const activeDesktopIndex = navItems.findIndex((item, idx) => {
     if (!isPathActive(item.href)) return false;
     if (item.href === "/dashboard") return idx === 0;
     return true;
@@ -122,7 +137,7 @@ export function Sidebar() {
         </Link>
 
         <nav className="flex-1 px-2 lg:px-3 py-4 space-y-1 overflow-y-auto">
-          {NAV_SECTIONS.map((section) => (
+          {navSections.map((section) => (
             <div key={section.heading || section.items[0]?.href} className="space-y-1">
               {section.heading && (
                 <p className="hidden lg:block px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/22">
@@ -171,8 +186,8 @@ export function Sidebar() {
           paddingRight: "max(env(safe-area-inset-right), 0.5rem)",
         }}
       >
-        <div className="grid grid-cols-8 gap-1 px-1.5 py-2">
-          {[...MOBILE_NAV_ITEMS, { label: "Sign Out", href: "#", icon: LogOut }].map((item) => {
+        <div className={cn("grid gap-1 px-1.5 py-2", isSuperAdmin ? "grid-cols-8" : "grid-cols-7")}>
+          {[...mobileNavItems, { label: "Sign Out", href: "#", icon: LogOut }].map((item) => {
             const Icon = item.icon;
             const isSignOut = item.label === "Sign Out";
             const isActive = !isSignOut && isPathActive(item.href);

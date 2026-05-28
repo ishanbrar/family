@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Crown, GitBranch, Loader2, Search, Shield, Users } from "lucide-react";
 
@@ -8,6 +9,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { FamilyTree } from "@/components/tree/FamilyTree";
 import { FamilyUsersAdmin } from "@/components/settings/FamilyUsersAdmin";
+import { useIsSuperAdmin } from "@/hooks/use-is-super-admin";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import type { FamilyRecord } from "@/lib/supabase/db";
 import type { GeneticMatchResult, Profile, Relationship } from "@/lib/types";
@@ -36,6 +38,8 @@ const STATIC_MATCH: GeneticMatchResult = {
 };
 
 export default function SuperAdminPage() {
+  const router = useRouter();
+  const { isSuperAdmin, loading: accessLoading } = useIsSuperAdmin();
   const [families, setFamilies] = useState<SuperAdminFamily[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
@@ -45,6 +49,15 @@ export default function SuperAdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (accessLoading) return;
+    if (!isSuperAdmin) {
+      router.replace("/dashboard");
+    }
+  }, [accessLoading, isSuperAdmin, router]);
+
+  useEffect(() => {
+    if (accessLoading || !isSuperAdmin) return;
+
     let cancelled = false;
 
     const load = async () => {
@@ -72,7 +85,7 @@ export default function SuperAdminPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [accessLoading, isSuperAdmin]);
 
   const filteredFamilies = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -124,6 +137,14 @@ export default function SuperAdminPage() {
       })),
     [treeLayout.nodes]
   );
+
+  if (accessLoading || !isSuperAdmin) {
+    return (
+      <div className="min-h-screen bg-[color:var(--background)] flex items-center justify-center">
+        <Loader2 className="animate-spin text-gold-300" size={28} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">

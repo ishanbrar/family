@@ -16,11 +16,6 @@ export type ProfileRow = {
   created_at: string;
 };
 
-export const SUPER_ADMIN_EMAILS = new Set([
-  "ishanbrar@hotmail.com",
-  "admin@sikhomode.com",
-]);
-
 export type FamilyJoinedUserRow = {
   profile_id: string;
   auth_user_id: string;
@@ -55,13 +50,11 @@ export async function isSuperAdminUser(
   client: SupabaseClient,
   user: { email?: string | null } | null
 ): Promise<boolean> {
-  const email = user?.email?.trim().toLowerCase() || "";
-  if (!email || !SUPER_ADMIN_EMAILS.has(email)) return false;
+  if (!user) return false;
 
   const { data, error } = await client.rpc("is_super_admin");
-  if (!error && data === true) return true;
-
-  return SUPER_ADMIN_EMAILS.has(email);
+  if (error) return false;
+  return data === true;
 }
 
 export async function requireFamilyAdmin(options?: { familyId?: string | null }): Promise<{
