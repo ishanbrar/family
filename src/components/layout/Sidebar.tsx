@@ -15,6 +15,7 @@ import {
   User,
   Settings,
   LogOut,
+  Crown,
   type LucideIcon,
 } from "lucide-react";
 import { LegatreeTreeIcon } from "@/components/branding/LegatreeTreeIcon";
@@ -49,6 +50,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: "Health DNA", href: "/health", icon: HeartPulse },
       { label: "Profile", href: "/profile", icon: User },
       { label: "Settings", href: "/settings", icon: Settings },
+      { label: "Super Admin", href: "/super-admin", icon: Crown },
     ],
   },
 ];
@@ -62,6 +64,7 @@ const MOBILE_NAV_ITEMS = [
   { label: "Health", href: "/health", icon: HeartPulse },
   { label: "Profile", href: "/profile", icon: User },
   { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Admin", href: "/super-admin", icon: Crown },
 ];
 
 export function Sidebar() {
@@ -168,7 +171,7 @@ export function Sidebar() {
           paddingRight: "max(env(safe-area-inset-right), 0.5rem)",
         }}
       >
-        <div className="grid grid-cols-7 gap-1 px-1.5 py-2">
+        <div className="grid grid-cols-8 gap-1 px-1.5 py-2">
           {[...MOBILE_NAV_ITEMS, { label: "Sign Out", href: "#", icon: LogOut }].map((item) => {
             const Icon = item.icon;
             const isSignOut = item.label === "Sign Out";

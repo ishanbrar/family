@@ -75,6 +75,12 @@ export interface AdminFamilyUser {
   lastSignInAt: string | null;
 }
 
+export interface AdminAssignableProfileNode {
+  profileId: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface Relationship {
   id: string;
   user_id: string;

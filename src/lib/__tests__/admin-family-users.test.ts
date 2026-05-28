@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { canChangeFamilyUserRole, canRemoveFamilyUserAccess } from "../admin-family-users";
+import {
+  canAssignFamilyUserToNode,
+  canChangeFamilyUserRole,
+  canRemoveFamilyUserAccess,
+} from "../admin-family-users";
 
 describe("admin family user guards", () => {
   it("prevents admins from removing their own admin access", () => {
@@ -53,6 +57,29 @@ describe("admin family user guards", () => {
         targetProfileId: "profile-2",
         targetRole: "MEMBER",
         adminCount: 1,
+      }).ok
+    ).toBe(true);
+  });
+
+  it("requires a different unclaimed node for account assignment", () => {
+    expect(
+      canAssignFamilyUserToNode({
+        sourceProfileId: "profile-1",
+        targetProfileId: null,
+      }).ok
+    ).toBe(false);
+
+    expect(
+      canAssignFamilyUserToNode({
+        sourceProfileId: "profile-1",
+        targetProfileId: "profile-1",
+      }).ok
+    ).toBe(false);
+
+    expect(
+      canAssignFamilyUserToNode({
+        sourceProfileId: "profile-1",
+        targetProfileId: "profile-2",
       }).ok
     ).toBe(true);
   });

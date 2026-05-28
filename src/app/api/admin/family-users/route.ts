@@ -2,27 +2,41 @@ import { NextResponse } from "next/server";
 
 import {
   jsonError,
+  listFamilyAssignableProfileNodes,
   listFamilyJoinedUsersFallback,
   listFamilyJoinedUsersViaRpc,
   listFamilyJoinedUsersViaServiceRole,
   requireFamilyAdmin,
 } from "@/lib/admin-family-user-api";
 
-export async function GET() {
-  const auth = await requireFamilyAdmin();
+export async function GET(request: Request) {
+  const familyIdFromQuery = new URL(request.url).searchParams.get("familyId");
+  const auth = await requireFamilyAdmin({ familyId: familyIdFromQuery });
   if (auth.error) return auth.error;
-  if (!auth.client || !auth.requester?.family_id) {
+  const familyId = auth.effectiveFamilyId || auth.requester?.family_id || null;
+  if (!auth.client || !familyId) {
     return jsonError("Family admin access required.", 403);
   }
 
-  const rpcResult = await listFamilyJoinedUsersViaRpc(auth.client);
+  const rpcResult = await listFamilyJoinedUsersViaRpc(
+    auth.client,
+    auth.isSuperAdmin ? familyId : null
+  );
+  const assignableNodes = await listFamilyAssignableProfileNodes(
+    auth.client,
+    familyId
+  );
+
   if (rpcResult.users) {
     return NextResponse.json({
       users: rpcResult.users,
-      requesterProfileId: auth.requester.id,
+      assignableNodes,
+      requesterProfileId: auth.requester?.id || null,
       capabilities: {
         authEmail: true,
         removeLogin: true,
+        assignNode: true,
+        superAdmin: auth.isSuperAdmin,
       },
     });
   }
@@ -30,16 +44,19 @@ export async function GET() {
   if (auth.admin) {
     const serviceRoleResult = await listFamilyJoinedUsersViaServiceRole(
       auth.admin,
-      auth.requester.family_id
+      familyId
     );
     if (serviceRoleResult.error) return jsonError(serviceRoleResult.error, 500);
 
     return NextResponse.json({
       users: serviceRoleResult.users,
-      requesterProfileId: auth.requester.id,
+      assignableNodes,
+      requesterProfileId: auth.requester?.id || null,
       capabilities: {
         authEmail: true,
         removeLogin: true,
+        assignNode: true,
+        superAdmin: auth.isSuperAdmin,
       },
     });
   }
@@ -48,16 +65,19 @@ export async function GET() {
     return jsonError(rpcResult.error || "Could not load family users.", 500);
   }
 
-  const users = await listFamilyJoinedUsersFallback(auth.client, auth.requester.family_id);
+  const users = await listFamilyJoinedUsersFallback(auth.client, familyId);
 
   return NextResponse.json({
     users,
-    requesterProfileId: auth.requester.id,
+    assignableNodes,
+    requesterProfileId: auth.requester?.id || null,
     capabilities: {
       authEmail: false,
       removeLogin: false,
+      assignNode: false,
+      superAdmin: auth.isSuperAdmin,
     },
     notice:
-      "Email and login removal require the latest database migration. Apply supabase/migrations/20260527200000_family_admin_user_management.sql in Supabase, or add SUPABASE_SERVICE_ROLE_KEY to your environment.",
+      "Email, login removal, and node assignment require the latest database migrations. Apply supabase/migrations/20260527200000_family_admin_user_management.sql and 20260528194207_family_admin_assign_account_to_node.sql in Supabase.",
   });
 }

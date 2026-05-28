@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Save, Shield, Trash2, Users } from "lucide-react";
+import { Loader2, Save, Shield, Trash2, UserCheck, Users } from "lucide-react";
 
 import { GlassCard } from "@/components/ui/GlassCard";
-import type { AdminFamilyUser, Role } from "@/lib/types";
+import type { AdminAssignableProfileNode, AdminFamilyUser, Role } from "@/lib/types";
 
 type Draft = {
   email: string;
@@ -21,12 +21,15 @@ type RowStatus = {
 
 type ApiListResponse = {
   users?: AdminFamilyUser[];
+  assignableNodes?: AdminAssignableProfileNode[];
   requesterProfileId?: string;
   error?: string;
   notice?: string;
   capabilities?: {
     authEmail?: boolean;
     removeLogin?: boolean;
+    assignNode?: boolean;
+    superAdmin?: boolean;
   };
 };
 
@@ -38,10 +41,12 @@ function toDraft(user: AdminFamilyUser): Draft {
   };
 }
 
-export function FamilyUsersAdmin() {
+export function FamilyUsersAdmin({ familyId }: { familyId?: string | null }) {
   const [users, setUsers] = useState<AdminFamilyUser[]>([]);
+  const [assignableNodes, setAssignableNodes] = useState<AdminAssignableProfileNode[]>([]);
   const [requesterProfileId, setRequesterProfileId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [assignTargets, setAssignTargets] = useState<Record<string, string>>({});
   const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -49,6 +54,8 @@ export function FamilyUsersAdmin() {
   const [capabilities, setCapabilities] = useState({
     authEmail: true,
     removeLogin: true,
+    assignNode: true,
+    superAdmin: false,
   });
 
   const adminCount = useMemo(
@@ -61,27 +68,33 @@ export function FamilyUsersAdmin() {
     setLoadError(null);
     setNotice(null);
     try {
-      const res = await fetch("/api/admin/family-users", { cache: "no-store" });
+      const query = familyId ? `?familyId=${encodeURIComponent(familyId)}` : "";
+      const res = await fetch(`/api/admin/family-users${query}`, { cache: "no-store" });
       const payload = (await res.json().catch(() => ({}))) as ApiListResponse;
       if (!res.ok) throw new Error(payload.error || "Could not load family users.");
 
       const nextUsers = payload.users || [];
+      const nextAssignableNodes = payload.assignableNodes || [];
       setUsers(nextUsers);
+      setAssignableNodes(nextAssignableNodes);
       setRequesterProfileId(payload.requesterProfileId || null);
       setNotice(payload.notice || null);
       setCapabilities({
         authEmail: payload.capabilities?.authEmail ?? true,
         removeLogin: payload.capabilities?.removeLogin ?? true,
+        assignNode: payload.capabilities?.assignNode ?? true,
+        superAdmin: payload.capabilities?.superAdmin ?? false,
       });
       setDrafts(
         Object.fromEntries(nextUsers.map((user) => [user.profileId, toDraft(user)]))
       );
+      setAssignTargets({});
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Could not load family users.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [familyId]);
 
   useEffect(() => {
     void loadUsers();
@@ -95,6 +108,14 @@ export function FamilyUsersAdmin() {
     setRowStatus((prev) => ({ ...prev, [profileId]: {} }));
   };
 
+  const updateAssignTarget = (profileId: string, targetProfileId: string) => {
+    setAssignTargets((prev) => ({
+      ...prev,
+      [profileId]: targetProfileId,
+    }));
+    setRowStatus((prev) => ({ ...prev, [profileId]: {} }));
+  };
+
   const saveUser = async (user: AdminFamilyUser) => {
     const draft = drafts[user.profileId] || toDraft(user);
     setRowStatus((prev) => ({
@@ -103,7 +124,8 @@ export function FamilyUsersAdmin() {
     }));
 
     try {
-      const res = await fetch(`/api/admin/family-users/${encodeURIComponent(user.profileId)}`, {
+      const query = familyId ? `?familyId=${encodeURIComponent(familyId)}` : "";
+      const res = await fetch(`/api/admin/family-users/${encodeURIComponent(user.profileId)}${query}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(draft),
@@ -144,7 +166,8 @@ export function FamilyUsersAdmin() {
     }));
 
     try {
-      const res = await fetch(`/api/admin/family-users/${encodeURIComponent(user.profileId)}`, {
+      const query = familyId ? `?familyId=${encodeURIComponent(familyId)}` : "";
+      const res = await fetch(`/api/admin/family-users/${encodeURIComponent(user.profileId)}${query}`, {
         method: "DELETE",
       });
       const payload = (await res.json().catch(() => ({}))) as { error?: string };
@@ -166,6 +189,48 @@ export function FamilyUsersAdmin() {
         ...prev,
         [user.profileId]: {
           error: err instanceof Error ? err.message : "Could not remove user access.",
+        },
+      }));
+    }
+  };
+
+  const assignUserToNode = async (user: AdminFamilyUser) => {
+    const targetProfileId = assignTargets[user.profileId] || "";
+    const targetNode = assignableNodes.find((node) => node.profileId === targetProfileId);
+    if (!targetNode) {
+      setRowStatus((prev) => ({
+        ...prev,
+        [user.profileId]: { error: "Choose an unclaimed profile node." },
+      }));
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Assign ${user.name}'s login to ${targetNode.name}? Their account will move to that tree node.`
+    );
+    if (!confirmed) return;
+
+    setRowStatus((prev) => ({
+      ...prev,
+      [user.profileId]: { saving: true },
+    }));
+
+    try {
+      const query = familyId ? `?familyId=${encodeURIComponent(familyId)}` : "";
+      const res = await fetch(`/api/admin/family-users/${encodeURIComponent(user.profileId)}${query}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetProfileId }),
+      });
+      const payload = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(payload.error || "Could not assign account to node.");
+
+      await loadUsers();
+    } catch (err) {
+      setRowStatus((prev) => ({
+        ...prev,
+        [user.profileId]: {
+          error: err instanceof Error ? err.message : "Could not assign account to node.",
         },
       }));
     }
@@ -223,10 +288,13 @@ export function FamilyUsersAdmin() {
             const status = rowStatus[user.profileId] || {};
             const isSelf = requesterProfileId === user.profileId;
             const isLastAdmin = user.role === "ADMIN" && adminCount <= 1;
+            const isSuperAdmin = capabilities.superAdmin;
             const disabled = !!status.saving || !!status.removing;
-            const roleLocked = isSelf || isLastAdmin;
-            const removeLocked = isSelf || isLastAdmin || !capabilities.removeLogin;
+            const roleLocked = !isSuperAdmin && (isSelf || isLastAdmin);
+            const removeLocked = (!isSuperAdmin && (isSelf || isLastAdmin)) || !capabilities.removeLogin;
             const emailLocked = !capabilities.authEmail;
+            const assignLocked =
+              disabled || !capabilities.assignNode || assignableNodes.length === 0;
 
             return (
               <div
@@ -324,6 +392,44 @@ export function FamilyUsersAdmin() {
                     {status.error || status.message}
                   </p>
                 )}
+
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 border-t border-white/[0.06] pt-3">
+                  <label className="block">
+                    <span className="text-[11px] text-white/40">Assign login to tree node</span>
+                    <select
+                      value={assignTargets[user.profileId] || ""}
+                      onChange={(e) => updateAssignTarget(user.profileId, e.target.value)}
+                      disabled={assignLocked}
+                      title={
+                        !capabilities.assignNode
+                          ? "Assignment requires the latest database migration"
+                          : assignableNodes.length === 0
+                            ? "No unclaimed profile nodes available"
+                            : undefined
+                      }
+                      className="mt-1 w-full h-10 rounded-xl bg-white/[0.03] border border-white/[0.12] px-3 text-sm text-white/85 outline-none focus:border-gold-400/30 disabled:opacity-60"
+                    >
+                      <option value="">
+                        {assignableNodes.length === 0 ? "No unclaimed nodes" : "Choose unclaimed node"}
+                      </option>
+                      {assignableNodes.map((node) => (
+                        <option key={node.profileId} value={node.profileId}>
+                          {node.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void assignUserToNode(user)}
+                    disabled={assignLocked || !assignTargets[user.profileId]}
+                    className="h-10 self-end px-3 rounded-xl bg-white/[0.04] border border-white/[0.12] text-white/70 hover:text-white/90 hover:bg-white/[0.07] disabled:opacity-40 flex items-center justify-center gap-2"
+                    aria-label={`Assign ${user.name} to profile node`}
+                  >
+                    {status.saving ? <Loader2 size={15} className="animate-spin" /> : <UserCheck size={15} />}
+                    <span className="text-xs">Assign</span>
+                  </button>
+                </div>
               </div>
             );
           })}

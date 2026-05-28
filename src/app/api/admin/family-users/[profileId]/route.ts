@@ -10,7 +10,11 @@ import {
   requireFamilyAdmin,
   type ProfileRow,
 } from "@/lib/admin-family-user-api";
-import { canChangeFamilyUserRole, canRemoveFamilyUserAccess } from "@/lib/admin-family-users";
+import {
+  canAssignFamilyUserToNode,
+  canChangeFamilyUserRole,
+  canRemoveFamilyUserAccess,
+} from "@/lib/admin-family-users";
 import type { Role } from "@/lib/types";
 
 type RouteContext = {
@@ -44,8 +48,8 @@ async function getAdminCount(client: SupabaseClient, familyId: string): Promise<
   return count || 0;
 }
 
-async function reloadUserViaRpc(client: SupabaseClient, profileId: string) {
-  const { users, error } = await listFamilyJoinedUsersViaRpc(client);
+async function reloadUserViaRpc(client: SupabaseClient, profileId: string, familyId?: string | null) {
+  const { users, error } = await listFamilyJoinedUsersViaRpc(client, familyId);
   if (error || !users) return { user: null, error: error || "Updated user could not be reloaded." };
   return { user: users.find((item) => item.profileId === profileId) || null, error: null };
 }
@@ -153,9 +157,11 @@ async function patchViaServiceRole(
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const auth = await requireFamilyAdmin();
+  const familyIdFromQuery = request.nextUrl.searchParams.get("familyId");
+  const auth = await requireFamilyAdmin({ familyId: familyIdFromQuery });
   if (auth.error) return auth.error;
-  if (!auth.client || !auth.requester?.family_id) {
+  const familyId = auth.effectiveFamilyId || auth.requester?.family_id || null;
+  if (!auth.client || !familyId || !auth.requester) {
     return jsonError("Family admin access required.", 403);
   }
 
@@ -171,14 +177,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     .from("profiles")
     .select("id,auth_user_id,first_name,last_name,role,family_id,social_links,created_at")
     .eq("id", profileId)
-    .eq("family_id", auth.requester.family_id)
+    .eq("family_id", familyId)
     .maybeSingle();
 
   if (targetError) return jsonError(targetError.message, 500);
   if (!target?.auth_user_id) return jsonError("Joined user not found.", 404);
 
   const targetProfile = target as ProfileRow;
-  const adminCount = await getAdminCount(auth.client, auth.requester.family_id);
+  const adminCount = await getAdminCount(auth.client, familyId);
 
   if (nextRole) {
     const roleCheck = canChangeFamilyUserRole({
@@ -191,20 +197,26 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (!roleCheck.ok) return jsonError(roleCheck.error || "Role change is not allowed.", 400);
   }
 
-  const familyId = auth.requester.family_id;
-
   const wantsAuthEmailChange = nextEmail !== undefined;
   const wantsAuthPhoneChange = nextPhone !== undefined;
 
-  const { error: rpcError } = await auth.client.rpc("admin_update_family_joined_user", {
-    p_profile_id: profileId,
-    p_email: wantsAuthEmailChange ? nextEmail : null,
-    p_phone: wantsAuthPhoneChange ? nextPhone : null,
-    p_role: nextRole || null,
-  });
+  const { error: rpcError } = familyIdFromQuery
+    ? await auth.client.rpc("admin_update_family_joined_user_for_family", {
+        p_family_id: familyId,
+        p_profile_id: profileId,
+        p_email: wantsAuthEmailChange ? nextEmail : null,
+        p_phone: wantsAuthPhoneChange ? nextPhone : null,
+        p_role: nextRole || null,
+      })
+    : await auth.client.rpc("admin_update_family_joined_user", {
+        p_profile_id: profileId,
+        p_email: wantsAuthEmailChange ? nextEmail : null,
+        p_phone: wantsAuthPhoneChange ? nextPhone : null,
+        p_role: nextRole || null,
+      });
 
   if (!rpcError) {
-    const reloaded = await reloadUserViaRpc(auth.client, profileId);
+    const reloaded = await reloadUserViaRpc(auth.client, profileId, familyIdFromQuery ? familyId : null);
     if (reloaded.user) return NextResponse.json({ user: reloaded.user });
     return jsonError(reloaded.error || "Updated user could not be reloaded.", 500);
   }
@@ -261,10 +273,75 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   return NextResponse.json({ user });
 }
 
-export async function DELETE(_request: NextRequest, context: RouteContext) {
-  const auth = await requireFamilyAdmin();
+export async function POST(request: NextRequest, context: RouteContext) {
+  const familyIdFromQuery = request.nextUrl.searchParams.get("familyId");
+  const auth = await requireFamilyAdmin({ familyId: familyIdFromQuery });
   if (auth.error) return auth.error;
-  if (!auth.client || !auth.requester?.family_id) {
+  const familyId = auth.effectiveFamilyId || auth.requester?.family_id || null;
+  if (!auth.client || !familyId) {
+    return jsonError("Family admin access required.", 403);
+  }
+
+  const { profileId } = await context.params;
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const targetProfileId = cleanOptionalString(body?.targetProfileId);
+  const assignCheck = canAssignFamilyUserToNode({
+    sourceProfileId: profileId,
+    targetProfileId,
+  });
+  if (!assignCheck.ok || !targetProfileId) {
+    return jsonError(assignCheck.error || "Choose an unclaimed profile node.", 400);
+  }
+
+  const { data: source, error: sourceError } = await auth.client
+    .from("profiles")
+    .select("id,auth_user_id,family_id")
+    .eq("id", profileId)
+    .eq("family_id", familyId)
+    .maybeSingle();
+  if (sourceError) return jsonError(sourceError.message, 500);
+  if (!source?.auth_user_id) return jsonError("Joined user not found.", 404);
+
+  const { data: target, error: targetError } = await auth.client
+    .from("profiles")
+    .select("id,auth_user_id,family_id")
+    .eq("id", targetProfileId)
+    .eq("family_id", familyId)
+    .maybeSingle();
+  if (targetError) return jsonError(targetError.message, 500);
+  if (!target || target.auth_user_id) {
+    return jsonError("Selected family node is not assignable.", 400);
+  }
+
+  const { error: rpcError } = familyIdFromQuery
+    ? await auth.client.rpc("admin_assign_family_joined_user_to_node_for_family", {
+        p_family_id: familyId,
+        p_source_profile_id: profileId,
+        p_target_profile_id: targetProfileId,
+      })
+    : await auth.client.rpc("admin_assign_family_joined_user_to_node", {
+        p_source_profile_id: profileId,
+        p_target_profile_id: targetProfileId,
+      });
+
+  if (!rpcError) return NextResponse.json({ ok: true });
+
+  if (isMissingRpcError(rpcError)) {
+    return jsonError(
+      "Assigning accounts to profile nodes requires the latest database migration.",
+      503
+    );
+  }
+
+  return jsonError(rpcError.message, 400);
+}
+
+export async function DELETE(_request: NextRequest, context: RouteContext) {
+  const familyIdFromQuery = _request.nextUrl.searchParams.get("familyId");
+  const auth = await requireFamilyAdmin({ familyId: familyIdFromQuery });
+  if (auth.error) return auth.error;
+  const familyId = auth.effectiveFamilyId || auth.requester?.family_id || null;
+  if (!auth.client || !familyId || !auth.requester) {
     return jsonError("Family admin access required.", 403);
   }
 
@@ -273,14 +350,14 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     .from("profiles")
     .select("id,auth_user_id,first_name,last_name,role,family_id,social_links,created_at")
     .eq("id", profileId)
-    .eq("family_id", auth.requester.family_id)
+    .eq("family_id", familyId)
     .maybeSingle();
 
   if (targetError) return jsonError(targetError.message, 500);
   if (!target?.auth_user_id) return jsonError("Joined user not found.", 404);
 
   const targetProfile = target as ProfileRow;
-  const adminCount = await getAdminCount(auth.client, auth.requester.family_id);
+  const adminCount = await getAdminCount(auth.client, familyId);
   const removeCheck = canRemoveFamilyUserAccess({
     requesterProfileId: auth.requester.id,
     targetProfileId: targetProfile.id,
@@ -289,9 +366,14 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   });
   if (!removeCheck.ok) return jsonError(removeCheck.error || "User removal is not allowed.", 400);
 
-  const { error: rpcError } = await auth.client.rpc("admin_remove_family_joined_user", {
-    p_profile_id: profileId,
-  });
+  const { error: rpcError } = familyIdFromQuery
+    ? await auth.client.rpc("admin_remove_family_joined_user_for_family", {
+        p_family_id: familyId,
+        p_profile_id: profileId,
+      })
+    : await auth.client.rpc("admin_remove_family_joined_user", {
+        p_profile_id: profileId,
+      });
 
   if (!rpcError) return NextResponse.json({ ok: true });
 

@@ -3,7 +3,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient, hasServiceRoleKey } from "@/lib/supabase/admin";
-import type { AdminFamilyUser, Role } from "@/lib/types";
+import type { AdminAssignableProfileNode, AdminFamilyUser, Role } from "@/lib/types";
 
 export type ProfileRow = {
   id: string;
@@ -15,6 +15,11 @@ export type ProfileRow = {
   social_links: Record<string, unknown> | null;
   created_at: string;
 };
+
+export const SUPER_ADMIN_EMAILS = new Set([
+  "ishanbrar@hotmail.com",
+  "admin@sikhomode.com",
+]);
 
 export type FamilyJoinedUserRow = {
   profile_id: string;
@@ -29,6 +34,13 @@ export type FamilyJoinedUserRow = {
   last_sign_in_at: string | null;
 };
 
+export type AssignableProfileNodeRow = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  created_at: string;
+};
+
 export function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
@@ -39,12 +51,27 @@ export function isMissingRpcError(error: { code?: string; message?: string } | n
   return /function .* does not exist/i.test(error.message || "");
 }
 
-export async function requireFamilyAdmin(): Promise<{
+export async function isSuperAdminUser(
+  client: SupabaseClient,
+  user: { email?: string | null } | null
+): Promise<boolean> {
+  const email = user?.email?.trim().toLowerCase() || "";
+  if (!email || !SUPER_ADMIN_EMAILS.has(email)) return false;
+
+  const { data, error } = await client.rpc("is_super_admin");
+  if (!error && data === true) return true;
+
+  return SUPER_ADMIN_EMAILS.has(email);
+}
+
+export async function requireFamilyAdmin(options?: { familyId?: string | null }): Promise<{
   error: NextResponse | null;
   client: SupabaseClient | null;
   admin: SupabaseClient | null;
   requester: Pick<ProfileRow, "id" | "family_id" | "role"> | null;
   serviceRoleAvailable: boolean;
+  isSuperAdmin: boolean;
+  effectiveFamilyId: string | null;
 }> {
   const serverClient = await createServerClient();
   const {
@@ -56,17 +83,38 @@ export async function requireFamilyAdmin(): Promise<{
     return {
       error: jsonError("Authentication required.", 401),
       client: null,
-      admin: null,
-      requester: null,
-      serviceRoleAvailable: false,
-    };
+        admin: null,
+        requester: null,
+        serviceRoleAvailable: false,
+        isSuperAdmin: false,
+        effectiveFamilyId: null,
+      };
   }
+
+  const superAdmin = await isSuperAdminUser(serverClient, user);
+  const requestedFamilyId = options?.familyId?.trim() || null;
 
   const { data: requester, error: requesterError } = await serverClient
     .from("profiles")
     .select("id,family_id,role")
     .eq("auth_user_id", user.id)
     .maybeSingle();
+
+  if (superAdmin) {
+    const serviceRoleAvailable = hasServiceRoleKey();
+    return {
+      error: null,
+      client: serverClient,
+      admin: serviceRoleAvailable ? createAdminClient() : null,
+      requester:
+        requester && requester.id
+          ? (requester as Pick<ProfileRow, "id" | "family_id" | "role">)
+          : { id: user.id, family_id: requestedFamilyId, role: "ADMIN" },
+      serviceRoleAvailable,
+      isSuperAdmin: true,
+      effectiveFamilyId: requestedFamilyId || requester?.family_id || null,
+    };
+  }
 
   if (requesterError || !requester?.family_id || requester.role !== "ADMIN") {
     return {
@@ -75,6 +123,8 @@ export async function requireFamilyAdmin(): Promise<{
       admin: null,
       requester: null,
       serviceRoleAvailable: false,
+      isSuperAdmin: false,
+      effectiveFamilyId: null,
     };
   }
 
@@ -86,6 +136,8 @@ export async function requireFamilyAdmin(): Promise<{
     admin: serviceRoleAvailable ? createAdminClient() : null,
     requester: requester as Pick<ProfileRow, "id" | "family_id" | "role">,
     serviceRoleAvailable,
+    isSuperAdmin: false,
+    effectiveFamilyId: requester.family_id,
   };
 }
 
@@ -129,10 +181,21 @@ export function mapJoinedUserRow(row: FamilyJoinedUserRow): AdminFamilyUser {
   };
 }
 
+export function mapAssignableProfileNode(row: AssignableProfileNodeRow): AdminAssignableProfileNode {
+  return {
+    profileId: row.id,
+    name: `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Unnamed Family Node",
+    createdAt: row.created_at,
+  };
+}
+
 export async function listFamilyJoinedUsersViaRpc(
-  client: SupabaseClient
+  client: SupabaseClient,
+  familyId?: string | null
 ): Promise<{ users: AdminFamilyUser[] | null; error: string | null; missingRpc: boolean }> {
-  const { data, error } = await client.rpc("list_family_joined_users");
+  const { data, error } = familyId
+    ? await client.rpc("list_family_joined_users_for_family", { p_family_id: familyId })
+    : await client.rpc("list_family_joined_users");
   if (error) {
     return {
       users: null,
@@ -189,4 +252,19 @@ export async function listFamilyJoinedUsersFallback(
   return ((profiles || []) as ProfileRow[])
     .map((profile) => mapAdminFamilyUser(profile, null))
     .filter((user): user is AdminFamilyUser => user !== null);
+}
+
+export async function listFamilyAssignableProfileNodes(
+  client: SupabaseClient,
+  familyId: string
+): Promise<AdminAssignableProfileNode[]> {
+  const { data } = await client
+    .from("profiles")
+    .select("id,first_name,last_name,created_at")
+    .eq("family_id", familyId)
+    .is("auth_user_id", null)
+    .order("first_name", { ascending: true })
+    .order("last_name", { ascending: true });
+
+  return ((data || []) as AssignableProfileNodeRow[]).map(mapAssignableProfileNode);
 }

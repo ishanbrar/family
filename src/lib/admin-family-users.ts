@@ -54,6 +54,22 @@ export function canRemoveFamilyUserAccess({
   return { ok: true };
 }
 
+export function canAssignFamilyUserToNode({
+  sourceProfileId,
+  targetProfileId,
+}: {
+  sourceProfileId: string;
+  targetProfileId: string | null | undefined;
+}): AdminUserActionResult {
+  if (!targetProfileId) {
+    return { ok: false, error: "Choose an unclaimed profile node." };
+  }
+  if (sourceProfileId === targetProfileId) {
+    return { ok: false, error: "Choose a different profile node." };
+  }
+  return { ok: true };
+}
+
 export function normalizeAdminFamilyUserPhone(user: Pick<AdminFamilyUser, "phone">): string {
   return user.phone?.trim() || "";
 }
