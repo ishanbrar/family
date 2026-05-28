@@ -11,12 +11,7 @@ import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
 import { FamilyTree } from "@/components/tree/FamilyTree";
 import { GenerationInsights } from "@/components/tree/GenerationInsights";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
-import {
-  MOCK_CONDITIONS,
-  MOCK_PROFILES,
-  MOCK_RELATIONSHIPS,
-  MOCK_USER_CONDITIONS,
-} from "@/lib/mock-data";
+import { useSelectedDemoFamily } from "@/lib/demo-family";
 import { calculateGeneticMatch, findSharedConditionAncestors } from "@/lib/genetic-match";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
@@ -24,39 +19,40 @@ import { createGenerationAnalytics } from "@/lib/generation-insights";
 type FilterType = "all" | "hereditary" | "chronic" | "autoimmune" | "mental_health" | "other";
 
 export default function DemoHealthPage() {
-  const viewer = MOCK_PROFILES[0];
-  const members = MOCK_PROFILES;
-  const relationships = MOCK_RELATIONSHIPS;
+  const demoFamily = useSelectedDemoFamily();
+  const viewer = demoFamily.profiles[0]!;
+  const members = demoFamily.profiles;
+  const relationships = demoFamily.relationships;
   const [filter, setFilter] = useState<FilterType>("all");
   const [showPrivacy, setShowPrivacy] = useState(true);
   const [highlightedCondition, setHighlightedCondition] = useState<string | null>(null);
 
   const viewerConditions = useMemo(
-    () => MOCK_USER_CONDITIONS.filter((uc) => uc.user_id === viewer.id),
-    [viewer.id]
+    () => demoFamily.userConditions.filter((uc) => uc.user_id === viewer.id),
+    [demoFamily.userConditions, viewer.id]
   );
   const familyConditions = useMemo(
-    () => MOCK_USER_CONDITIONS.filter((uc) => uc.user_id !== viewer.id),
-    [viewer.id]
+    () => demoFamily.userConditions.filter((uc) => uc.user_id !== viewer.id),
+    [demoFamily.userConditions, viewer.id]
   );
 
   const filteredFamilyConditions = useMemo(() => {
     if (filter === "all") return familyConditions;
     return familyConditions.filter((uc) => {
-      const condition = MOCK_CONDITIONS.find((item) => item.id === uc.condition_id);
+      const condition = demoFamily.conditions.find((item) => item.id === uc.condition_id);
       return condition?.type === filter;
     });
-  }, [familyConditions, filter]);
+  }, [demoFamily.conditions, familyConditions, filter]);
 
   const conditionMap = useMemo(() => {
     const map = new Map<string, string[]>();
-    for (const entry of MOCK_USER_CONDITIONS) {
+    for (const entry of demoFamily.userConditions) {
       const current = map.get(entry.user_id) || [];
       current.push(entry.condition_id);
       map.set(entry.user_id, current);
     }
     return map;
-  }, []);
+  }, [demoFamily.userConditions]);
 
   const sharedConditionMatches = useMemo(
     () =>
@@ -94,12 +90,12 @@ export default function DemoHealthPage() {
   );
 
   const highlightedConditionMeta = highlightedCondition
-    ? MOCK_CONDITIONS.find((condition) => condition.id === highlightedCondition) || null
+    ? demoFamily.conditions.find((condition) => condition.id === highlightedCondition) || null
     : null;
 
   const familyCaseCount = familyConditions.length;
-  const hereditaryCaseCount = MOCK_USER_CONDITIONS.filter((uc) => {
-    const condition = MOCK_CONDITIONS.find((item) => item.id === uc.condition_id);
+  const hereditaryCaseCount = demoFamily.userConditions.filter((uc) => {
+    const condition = demoFamily.conditions.find((item) => item.id === uc.condition_id);
     return condition?.type === "hereditary";
   }).length;
 
@@ -114,7 +110,9 @@ export default function DemoHealthPage() {
           className="mb-6 px-4 py-3 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
         >
           <p className="text-xs text-white/50">
-            You&apos;re viewing the <span className="text-gold-300 font-medium">Montague</span> health timeline.{" "}
+            You&apos;re viewing the <span className="text-gold-300 font-medium">{demoFamily.shortLabel}</span> health timeline.{" "}
+            <Link href="/demo/select" className="text-gold-400 hover:text-gold-300 underline transition-colors">Switch demo</Link>
+            {" "}or{" "}
             <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Join</Link>
             {" "}or{" "}
             <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create</Link>
@@ -134,7 +132,7 @@ export default function DemoHealthPage() {
             </div>
             <div>
               <h1 className="font-serif text-3xl font-bold text-white/95">Health DNA</h1>
-              <p className="text-sm text-white/35 mt-0.5">Read-only hereditary insights from the Montague family record</p>
+              <p className="text-sm text-white/35 mt-0.5">Read-only hereditary insights from the {demoFamily.shortLabel} family record</p>
             </div>
           </div>
 
@@ -180,7 +178,7 @@ export default function DemoHealthPage() {
               </div>
               <div className="space-y-3">
                 {viewerConditions.map((entry) => {
-                  const condition = MOCK_CONDITIONS.find((item) => item.id === entry.condition_id);
+                  const condition = demoFamily.conditions.find((item) => item.id === entry.condition_id);
                   if (!condition) return null;
                   return (
                     <MedicalHistoryCard
@@ -222,7 +220,7 @@ export default function DemoHealthPage() {
               <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
                 {filteredFamilyConditions.map((entry) => {
                   const member = members.find((profile) => profile.id === entry.user_id);
-                  const condition = MOCK_CONDITIONS.find((item) => item.id === entry.condition_id);
+                  const condition = demoFamily.conditions.find((item) => item.id === entry.condition_id);
                   if (!member || !condition) return null;
 
                   const isImmediate = relationships.some(

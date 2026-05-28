@@ -31,6 +31,7 @@ CREATE TABLE profiles (
   gender          TEXT CHECK (gender IN ('female', 'male')),
   avatar_url      TEXT,
   date_of_birth   DATE,
+  date_of_death   DATE,
   place_of_birth  TEXT,
   profession      TEXT,
   location_city   TEXT,

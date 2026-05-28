@@ -4,20 +4,21 @@ import { useEffect } from "react";
 import { DemoSidebar } from "@/components/demo/DemoSidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { WorldPageContent } from "@/components/world/WorldPageContent";
-import { MOCK_PROFILES, MOCK_RELATIONSHIPS } from "@/lib/mock-data";
+import { useSelectedDemoFamily } from "@/lib/demo-family";
 import { useFamilyStore } from "@/store/family-store";
 
 export default function DemoWorldPage() {
   const store = useFamilyStore();
+  const demoFamily = useSelectedDemoFamily();
 
   useEffect(() => {
-    store.setViewer(MOCK_PROFILES[0]);
-    store.setMembers(MOCK_PROFILES);
-    store.setRelationships(MOCK_RELATIONSHIPS);
+    store.setViewer(demoFamily.profiles[0] ?? null);
+    store.setMembers(demoFamily.profiles);
+    store.setRelationships(demoFamily.relationships);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [demoFamily.key]);
 
-  const members = store.members.length > 0 ? store.members : MOCK_PROFILES;
+  const members = store.members.length > 0 ? store.members : demoFamily.profiles;
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">

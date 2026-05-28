@@ -22,7 +22,7 @@ export function MarketingHeader() {
             aria-label="Marketing"
           >
             <Link
-              href="/demo"
+              href="/demo/select"
               className="text-sm sm:text-base lg:text-lg font-medium text-white/60 hover:text-white/95 transition-colors min-h-[44px] inline-flex items-center whitespace-nowrap"
               style={{ fontFamily: "var(--font-source-sans)" }}
             >

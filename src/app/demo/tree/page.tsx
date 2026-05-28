@@ -1,7 +1,7 @@
 "use client";
 
 // ══════════════════════════════════════════════════════════
-// Demo Tree – Full tree explorer for the Montague sample family
+// Demo Tree – Full tree explorer for the selected sample family
 // ══════════════════════════════════════════════════════════
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -31,16 +31,10 @@ import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { exportFamilyTreeAsImage } from "@/lib/tree-export";
-import {
-  MOCK_CONDITIONS,
-  MOCK_PROFILES,
-  MOCK_RELATIONSHIPS,
-  MOCK_USER_CONDITIONS,
-} from "@/lib/mock-data";
+import { useSelectedDemoFamily } from "@/lib/demo-family";
+import type { MedicalCondition } from "@/lib/types";
 import { formatGenderLabel } from "@/lib/display-format";
 import { cn } from "@/lib/cn";
-
-const FAMILY_TREE_TITLE = "The Montague Family Tree";
 
 function formatBirthDate(value: string | null): string {
   if (!value) return "Not set";
@@ -63,6 +57,7 @@ function getAge(value: string | null): number | null {
 export default function DemoTreePage() {
   const router = useRouter();
   const store = useFamilyStore();
+  const demoFamily = useSelectedDemoFamily();
   const [showPercentages, setShowPercentages] = useState(false);
   const [showRelationLabels, setShowRelationLabels] = useState(true);
   const [showLastNames, setShowLastNames] = useState(true);
@@ -75,15 +70,16 @@ export default function DemoTreePage() {
   const [exportingTree, setExportingTree] = useState(false);
 
   useEffect(() => {
-    store.setViewer(MOCK_PROFILES[0]);
-    store.setMembers(MOCK_PROFILES);
-    store.setRelationships(MOCK_RELATIONSHIPS);
+    store.setViewer(demoFamily.profiles[0] ?? null);
+    store.setMembers(demoFamily.profiles);
+    store.setRelationships(demoFamily.relationships);
+    store.setRelatedByFilter(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [demoFamily.key]);
 
-  const viewer = store.viewer ?? MOCK_PROFILES[0];
-  const members = store.members.length > 0 ? store.members : MOCK_PROFILES;
-  const relationships = store.relationships.length > 0 ? store.relationships : MOCK_RELATIONSHIPS;
+  const viewer = store.viewer ?? demoFamily.profiles[0];
+  const members = store.members.length > 0 ? store.members : demoFamily.profiles;
+  const relationships = store.relationships.length > 0 ? store.relationships : demoFamily.relationships;
   const relatedByFilter = store.relatedByFilter;
   const setRelatedByFilter = store.setRelatedByFilter;
 
@@ -121,10 +117,10 @@ export default function DemoTreePage() {
 
   const selectedConditions = useMemo(() => {
     if (!selectedMember) return [];
-    return MOCK_USER_CONDITIONS.filter((uc) => uc.user_id === selectedMember.id)
-      .map((uc) => MOCK_CONDITIONS.find((c) => c.id === uc.condition_id))
-      .filter((c): c is NonNullable<(typeof MOCK_CONDITIONS)[number]> => !!c);
-  }, [selectedMember]);
+    return demoFamily.userConditions.filter((uc) => uc.user_id === selectedMember.id)
+      .map((uc) => demoFamily.conditions.find((c) => c.id === uc.condition_id))
+      .filter((c): c is MedicalCondition => !!c);
+  }, [demoFamily.conditions, demoFamily.userConditions, selectedMember]);
 
   const handleMemberClick = useCallback((memberId: string) => {
     setSelectedMemberId(memberId);
@@ -134,7 +130,7 @@ export default function DemoTreePage() {
     setExportingTree(true);
     try {
       await exportFamilyTreeAsImage({
-        familyName: "Montague Family",
+        familyName: demoFamily.exportFamilyName,
         members,
         relationships,
         rootId: viewer.id,
@@ -144,7 +140,7 @@ export default function DemoTreePage() {
     } finally {
       setExportingTree(false);
     }
-  }, [members, relationships, viewer.id]);
+  }, [demoFamily.exportFamilyName, members, relationships, viewer.id]);
 
   const selectedAge = getAge(selectedMember?.date_of_birth || null);
   const filterMember = relatedByFilter ? members.find((m) => m.id === relatedByFilter) : null;
@@ -164,7 +160,9 @@ export default function DemoTreePage() {
           className="mb-6 px-4 py-3 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"
         >
           <p className="text-xs text-white/50">
-            Explore the full <span className="text-gold-300 font-medium">Montague</span> family tree — filters, member details, and export work in demo.{" "}
+            Explore the full <span className="text-gold-300 font-medium">{demoFamily.shortLabel}</span> family tree — filters, member details, and export work in demo.{" "}
+            <Link href="/demo/select" className="text-gold-400 hover:text-gold-300 underline transition-colors">Switch demo</Link>
+            {" "}or{" "}
             <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Join</Link>
             {" "}or{" "}
             <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create</Link>
@@ -184,7 +182,7 @@ export default function DemoTreePage() {
                 <GitBranch size={22} className="text-gold-400" />
               </motion.div>
               <div>
-                <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white/95">{FAMILY_TREE_TITLE}</h1>
+                <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white/95">{demoFamily.treeTitle}</h1>
                 <p className="text-sm text-white/40 mt-0.5">
                   Hover for quick info, click a member for the side panel, or open their full profile.
                 </p>
@@ -396,7 +394,7 @@ export default function DemoTreePage() {
           <GlassCard className={cn("p-4 sm:p-5", selectedMember && "lg:col-span-2 mt-5")}>
             <h2 className="font-serif text-lg text-white/92 mb-3">Members Table</h2>
             <p className="text-xs text-white/35 mb-4">
-              View every Montague relative. Click a row to open the detail panel, or use filters on the tree above.
+              View every {demoFamily.shortLabel} relative. Click a row to open the detail panel, or use filters on the tree above.
             </p>
             <FamilyMembersTable
               members={members}

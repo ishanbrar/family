@@ -1,7 +1,7 @@
 "use client";
 
 // ══════════════════════════════════════════════════════════
-// Demo – Sample Montague family, no auth required.
+// Demo – Sample family, no auth required.
 // ══════════════════════════════════════════════════════════
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,10 +29,7 @@ import { FamilyTree } from "@/components/tree/FamilyTree";
 import { TreeControls } from "@/components/tree/TreeControls";
 import { GenerationInsights } from "@/components/tree/GenerationInsights";
 import { useFamilyStore } from "@/store/family-store";
-import {
-  MOCK_PROFILES,
-  MOCK_RELATIONSHIPS,
-} from "@/lib/mock-data";
+import { useSelectedDemoFamily } from "@/lib/demo-family";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { groupByCountry, type CountryGroup } from "@/lib/country-utils";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
@@ -43,6 +40,7 @@ import { UpcomingMilestonesSection } from "@/components/dashboard/UpcomingMilest
 export default function DemoPage() {
   const router = useRouter();
   const store = useFamilyStore();
+  const demoFamily = useSelectedDemoFamily();
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null);
   const [focusedCountryCode, setFocusedCountryCode] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
@@ -59,15 +57,16 @@ export default function DemoPage() {
   const moreActionsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    store.setViewer(MOCK_PROFILES[0]);
-    store.setMembers(MOCK_PROFILES);
-    store.setRelationships(MOCK_RELATIONSHIPS);
+    store.setViewer(demoFamily.profiles[0] ?? null);
+    store.setMembers(demoFamily.profiles);
+    store.setRelationships(demoFamily.relationships);
+    store.setRelatedByFilter(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [demoFamily.key]);
 
   const viewer = store.viewer;
-  const members = store.members.length > 0 ? store.members : MOCK_PROFILES;
-  const relationships = store.relationships.length > 0 ? store.relationships : MOCK_RELATIONSHIPS;
+  const members = store.members.length > 0 ? store.members : demoFamily.profiles;
+  const relationships = store.relationships.length > 0 ? store.relationships : demoFamily.relationships;
 
   const navigateToProfile = useCallback(
     (id: string) => router.push(`/demo/profile/${id}`),
@@ -120,7 +119,7 @@ export default function DemoPage() {
     setExportingTree(true);
     try {
       await exportFamilyTreeAsImage({
-        familyName: "Montague Family",
+        familyName: demoFamily.exportFamilyName,
         members,
         relationships,
         rootId: viewer.id,
@@ -131,7 +130,7 @@ export default function DemoPage() {
       setExportingTree(false);
       setMoreActionsOpen(false);
     }
-  }, [members, relationships, viewer]);
+  }, [demoFamily.exportFamilyName, members, relationships, viewer]);
 
   useEffect(() => {
     if (!moreActionsOpen) return;
@@ -172,7 +171,9 @@ export default function DemoPage() {
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="mb-6 px-4 py-3 rounded-xl bg-gold-400/[0.06] border border-gold-400/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p className="text-xs text-white/50">
-            You&apos;re viewing the <span className="text-gold-300 font-medium">Montague</span> sample family.{" "}
+            You&apos;re viewing the <span className="text-gold-300 font-medium">{demoFamily.shortLabel}</span> sample family.{" "}
+            <Link href="/demo/select" className="text-gold-400 hover:text-gold-300 underline transition-colors">Switch demo</Link>
+            {" "}or{" "}
             <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Join</Link>
             {" "}or{" "}
             <Link href="/" className="text-gold-400 hover:text-gold-300 underline transition-colors">Create</Link>

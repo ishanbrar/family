@@ -20,12 +20,7 @@ import { SocialDock } from "@/components/ui/SocialDock";
 import { MedicalHistoryCard } from "@/components/ui/MedicalHistoryCard";
 import { ProfilePlacesCard } from "@/components/profile/ProfilePlacesCard";
 import { useFamilyStore } from "@/store/family-store";
-import {
-  MOCK_PROFILES,
-  MOCK_RELATIONSHIPS,
-  MOCK_CONDITIONS,
-  MOCK_USER_CONDITIONS,
-} from "@/lib/mock-data";
+import { useSelectedDemoFamily } from "@/lib/demo-family";
 import { calculateGeneticMatch } from "@/lib/genetic-match";
 import { formatGenderLabel, formatPersonName } from "@/lib/display-format";
 import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
@@ -40,20 +35,19 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
   const { id } = use(params);
   const router = useRouter();
   const store = useFamilyStore();
+  const demoFamily = useSelectedDemoFamily();
   const [activeMapSource, setActiveMapSource] = useState<ProfileLocationSource | null>(null);
 
   useEffect(() => {
-    if (!store.viewer) {
-      store.setViewer(MOCK_PROFILES[0]);
-      store.setMembers(MOCK_PROFILES);
-      store.setRelationships(MOCK_RELATIONSHIPS);
-    }
+    store.setViewer(demoFamily.profiles[0] ?? null);
+    store.setMembers(demoFamily.profiles);
+    store.setRelationships(demoFamily.relationships);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [demoFamily.key]);
 
   const viewer = store.viewer;
-  const members = store.members.length > 0 ? store.members : MOCK_PROFILES;
-  const relationships = store.relationships.length > 0 ? store.relationships : MOCK_RELATIONSHIPS;
+  const members = store.members.length > 0 ? store.members : demoFamily.profiles;
+  const relationships = store.relationships.length > 0 ? store.relationships : demoFamily.relationships;
   const member = members.find((m) => m.id === id);
   const resolvedGalleryPhotos = useResolvedGalleryPhotos(member?.gallery_photos || []);
 
@@ -70,7 +64,7 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
     ? { percentage: 100, relationship: "Self", path: [viewer.id] }
     : calculateGeneticMatch(viewer.id, member.id, relationships, member.gender);
 
-  const memberConditions = MOCK_USER_CONDITIONS.filter((uc) => uc.user_id === member.id);
+  const memberConditions = demoFamily.userConditions.filter((uc) => uc.user_id === member.id);
   const isImmediate = isViewer || relationships.some((r) =>
     ((r.user_id === viewer.id && r.relative_id === member.id) || (r.relative_id === viewer.id && r.user_id === member.id)) &&
     ["parent", "child", "sibling", "spouse"].includes(r.type)
@@ -345,7 +339,7 @@ export default function DemoProfilePage({ params }: { params: Promise<{ id: stri
               <h3 className="font-serif text-lg font-semibold text-white/90 mb-4">Health Conditions</h3>
               <div className="space-y-3">
                 {memberConditions.length > 0 ? memberConditions.map((uc) => {
-                  const cond = MOCK_CONDITIONS.find((c) => c.id === uc.condition_id);
+                  const cond = demoFamily.conditions.find((c) => c.id === uc.condition_id);
                   if (!cond) return null;
                   return <MedicalHistoryCard key={uc.id} userCondition={uc} condition={cond} isPrivate={!isViewer && !isImmediate} />;
                 }) : <p className="text-sm text-white/30 py-4 text-center">No conditions recorded</p>}
