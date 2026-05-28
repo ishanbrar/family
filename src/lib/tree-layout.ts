@@ -633,6 +633,48 @@ export function createFamilyTreeLayout(
     }
   }
 
+  // Keep parent couples visually paired over their shared child branch after
+  // descendant anchoring and row spacing. Without this, a parent's sibling can
+  // drift between spouses and make the tree read as the wrong couple.
+  const restoreSharedChildSpousePairs = () => {
+    const pairGap = 156;
+    for (const rel of effectiveRelationships) {
+      if (rel.type !== "spouse") continue;
+      const a = positions.get(rel.user_id);
+      const b = positions.get(rel.relative_id);
+      if (!a || !b || Math.abs(a.y - b.y) > 1) continue;
+
+      const aChildren = childIdsByParent.get(rel.user_id) ?? new Set<string>();
+      const bChildren = childIdsByParent.get(rel.relative_id) ?? new Set<string>();
+      const sharedChildXs = [...aChildren]
+        .filter((childId) => bChildren.has(childId))
+        .map((childId) => positions.get(childId)?.x)
+        .filter((x): x is number => x != null);
+      if (sharedChildXs.length === 0) continue;
+
+      const center = sharedChildXs.reduce((sum, x) => sum + x, 0) / sharedChildXs.length;
+      const first = memberById.get(rel.user_id);
+      const second = memberById.get(rel.relative_id);
+      const leftId =
+        first?.gender === "female" && second?.gender === "male" ? rel.relative_id : rel.user_id;
+      const rightId = leftId === rel.user_id ? rel.relative_id : rel.user_id;
+      const leftX = center - pairGap / 2;
+      const rightX = center + pairGap / 2;
+      positions.set(leftId, { x: leftX, y: a.y });
+      positions.set(rightId, { x: rightX, y: a.y });
+
+      const buffer = 340;
+      for (const [id, pos] of positions.entries()) {
+        if (id === leftId || id === rightId || Math.abs(pos.y - a.y) > 1) continue;
+        if (pos.x < leftX - buffer || pos.x > rightX + buffer) continue;
+        const nextX = pos.x < center ? leftX - buffer : rightX + buffer;
+        positions.set(id, { x: nextX, y: pos.y });
+      }
+    }
+  };
+
+  restoreSharedChildSpousePairs();
+
   const nodes: TreeLayoutNode[] = members
     .map((profile) => {
       const pos = positions.get(profile.id);

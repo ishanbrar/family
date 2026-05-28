@@ -60,9 +60,9 @@ export function DemoSidebar() {
         }}
       >
         <Link
-          href="/demo"
+          href="/"
           className="flex items-center gap-3 px-4 lg:px-6 h-16 border-b border-white/[0.06] hover:bg-white/[0.03] transition-colors"
-          aria-label="Go to demo dashboard"
+          aria-label="Go to homepage"
         >
           <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-gold-400/10 shrink-0">
             <LegatreeTreeIcon size={32} />

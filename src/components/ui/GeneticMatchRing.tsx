@@ -7,6 +7,7 @@
 // ══════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { getMatchColor, getMatchGlow, getMatchTextColor } from "@/lib/genetic-match";
 
@@ -39,6 +40,8 @@ export function GeneticMatchRing({
   const color = getMatchColor(percentage);
   const glow = getMatchGlow(percentage);
   const badgeTextColor = getMatchTextColor(percentage);
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
+  const showAvatar = !!avatarUrl && failedAvatarUrl !== avatarUrl;
 
   return (
     <div className={cn("relative flex flex-col items-center gap-2", className)}>
@@ -85,11 +88,12 @@ export function GeneticMatchRing({
           className="absolute inset-0 flex items-center justify-center"
           style={{ padding: strokeWidth * 2 + 4 }}
         >
-          {avatarUrl ? (
+          {showAvatar ? (
             <img
               src={avatarUrl}
               alt=""
               className="w-full h-full rounded-full object-cover"
+              onError={() => setFailedAvatarUrl(avatarUrl ?? null)}
             />
           ) : (
             <div
