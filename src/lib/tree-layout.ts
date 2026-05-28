@@ -614,24 +614,27 @@ export function createFamilyTreeLayout(
     positions.set(rightId, { x: mid + minSpouseGap / 2, y });
   }
 
-  // 2) Ensure minimum horizontal gap across each generation row.
-  const minNodeGap = 132;
-  for (const gen of orderedRows) {
-    const rowMembers = byGenRefined.get(gen) || [];
-    const ordered = rowMembers
-      .map((m) => ({ id: m.id, pos: positions.get(m.id) }))
-      .filter((entry): entry is { id: string; pos: { x: number; y: number } } => !!entry.pos)
-      .sort((a, b) => a.pos.x - b.pos.x);
-    for (let i = 1; i < ordered.length; i++) {
-      const prev = ordered[i - 1];
-      const cur = ordered[i];
-      if (cur.pos.x - prev.pos.x < minNodeGap) {
-        const nextX = prev.pos.x + minNodeGap;
-        positions.set(cur.id, { x: nextX, y: cur.pos.y });
-        ordered[i].pos = { x: nextX, y: cur.pos.y };
+  const ensureRowSpacing = (minGap: number) => {
+    for (const gen of orderedRows) {
+      const rowMembers = byGenRefined.get(gen) || [];
+      const ordered = rowMembers
+        .map((m) => ({ id: m.id, pos: positions.get(m.id) }))
+        .filter((entry): entry is { id: string; pos: { x: number; y: number } } => !!entry.pos)
+        .sort((a, b) => a.pos.x - b.pos.x);
+      for (let i = 1; i < ordered.length; i++) {
+        const prev = ordered[i - 1];
+        const cur = ordered[i];
+        if (cur.pos.x - prev.pos.x < minGap) {
+          const nextX = prev.pos.x + minGap;
+          positions.set(cur.id, { x: nextX, y: cur.pos.y });
+          ordered[i].pos = { x: nextX, y: cur.pos.y };
+        }
       }
     }
-  }
+  };
+
+  // 2) Ensure minimum horizontal gap across each generation row.
+  ensureRowSpacing(156);
 
   // Keep parent couples visually paired over their shared child branch after
   // descendant anchoring and row spacing. Without this, a parent's sibling can
@@ -674,6 +677,9 @@ export function createFamilyTreeLayout(
   };
 
   restoreSharedChildSpousePairs();
+  ensureRowSpacing(196);
+  restoreSharedChildSpousePairs();
+  ensureRowSpacing(196);
 
   const nodes: TreeLayoutNode[] = members
     .map((profile) => {

@@ -144,7 +144,7 @@ export function FamilyTree({
     return map;
   }, [members]);
 
-  const MIN_ZOOM = 0.3;
+  const MIN_ZOOM = 0.55;
   const MAX_ZOOM = 3;
   const NODE_VISUAL_RADIUS = 92;
   const clampScale = (s: number) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, s));
