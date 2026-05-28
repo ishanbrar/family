@@ -2,18 +2,23 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { isConfigured } from "./config";
 
+function getServiceRoleKey(): string | undefined {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+}
+
 export function hasServiceRoleKey(): boolean {
-  return !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return !!getServiceRoleKey();
 }
 
 export function createAdminClient() {
-  if (!isConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  const serviceRoleKey = getServiceRoleKey();
+  if (!isConfigured() || !serviceRoleKey) {
     throw new Error("Supabase service role key is not configured.");
   }
 
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    serviceRoleKey,
     {
       auth: {
         autoRefreshToken: false,

@@ -23,6 +23,11 @@ type ApiListResponse = {
   users?: AdminFamilyUser[];
   requesterProfileId?: string;
   error?: string;
+  notice?: string;
+  capabilities?: {
+    authEmail?: boolean;
+    removeLogin?: boolean;
+  };
 };
 
 function toDraft(user: AdminFamilyUser): Draft {
@@ -40,6 +45,11 @@ export function FamilyUsersAdmin() {
   const [rowStatus, setRowStatus] = useState<Record<string, RowStatus>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [capabilities, setCapabilities] = useState({
+    authEmail: true,
+    removeLogin: true,
+  });
 
   const adminCount = useMemo(
     () => users.filter((user) => user.role === "ADMIN").length,
@@ -49,6 +59,7 @@ export function FamilyUsersAdmin() {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    setNotice(null);
     try {
       const res = await fetch("/api/admin/family-users", { cache: "no-store" });
       const payload = (await res.json().catch(() => ({}))) as ApiListResponse;
@@ -57,6 +68,11 @@ export function FamilyUsersAdmin() {
       const nextUsers = payload.users || [];
       setUsers(nextUsers);
       setRequesterProfileId(payload.requesterProfileId || null);
+      setNotice(payload.notice || null);
+      setCapabilities({
+        authEmail: payload.capabilities?.authEmail ?? true,
+        removeLogin: payload.capabilities?.removeLogin ?? true,
+      });
       setDrafts(
         Object.fromEntries(nextUsers.map((user) => [user.profileId, toDraft(user)]))
       );
@@ -185,6 +201,12 @@ export function FamilyUsersAdmin() {
         </div>
       )}
 
+      {notice && !loadError && (
+        <div className="mb-4 rounded-xl border border-amber-400/15 bg-amber-400/[0.06] px-3 py-2 text-sm text-amber-200/90">
+          {notice}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 py-4 text-sm text-white/45">
           <Loader2 size={16} className="animate-spin text-gold-300" />
@@ -203,7 +225,8 @@ export function FamilyUsersAdmin() {
             const isLastAdmin = user.role === "ADMIN" && adminCount <= 1;
             const disabled = !!status.saving || !!status.removing;
             const roleLocked = isSelf || isLastAdmin;
-            const removeLocked = isSelf || isLastAdmin;
+            const removeLocked = isSelf || isLastAdmin || !capabilities.removeLogin;
+            const emailLocked = !capabilities.authEmail;
 
             return (
               <div
@@ -234,7 +257,9 @@ export function FamilyUsersAdmin() {
                         type="email"
                         value={draft.email}
                         onChange={(e) => updateDraft(user.profileId, { email: e.target.value })}
-                        disabled={disabled}
+                        disabled={disabled || emailLocked}
+                        title={emailLocked ? "Email updates require server configuration" : undefined}
+                        placeholder={emailLocked ? "Unavailable until migration is applied" : undefined}
                         className="mt-1 w-full h-10 rounded-xl bg-white/[0.03] border border-white/[0.12] px-3 text-sm text-white/85 outline-none focus:border-gold-400/30 disabled:opacity-60"
                       />
                     </label>
@@ -279,7 +304,13 @@ export function FamilyUsersAdmin() {
                       type="button"
                       onClick={() => void removeUser(user)}
                       disabled={disabled || removeLocked}
-                      title={removeLocked ? "Self and last-admin removal are locked" : undefined}
+                      title={
+                        removeLocked
+                          ? !capabilities.removeLogin
+                            ? "Login removal requires server configuration"
+                            : "Self and last-admin removal are locked"
+                          : undefined
+                      }
                       className="h-10 min-w-10 px-3 rounded-xl bg-red-400/[0.08] border border-red-400/15 text-red-300/80 hover:bg-red-400/[0.12] disabled:opacity-40 flex items-center justify-center gap-2"
                       aria-label={`Remove ${user.name}`}
                     >

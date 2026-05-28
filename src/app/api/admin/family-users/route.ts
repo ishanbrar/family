@@ -2,38 +2,62 @@ import { NextResponse } from "next/server";
 
 import {
   jsonError,
-  mapAdminFamilyUser,
+  listFamilyJoinedUsersFallback,
+  listFamilyJoinedUsersViaRpc,
+  listFamilyJoinedUsersViaServiceRole,
   requireFamilyAdmin,
-  type ProfileRow,
 } from "@/lib/admin-family-user-api";
-import type { AdminFamilyUser } from "@/lib/types";
 
 export async function GET() {
   const auth = await requireFamilyAdmin();
   if (auth.error) return auth.error;
-  if (!auth.admin || !auth.requester?.family_id) {
+  if (!auth.client || !auth.requester?.family_id) {
     return jsonError("Family admin access required.", 403);
   }
 
-  const { data: profiles, error } = await auth.admin
-    .from("profiles")
-    .select("id,auth_user_id,first_name,last_name,role,family_id,social_links,created_at")
-    .eq("family_id", auth.requester.family_id)
-    .not("auth_user_id", "is", null)
-    .order("created_at", { ascending: true });
+  const rpcResult = await listFamilyJoinedUsersViaRpc(auth.client);
+  if (rpcResult.users) {
+    return NextResponse.json({
+      users: rpcResult.users,
+      requesterProfileId: auth.requester.id,
+      capabilities: {
+        authEmail: true,
+        removeLogin: true,
+      },
+    });
+  }
 
-  if (error) return jsonError(error.message, 500);
+  if (auth.admin) {
+    const serviceRoleResult = await listFamilyJoinedUsersViaServiceRole(
+      auth.admin,
+      auth.requester.family_id
+    );
+    if (serviceRoleResult.error) return jsonError(serviceRoleResult.error, 500);
 
-  const users = await Promise.all(
-    ((profiles || []) as ProfileRow[]).map(async (profile) => {
-      if (!profile.auth_user_id) return null;
-      const { data } = await auth.admin!.auth.admin.getUserById(profile.auth_user_id);
-      return mapAdminFamilyUser(profile, data.user || null);
-    })
-  );
+    return NextResponse.json({
+      users: serviceRoleResult.users,
+      requesterProfileId: auth.requester.id,
+      capabilities: {
+        authEmail: true,
+        removeLogin: true,
+      },
+    });
+  }
+
+  if (!rpcResult.missingRpc) {
+    return jsonError(rpcResult.error || "Could not load family users.", 500);
+  }
+
+  const users = await listFamilyJoinedUsersFallback(auth.client, auth.requester.family_id);
 
   return NextResponse.json({
-    users: users.filter((user): user is AdminFamilyUser => user !== null),
+    users,
     requesterProfileId: auth.requester.id,
+    capabilities: {
+      authEmail: false,
+      removeLogin: false,
+    },
+    notice:
+      "Email and login removal require the latest database migration. Apply supabase/migrations/20260527200000_family_admin_user_management.sql in Supabase, or add SUPABASE_SERVICE_ROLE_KEY to your environment.",
   });
 }
