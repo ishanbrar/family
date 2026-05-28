@@ -8,7 +8,7 @@
 
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Maximize2, Minus, Plus, RotateCcw } from "lucide-react";
+import { LocateFixed, Minus, Plus, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
@@ -109,6 +109,10 @@ export function FamilyTree({
     () => members.find((member) => member.profile.id === hoveredMemberId) || null,
     [members, hoveredMemberId]
   );
+  const memberById = useMemo(
+    () => new Map(members.map((member) => [member.profile.id, member])),
+    [members]
+  );
   const parentEdgesCoveredBySibships = useMemo(() => {
     const covered = new Set<string>();
     for (const sib of sibships) {
@@ -164,6 +168,34 @@ export function FamilyTree({
     () => members.map((member) => `${member.profile.id}:${Math.round(member.x)}:${Math.round(member.y)}`).join("|"),
     [members]
   );
+  const nuclearFamilyIds = useMemo(() => {
+    if (!viewerId) return new Set<string>();
+
+    const ids = new Set<string>([viewerId]);
+    const parentSibships = sibships.filter((sib) => sib.parents.includes(viewerId));
+
+    if (parentSibships.length > 0) {
+      for (const sib of parentSibships) {
+        sib.parents.forEach((id) => ids.add(id));
+        sib.children.forEach((id) => ids.add(id));
+      }
+    } else {
+      for (const sib of sibships) {
+        if (!sib.children.includes(viewerId)) continue;
+        sib.parents.forEach((id) => ids.add(id));
+        sib.children.forEach((id) => ids.add(id));
+      }
+    }
+
+    for (const conn of connections) {
+      if (conn.type === "spouse" && conn.from === viewerId) ids.add(conn.to);
+      if (conn.type === "spouse" && conn.to === viewerId) ids.add(conn.from);
+      if (conn.type === "parent" && conn.from === viewerId) ids.add(conn.to);
+      if (parentSibships.length === 0 && conn.type === "parent" && conn.to === viewerId) ids.add(conn.from);
+    }
+
+    return ids;
+  }, [connections, sibships, viewerId]);
 
   const updateView = useCallback((next: { x: number; y: number; scale: number }) => {
     viewRef.current = next;
@@ -230,6 +262,56 @@ export function FamilyTree({
     animateTo({ x, y, scale });
   }, [treeBounds, animateTo, fitPadding]);
 
+  const focusViewerFamily = useCallback(() => {
+    const el = containerRef.current;
+    const viewer = viewerId ? memberById.get(viewerId) : null;
+    if (!el || !viewer) return;
+
+    const familyMembers = [...nuclearFamilyIds]
+      .map((id) => memberById.get(id))
+      .filter((member): member is TreeMember => !!member);
+    const focusMembers = familyMembers.length > 1 ? familyMembers : [viewer];
+    const xs = focusMembers.map((member) => member.x);
+    const ys = focusMembers.map((member) => member.y);
+    const focusBounds = {
+      minX: Math.min(...xs) - NODE_VISUAL_RADIUS,
+      maxX: Math.max(...xs) + NODE_VISUAL_RADIUS,
+      minY: Math.min(...ys) - NODE_VISUAL_RADIUS,
+      maxY: Math.max(...ys) + NODE_VISUAL_RADIUS + 94,
+    };
+
+    const maxViewportHeight =
+      typeof window !== "undefined" ? Math.min(window.innerHeight * 0.78, 860) : 760;
+    const nextContainerHeight = Math.max(360, maxViewportHeight);
+    const vw = el.clientWidth;
+    const vh = nextContainerHeight;
+    const padding = Math.max(72, fitPadding * 1.75);
+    const availableW = Math.max(240, vw - padding * 2);
+    const availableH = Math.max(220, vh - padding * 2);
+    const focusW = Math.max(1, focusBounds.maxX - focusBounds.minX);
+    const focusH = Math.max(1, focusBounds.maxY - focusBounds.minY);
+    const scale = clampScale(Math.min(1.18, availableW / focusW, availableH / focusH));
+
+    const centeredX = vw / 2 - viewer.x * scale;
+    const centeredY = vh * 0.46 - viewer.y * scale;
+    const lowerX = padding - focusBounds.minX * scale;
+    const upperX = vw - padding - focusBounds.maxX * scale;
+    const lowerY = padding - focusBounds.minY * scale;
+    const upperY = vh - padding - focusBounds.maxY * scale;
+
+    const clampOffset = (value: number, min: number, max: number) => {
+      if (min > max) return (min + max) / 2;
+      return Math.max(min, Math.min(max, value));
+    };
+
+    setContainerHeight(nextContainerHeight);
+    animateTo({
+      x: clampOffset(centeredX, lowerX, upperX),
+      y: clampOffset(centeredY, lowerY, upperY),
+      scale,
+    });
+  }, [animateTo, fitPadding, memberById, nuclearFamilyIds, viewerId]);
+
   const resetZoom = useCallback(() => {
     fitToView();
   }, [fitToView]);
@@ -242,10 +324,11 @@ export function FamilyTree({
       else if (e.key === "-") { e.preventDefault(); zoomOut(); }
       else if (e.key === "0") { e.preventDefault(); resetZoom(); }
       else if (e.key === "f") { e.preventDefault(); fitToView(); }
+      else if (e.key === "l") { e.preventDefault(); focusViewerFamily(); }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [zoomIn, zoomOut, resetZoom, fitToView]);
+  }, [zoomIn, zoomOut, resetZoom, fitToView, focusViewerFamily]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -455,12 +538,13 @@ export function FamilyTree({
         </button>
         <button
           type="button"
-          onClick={fitToView}
-          className="app-control app-icon-button flex items-center justify-center"
-          aria-label="Fit tree to view"
-          title="Fit to view (F)"
+          onClick={focusViewerFamily}
+          disabled={!viewerId || !memberById.has(viewerId)}
+          className="app-control app-icon-button disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+          aria-label="Focus on your family"
+          title="Focus on your family (L)"
         >
-          <Maximize2 size={16} />
+          <LocateFixed size={16} />
         </button>
         <button
           type="button"
