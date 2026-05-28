@@ -30,6 +30,7 @@ import { FamilyMembersTable } from "@/components/tree/FamilyMembersTable";
 import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
+import { createRoyalDemoTreeLayout } from "@/lib/royal-demo-layout";
 import { exportFamilyTreeAsImage } from "@/lib/tree-export";
 import { useSelectedDemoFamily } from "@/lib/demo-family";
 import type { MedicalCondition } from "@/lib/types";
@@ -84,8 +85,11 @@ export default function DemoTreePage() {
   const setRelatedByFilter = store.setRelatedByFilter;
 
   const treeLayout = useMemo(
-    () => createFamilyTreeLayout(members, relationships, viewer.id),
-    [members, relationships, viewer.id]
+    () =>
+      demoFamily.key === "windsor"
+        ? createRoyalDemoTreeLayout(members, relationships)
+        : createFamilyTreeLayout(members, relationships, viewer.id),
+    [demoFamily.key, members, relationships, viewer.id]
   );
 
   const treeMembers = useMemo(

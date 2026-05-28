@@ -18,6 +18,7 @@ export interface TreeLayoutConnection {
 export interface TreeLayoutSibship {
   parents: string[];
   children: string[];
+  railStyle?: "full" | "stems" | "rays" | "none";
 }
 
 export interface TreeLayout {

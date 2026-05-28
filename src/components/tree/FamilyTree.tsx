@@ -34,6 +34,7 @@ export interface TreeConnection {
 export interface TreeSibship {
   parents: string[];
   children: string[];
+  railStyle?: "full" | "stems" | "rays" | "none";
 }
 
 interface FamilyTreeProps {
@@ -144,7 +145,7 @@ export function FamilyTree({
     return map;
   }, [members]);
 
-  const MIN_ZOOM = 0.55;
+  const MIN_ZOOM = 0.18;
   const MAX_ZOOM = 3;
   const NODE_VISUAL_RADIUS = 92;
   const clampScale = (s: number) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, s));
@@ -221,9 +222,11 @@ export function FamilyTree({
     const treeH = Math.max(1, treeBounds.maxY - treeBounds.minY);
     const scale = clampScale(Math.min(availableW / treeW, availableH / treeH));
     const fittedHeight = Math.ceil(treeH * scale + padding * 2);
-    setContainerHeight(Math.max(280, Math.min(fittedHeight, maxViewportHeight)));
+    const nextContainerHeight = Math.max(280, Math.min(fittedHeight, maxViewportHeight));
+    const finalAvailableH = Math.max(220, nextContainerHeight - padding * 2);
+    setContainerHeight(nextContainerHeight);
     const x = padding + (availableW - treeW * scale) / 2 - treeBounds.minX * scale;
-    const y = padding + (availableH - treeH * scale) / 2 - treeBounds.minY * scale;
+    const y = padding + (finalAvailableH - treeH * scale) / 2 - treeBounds.minY * scale;
     animateTo({ x, y, scale });
   }, [treeBounds, animateTo, fitPadding]);
 
@@ -529,18 +532,28 @@ export function FamilyTree({
 
             const bracketSegments: string[] = [];
 
-            if (hasParents) {
+            if (hasParents && sib.railStyle !== "none") {
               bracketSegments.push(`M ${unionX} ${dropStartY} L ${unionX} ${railY}`);
             }
 
-            const railLeft = Math.min(unionX, ...sortedChildren.map((c) => c.x));
-            const railRight = Math.max(unionX, ...sortedChildren.map((c) => c.x));
-            if (railRight - railLeft > 0.5) {
-              bracketSegments.push(`M ${railLeft} ${railY} L ${railRight} ${railY}`);
-            }
+            if (sib.railStyle === "rays") {
+              for (const child of sortedChildren) {
+                bracketSegments.push(`M ${unionX} ${dropStartY} L ${child.x} ${childTopEdge}`);
+              }
+            } else if (sib.railStyle === "stems") {
+              for (const child of sortedChildren) {
+                bracketSegments.push(`M ${unionX} ${railY} L ${child.x} ${railY} L ${child.x} ${childTopEdge}`);
+              }
+            } else if (sib.railStyle !== "none") {
+              const railLeft = Math.min(unionX, ...sortedChildren.map((c) => c.x));
+              const railRight = Math.max(unionX, ...sortedChildren.map((c) => c.x));
+              if (railRight - railLeft > 0.5) {
+                bracketSegments.push(`M ${railLeft} ${railY} L ${railRight} ${railY}`);
+              }
 
-            for (const child of sortedChildren) {
-              bracketSegments.push(`M ${child.x} ${railY} L ${child.x} ${childTopEdge}`);
+              for (const child of sortedChildren) {
+                bracketSegments.push(`M ${child.x} ${railY} L ${child.x} ${childTopEdge}`);
+              }
             }
 
             const accentColor = "var(--accent-300)";
@@ -563,17 +576,19 @@ export function FamilyTree({
                     transition={{ duration: 0.4, delay: 0.2 + sibIdx * 0.05 }}
                   />
                 )}
-                <motion.path
-                  d={bracketSegments.join(" ")}
-                  fill="none"
-                  stroke={isDimmed ? dimColor : accentColor}
-                  strokeOpacity={isDimmed ? 0.1 : 0.5}
-                  strokeWidth={isDimmed ? 0.6 : 1.5}
-                  strokeLinecap="round"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.5, delay: 0.3 + sibIdx * 0.05 }}
-                />
+                {bracketSegments.length > 0 && (
+                  <motion.path
+                    d={bracketSegments.join(" ")}
+                    fill="none"
+                    stroke={isDimmed ? dimColor : accentColor}
+                    strokeOpacity={isDimmed ? 0.1 : 0.5}
+                    strokeWidth={isDimmed ? 0.6 : 1.5}
+                    strokeLinecap="round"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.3 + sibIdx * 0.05 }}
+                  />
+                )}
               </g>
             );
           })}

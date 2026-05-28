@@ -34,6 +34,7 @@ import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { groupByCountry, type CountryGroup } from "@/lib/country-utils";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
+import { createRoyalDemoTreeLayout } from "@/lib/royal-demo-layout";
 import { exportFamilyTreeAsImage } from "@/lib/tree-export";
 import { UpcomingMilestonesSection } from "@/components/dashboard/UpcomingMilestonesSection";
 
@@ -74,8 +75,13 @@ export default function DemoPage() {
   );
 
   const treeLayout = useMemo(
-    () => (viewer ? createFamilyTreeLayout(members, relationships, viewer.id) : null),
-    [viewer, members, relationships]
+    () =>
+      viewer
+        ? demoFamily.key === "windsor"
+          ? createRoyalDemoTreeLayout(members, relationships)
+          : createFamilyTreeLayout(members, relationships, viewer.id)
+        : null,
+    [demoFamily.key, viewer, members, relationships]
   );
 
   const treeMembers = useMemo(() => {

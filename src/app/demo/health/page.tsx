@@ -14,6 +14,7 @@ import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { useSelectedDemoFamily } from "@/lib/demo-family";
 import { calculateGeneticMatch, findSharedConditionAncestors } from "@/lib/genetic-match";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
+import { createRoyalDemoTreeLayout } from "@/lib/royal-demo-layout";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
 
 type FilterType = "all" | "hereditary" | "chronic" | "autoimmune" | "mental_health" | "other";
@@ -68,8 +69,11 @@ export default function DemoHealthPage() {
   }, [highlightedCondition, sharedConditionMatches, viewer.id]);
 
   const treeLayout = useMemo(
-    () => createFamilyTreeLayout(members, relationships, viewer.id),
-    [members, relationships, viewer.id]
+    () =>
+      demoFamily.key === "windsor"
+        ? createRoyalDemoTreeLayout(members, relationships)
+        : createFamilyTreeLayout(members, relationships, viewer.id),
+    [demoFamily.key, members, relationships, viewer.id]
   );
 
   const treeMembers = useMemo(
