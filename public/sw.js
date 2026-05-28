@@ -1,4 +1,4 @@
-const CACHE_NAME = "legatree-v1";
+const CACHE_NAME = "legatree-v2";
 const PRECACHE_URLS = ["/dashboard", "/login", "/signup"];
 
 self.addEventListener("install", (event) => {
