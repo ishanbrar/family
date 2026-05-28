@@ -14,7 +14,8 @@ import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
 import { countryFlag } from "@/lib/country-utils";
 import { inferCountryCodeFromCity } from "@/lib/cities";
-import { formatDisplayText, formatPersonName, parseDateOnly } from "@/lib/display-format";
+import { formatDisplayText, formatDateOnly, formatPersonName, parseDateOnly } from "@/lib/display-format";
+import { spousePairKey } from "@/lib/spouse-relationship";
 import { shouldZoomTreeOnWheel } from "@/lib/tree-interaction";
 
 export interface TreeMember {
@@ -29,6 +30,7 @@ export interface TreeConnection {
   from: string;
   to: string;
   type: "parent" | "spouse" | "sibling" | "half_sibling";
+  marriageDate?: string | null;
 }
 
 export interface TreeSibship {
@@ -51,6 +53,7 @@ interface FamilyTreeProps {
   showDeathYear?: boolean;
   showBirthCountryFlag?: boolean;
   showCurrentCountryFlag?: boolean;
+  showMarriageDate?: boolean;
   onMemberClick?: (id: string) => void;
   onMemberHover?: (id: string | null) => void;
   onBackgroundClick?: () => void;
@@ -64,6 +67,55 @@ interface FamilyTreeProps {
 
 function getInitials(first: string, last: string): string {
   return `${first[0] || ""}${last[0] || ""}`.toUpperCase();
+}
+
+function marriageLabelForPair(
+  memberA: string,
+  memberB: string,
+  marriageDate?: string | null
+): string | null {
+  if (!marriageDate) return null;
+  return formatDateOnly(marriageDate) ?? marriageDate;
+}
+
+function SpouseMarriageLabel({
+  x,
+  y,
+  label,
+  dimmed,
+}: {
+  x: number;
+  y: number;
+  label: string;
+  dimmed: boolean;
+}) {
+  const width = Math.max(72, label.length * 6.4 + 16);
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x - width / 2}
+        y={y - 18}
+        width={width}
+        height={16}
+        rx={8}
+        fill="var(--background)"
+        fillOpacity={dimmed ? 0.35 : 0.82}
+        stroke="var(--accent-300)"
+        strokeOpacity={dimmed ? 0.12 : 0.28}
+      />
+      <text
+        x={x}
+        y={y - 7}
+        textAnchor="middle"
+        fill={dimmed ? "var(--accent-200)" : "var(--accent-300)"}
+        fillOpacity={dimmed ? 0.35 : 0.92}
+        fontSize={10}
+        fontWeight={600}
+      >
+        {label}
+      </text>
+    </g>
+  );
 }
 
 export function FamilyTree({
@@ -80,6 +132,7 @@ export function FamilyTree({
   showDeathYear = false,
   showBirthCountryFlag = false,
   showCurrentCountryFlag = false,
+  showMarriageDate = false,
   onMemberClick,
   onMemberHover,
   onBackgroundClick,
@@ -113,6 +166,14 @@ export function FamilyTree({
     () => new Map(members.map((member) => [member.profile.id, member])),
     [members]
   );
+  const marriageDateByPair = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const conn of connections) {
+      if (conn.type !== "spouse" || !conn.marriageDate) continue;
+      map.set(spousePairKey(conn.from, conn.to), conn.marriageDate);
+    }
+    return map;
+  }, [connections]);
   const parentEdgesCoveredBySibships = useMemo(() => {
     const covered = new Set<string>();
     for (const sib of sibships) {
@@ -642,6 +703,14 @@ export function FamilyTree({
 
             const accentColor = "var(--accent-300)";
             const dimColor = "var(--accent-200)";
+            const coupleMarriageDate =
+              hasCouple && leftParent && rightParent
+                ? marriageDateByPair.get(spousePairKey(leftParent.profile.id, rightParent.profile.id))
+                : null;
+            const coupleMarriageLabel =
+              showMarriageDate && coupleMarriageDate
+                ? marriageLabelForPair(leftParent.profile.id, rightParent.profile.id, coupleMarriageDate)
+                : null;
 
             return (
               <g key={`sibship-${sibIdx}`}>
@@ -658,6 +727,14 @@ export function FamilyTree({
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ duration: 0.4, delay: 0.2 + sibIdx * 0.05 }}
+                  />
+                )}
+                {coupleMarriageLabel && leftParent && rightParent && (
+                  <SpouseMarriageLabel
+                    x={(leftParent.x + rightParent.x) / 2}
+                    y={parentY - 10}
+                    label={coupleMarriageLabel}
+                    dimmed={!!isDimmed}
                   />
                 )}
                 {bracketSegments.length > 0 && (
@@ -733,22 +810,35 @@ export function FamilyTree({
 
               const bothHighlighted = hasHighlight && highlightedMembers!.has(conn.from) && highlightedMembers!.has(conn.to);
               const isDimmed = hasHighlight && !bothHighlighted;
+              const marriageLabel =
+                showMarriageDate && conn.marriageDate
+                  ? marriageLabelForPair(conn.from, conn.to, conn.marriageDate)
+                  : null;
 
               return (
-                <motion.line
-                  key={`spouse-${conn.from}-${conn.to}`}
-                  x1={left.x + NODE_R}
-                  y1={left.y}
-                  x2={right.x - NODE_R}
-                  y2={right.y}
-                  stroke={isDimmed ? "var(--accent-200)" : "var(--accent-300)"}
-                  strokeOpacity={isDimmed ? 0.12 : 0.6}
-                  strokeWidth={isDimmed ? 0.8 : 2}
-                  strokeLinecap="round"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.4, delay: 0.3 }}
-                />
+                <g key={`spouse-${conn.from}-${conn.to}`}>
+                  <motion.line
+                    x1={left.x + NODE_R}
+                    y1={left.y}
+                    x2={right.x - NODE_R}
+                    y2={right.y}
+                    stroke={isDimmed ? "var(--accent-200)" : "var(--accent-300)"}
+                    strokeOpacity={isDimmed ? 0.12 : 0.6}
+                    strokeWidth={isDimmed ? 0.8 : 2}
+                    strokeLinecap="round"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.4, delay: 0.3 }}
+                  />
+                  {marriageLabel && (
+                    <SpouseMarriageLabel
+                      x={(left.x + right.x) / 2}
+                      y={left.y - 10}
+                      label={marriageLabel}
+                      dimmed={!!isDimmed}
+                    />
+                  )}
+                </g>
               );
             })}
         </svg>

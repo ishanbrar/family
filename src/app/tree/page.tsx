@@ -12,6 +12,7 @@ import {
   Calendar,
   User,
   X,
+  Heart,
   Edit3,
   Check,
   UserPlus,
@@ -40,6 +41,10 @@ import {
   formatGenderLabel,
 } from "@/lib/display-format";
 import { cn } from "@/lib/cn";
+import {
+  findSpouseRelationship,
+  getSpouseId,
+} from "@/lib/spouse-relationship";
 
 function formatBirthDate(value: string | null): string {
   return formatDateOnly(value) ?? "Not set";
@@ -82,6 +87,7 @@ export default function TreeExplorerPage() {
   const [showDeathYear, setShowDeathYear] = useState(false);
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
   const [showCurrentCountryFlag, setShowCurrentCountryFlag] = useState(false);
+  const [showMarriageDate, setShowMarriageDate] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [draftFamilyName, setDraftFamilyName] = useState("");
@@ -130,6 +136,17 @@ export default function TreeExplorerPage() {
     if (!viewer || !selectedMember) return null;
     return calculateGeneticMatch(viewer.id, selectedMember.id, relationships, selectedMember.gender, family?.relation_language, members);
   }, [viewer, selectedMember, relationships, family?.relation_language, members]);
+
+  const selectedSpouseRelation = useMemo(
+    () => (selectedMember ? findSpouseRelationship(relationships, selectedMember.id) : null),
+    [relationships, selectedMember]
+  );
+  const selectedSpouse = useMemo(() => {
+    if (!selectedMember || !selectedSpouseRelation) return null;
+    const spouseId = getSpouseId(selectedSpouseRelation, selectedMember.id);
+    return members.find((member) => member.id === spouseId) || null;
+  }, [members, selectedMember, selectedSpouseRelation]);
+  const selectedMarriageDate = selectedSpouseRelation?.marriage_date || null;
 
   const selectedMapQuery = useMemo(
     () => (selectedMember ? mapQueryForMember(selectedMember) : null),
@@ -535,6 +552,8 @@ export default function TreeExplorerPage() {
               onShowBirthCountryFlagChange={setShowBirthCountryFlag}
               showCurrentCountryFlag={showCurrentCountryFlag}
               onShowCurrentCountryFlagChange={setShowCurrentCountryFlag}
+              showMarriageDate={showMarriageDate}
+              onShowMarriageDateChange={setShowMarriageDate}
             />
           </div>
         </motion.div>
@@ -572,6 +591,7 @@ export default function TreeExplorerPage() {
               showDeathYear={showDeathYear}
               showBirthCountryFlag={showBirthCountryFlag}
               showCurrentCountryFlag={showCurrentCountryFlag}
+              showMarriageDate={showMarriageDate}
               showHoverCard
               onMemberClick={handleMemberClick}
               onBackgroundClick={() => setSelectedMemberId(null)}
@@ -631,6 +651,23 @@ export default function TreeExplorerPage() {
                       label="Birth"
                       value={`${formatBirthDate(selectedMember.date_of_birth)}${selectedAge !== null ? ` (${selectedAge})` : ""}`}
                     />
+                    {(selectedSpouse || selectedMarriageDate) && (
+                      <DetailRow
+                        icon={Heart}
+                        label="Anniversary"
+                        value={
+                          selectedMarriageDate
+                            ? `${formatBirthDate(selectedMarriageDate)}${
+                                selectedSpouse
+                                  ? ` · ${selectedSpouse.first_name} ${selectedSpouse.last_name}`
+                                  : ""
+                              }`
+                            : selectedSpouse
+                              ? `${selectedSpouse.first_name} ${selectedSpouse.last_name}`
+                              : "Not set"
+                        }
+                      />
+                    )}
                   </div>
 
                   {selectedMapQuery && (

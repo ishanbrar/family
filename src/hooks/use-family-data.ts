@@ -47,6 +47,11 @@ import {
 import { uploadAvatar, deleteAvatar, uploadProfilePhotos } from "@/lib/supabase/storage";
 import { useFamilyStore } from "@/store/family-store";
 import type { Profile, Relationship, MedicalCondition, UserCondition, RelationshipType, AuditLog } from "@/lib/types";
+import {
+  findSpouseRelationshipBetween,
+  listSpouseRelationshipsForMember,
+  normalizeMarriageDate,
+} from "@/lib/spouse-relationship";
 import { isConfigured as isSupabaseConfigured } from "@/lib/supabase/config";
 import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
 import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
@@ -99,6 +104,11 @@ export interface FamilyData {
     marriageDate?: string | null
   ) => Promise<void>;
   unlinkRelationship: (relationshipId: string) => Promise<void>;
+  setSpouseForMember: (
+    memberId: string,
+    spouseId: string | null,
+    marriageDate?: string | null
+  ) => Promise<void>;
   removeMember: (memberId: string) => Promise<void>;
   addCondition: (userId: string, conditionId: string) => Promise<void>;
   regenerateInviteCode: () => Promise<void>;
@@ -1053,6 +1063,56 @@ function useFamilyDataController(): FamilyDataContextValue {
     [isOnline, store.relationships, logAudit, refresh]
   );
 
+  const setSpouseForMember = useCallback(
+    async (
+      memberId: string,
+      spouseId: string | null,
+      marriageDate?: string | null
+    ) => {
+      const normalizedDate = normalizeMarriageDate(marriageDate);
+      const currentRels = useFamilyStore.getState().relationships;
+      const existingForMember = listSpouseRelationshipsForMember(currentRels, memberId);
+
+      if (!spouseId) {
+        for (const rel of existingForMember) {
+          await unlinkRelationship(rel.id);
+        }
+        return;
+      }
+
+      if (spouseId === memberId) return;
+
+      const existingPair = findSpouseRelationshipBetween(currentRels, memberId, spouseId);
+      const conflicting = currentRels.filter(
+        (rel) =>
+          rel.type === "spouse" &&
+          rel.id !== existingPair?.id &&
+          (rel.user_id === memberId ||
+            rel.relative_id === memberId ||
+            rel.user_id === spouseId ||
+            rel.relative_id === spouseId)
+      );
+
+      for (const rel of conflicting) {
+        await unlinkRelationship(rel.id);
+      }
+
+      if (existingPair) {
+        await updateRelationship(
+          existingPair.id,
+          existingPair.user_id,
+          existingPair.relative_id,
+          "spouse",
+          normalizedDate
+        );
+        return;
+      }
+
+      await linkMembers(memberId, spouseId, "spouse", normalizedDate);
+    },
+    [linkMembers, unlinkRelationship, updateRelationship]
+  );
+
   const removeMember = useCallback(
     async (memberId: string) => {
       if (!memberId || memberId === store.viewer?.id) return;
@@ -1332,6 +1392,7 @@ function useFamilyDataController(): FamilyDataContextValue {
     linkMembers,
     updateRelationship,
     unlinkRelationship,
+    setSpouseForMember,
     removeMember,
     addCondition,
     regenerateInviteCode,
@@ -1360,6 +1421,7 @@ function useFamilyDataController(): FamilyDataContextValue {
     linkMembers,
     updateRelationship,
     unlinkRelationship,
+    setSpouseForMember,
     removeMember,
     addCondition,
     regenerateInviteCode,

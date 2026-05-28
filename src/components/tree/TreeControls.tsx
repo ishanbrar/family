@@ -23,6 +23,8 @@ interface TreeControlsProps {
   onShowBirthCountryFlagChange?: (next: boolean) => void;
   showCurrentCountryFlag?: boolean;
   onShowCurrentCountryFlagChange?: (next: boolean) => void;
+  showMarriageDate?: boolean;
+  onShowMarriageDateChange?: (next: boolean) => void;
   onResetView?: () => void;
 }
 
@@ -44,6 +46,8 @@ export function TreeControls({
   onShowBirthCountryFlagChange,
   showCurrentCountryFlag = false,
   onShowCurrentCountryFlagChange,
+  showMarriageDate = false,
+  onShowMarriageDateChange,
   onResetView,
 }: TreeControlsProps) {
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -80,7 +84,8 @@ export function TreeControls({
     Number(!!onShowBirthYearChange && showBirthYear) +
     Number(!!onShowDeathYearChange && showDeathYear) +
     Number(!!onShowBirthCountryFlagChange && showBirthCountryFlag) +
-    Number(!!onShowCurrentCountryFlagChange && showCurrentCountryFlag);
+    Number(!!onShowCurrentCountryFlagChange && showCurrentCountryFlag) +
+    Number(!!onShowMarriageDateChange && showMarriageDate);
   const controlClass =
     "app-control h-10 min-h-[44px] rounded-xl px-3.5 outline-none active:scale-[0.99]";
 
@@ -201,6 +206,17 @@ export function TreeControls({
                   className="h-5 w-5 sm:h-3.5 sm:w-3.5 rounded border-white/20 bg-white/5 text-gold-400 flex-shrink-0"
                 />
                 Show current country flag
+              </label>
+            )}
+            {onShowMarriageDateChange && (
+              <label className="flex items-center gap-3 py-2.5 sm:py-1.5 px-2 rounded-lg text-sm sm:text-xs app-text-secondary hover:bg-white/[0.04] cursor-pointer min-h-[44px] sm:min-h-0">
+                <input
+                  type="checkbox"
+                  checked={showMarriageDate}
+                  onChange={(e) => onShowMarriageDateChange(e.target.checked)}
+                  className="h-5 w-5 sm:h-3.5 sm:w-3.5 rounded border-white/20 bg-white/5 text-gold-400 flex-shrink-0"
+                />
+                Show marriage dates
               </label>
             )}
           </div>

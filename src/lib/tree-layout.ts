@@ -12,6 +12,7 @@ export interface TreeLayoutConnection {
   from: string;
   to: string;
   type: "parent" | "spouse" | "sibling" | "half_sibling";
+  marriageDate?: string | null;
 }
 
 /** A nuclear family unit: parents and their shared children (sibship). Used for bracket-style drawing. */
@@ -701,7 +702,12 @@ export function createFamilyTreeLayout(
       const key = `spouse:${pair[0]}:${pair[1]}`;
       if (connectionSet.has(key)) continue;
       connectionSet.add(key);
-      connections.push({ from: pair[0], to: pair[1], type: "spouse" });
+      connections.push({
+        from: pair[0],
+        to: pair[1],
+        type: "spouse",
+        marriageDate: rel.marriage_date ?? null,
+      });
       continue;
     }
 

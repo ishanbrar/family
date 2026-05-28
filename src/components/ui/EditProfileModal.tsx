@@ -22,8 +22,10 @@ import {
   User,
   FileText,
   PawPrint,
+  Heart,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { formatPersonName } from "@/lib/display-format";
 import { CitySearch } from "./CitySearch";
 import { AddressSearch } from "./AddressSearch";
 import { ManualDateInput } from "./ManualDateInput";
@@ -40,13 +42,26 @@ const GENDER_OPTIONS: { value: Gender; label: string }[] = [
 
 interface EditProfileModalProps {
   profile: Profile;
+  familyMembers?: Profile[];
+  initialSpouseId?: string | null;
+  initialMarriageDate?: string | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updated: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => Promise<void> | void;
+  onSave: (
+    updated: Partial<Profile> & {
+      avatarFile?: File;
+      galleryFiles?: File[];
+      spouseId?: string | null;
+      marriageDate?: string | null;
+    }
+  ) => Promise<void> | void;
 }
 
 export function EditProfileModal({
   profile,
+  familyMembers = [],
+  initialSpouseId = null,
+  initialMarriageDate = null,
   isOpen,
   onClose,
   onSave,
@@ -79,6 +94,8 @@ export function EditProfileModal({
   const [petsText, setPetsText] = useState((profile.pets || []).join(", "));
   const [dob, setDob] = useState(profile.date_of_birth || "");
   const [placeOfBirth, setPlaceOfBirth] = useState(profile.place_of_birth || "");
+  const [spouseId, setSpouseId] = useState(initialSpouseId || "");
+  const [marriageDate, setMarriageDate] = useState(initialMarriageDate || "");
   const [aboutMe, setAboutMe] = useState(profile.about_me || "");
   const [social, setSocial] = useState<SocialLinks>({
     instagram: profile.social_links?.instagram || "",
@@ -112,6 +129,8 @@ export function EditProfileModal({
     setPetsText((profile.pets || []).join(", "));
     setDob(profile.date_of_birth || "");
     setPlaceOfBirth(profile.place_of_birth || "");
+    setSpouseId(initialSpouseId || "");
+    setMarriageDate(initialMarriageDate || "");
     setAboutMe(profile.about_me || "");
     setSocial({
       instagram: profile.social_links?.instagram || "",
@@ -122,7 +141,15 @@ export function EditProfileModal({
     });
     setSaving(false);
     setSaveError(null);
-  }, [isOpen, profile]);
+  }, [isOpen, profile, initialSpouseId, initialMarriageDate]);
+
+  const spouseOptions = useMemo(
+    () =>
+      familyMembers
+        .filter((member) => member.id !== profile.id)
+        .sort((a, b) => formatPersonName(a.first_name, a.last_name).localeCompare(formatPersonName(b.first_name, b.last_name))),
+    [familyMembers, profile.id]
+  );
 
   const mapSourceOptions = useMemo(() => {
     const options: ProfileMapLocationSource[] = [];
@@ -218,6 +245,8 @@ export function EditProfileModal({
         gallery_photos: galleryPhotos.filter((photo) => !/^blob:|^data:/i.test(photo)),
         ...(avatarFile ? { avatarFile } : {}),
         ...(galleryFiles.length > 0 ? { galleryFiles } : {}),
+        spouseId: spouseId || null,
+        marriageDate: marriageDate ? String(marriageDate).slice(0, 10) : null,
       });
       onClose();
     } catch (err) {
@@ -524,6 +553,37 @@ export function EditProfileModal({
                       Place of Birth
                     </label>
                     <CitySearch value={placeOfBirth} onChange={setPlaceOfBirth} placeholder="Search birthplace..." />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <Heart size={10} /> Spouse
+                    </label>
+                    <select
+                      value={spouseId}
+                      onChange={(e) => setSpouseId(e.target.value)}
+                      className={cn(inputClass, "px-4")}
+                    >
+                      <option value="">No spouse selected</option>
+                      {spouseOptions.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {formatPersonName(member.first_name, member.last_name)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <Heart size={10} /> Anniversary
+                    </label>
+                    <ManualDateInput
+                      value={marriageDate}
+                      onChange={setMarriageDate}
+                      className={inputClass}
+                      disabled={!spouseId}
+                    />
                   </div>
                 </div>
               </div>

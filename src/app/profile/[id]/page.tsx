@@ -68,6 +68,7 @@ export default function MemberProfilePage({
     userConditions,
     loading,
     updateProfile,
+    setSpouseForMember,
   } = useFamilyData();
 
   const [editOpen, setEditOpen] = useState(false);
@@ -175,9 +176,24 @@ export default function MemberProfilePage({
           : `https://${member.social_links.website.trim()}`)
       : null;
 
-  const handleSave = async (updates: Partial<Profile> & { avatarFile?: File; galleryFiles?: File[] }) => {
-    const { avatarFile, galleryFiles, ...profileUpdates } = updates;
+  const handleSave = async (
+    updates: Partial<Profile> & {
+      avatarFile?: File;
+      galleryFiles?: File[];
+      spouseId?: string | null;
+      marriageDate?: string | null;
+    }
+  ) => {
+    const { avatarFile, galleryFiles, spouseId: nextSpouseId, marriageDate: nextMarriageDate, ...profileUpdates } =
+      updates;
     await updateProfile(member.id, profileUpdates, avatarFile, galleryFiles);
+    if (nextSpouseId !== undefined || nextMarriageDate !== undefined) {
+      await setSpouseForMember(
+        member.id,
+        nextSpouseId ?? null,
+        nextMarriageDate ?? null
+      );
+    }
   };
 
   const handleGalleryUpload = async (files: FileList | null) => {
@@ -211,8 +227,11 @@ export default function MemberProfilePage({
       <Sidebar />
 
       <EditProfileModal
-        key={`${member.id}-${editOpen ? "open" : "closed"}-${member.updated_at}`}
+        key={`${member.id}-${editOpen ? "open" : "closed"}-${member.updated_at}-${spouseId || "none"}-${marriageDate || "none"}`}
         profile={member}
+        familyMembers={members}
+        initialSpouseId={spouseId}
+        initialMarriageDate={marriageDate}
         isOpen={editOpen}
         onClose={() => setEditOpen(false)}
         onSave={handleSave}
