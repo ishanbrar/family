@@ -18,6 +18,7 @@ import { CitySearch } from "@/components/ui/CitySearch";
 import { ManualDateInput } from "@/components/ui/ManualDateInput";
 import { inferCountryCodeFromCity } from "@/lib/cities";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
+import { formatProfileName } from "@/lib/display-format";
 
 interface InviteFamilyLite {
   id: string;
@@ -85,7 +86,9 @@ function relationLabel(type: RelationshipType): string {
 
 function emptyMemberDraft() {
   return {
+    namePrefix: "",
     firstName: "",
+    middleName: "",
     lastName: "",
     gender: "" as Gender | "",
     relation: "" as RelationshipType | "",
@@ -95,8 +98,8 @@ function emptyMemberDraft() {
   };
 }
 
-function normalizeName(first: string, last: string): string {
-  return `${first.trim().toLowerCase()}::${last.trim().toLowerCase()}`;
+function normalizeName(first: string, middle: string, last: string): string {
+  return `${first.trim().toLowerCase()}::${middle.trim().toLowerCase()}::${last.trim().toLowerCase()}`;
 }
 
 function normalizeCity(value: string | null | undefined): string {
@@ -133,7 +136,9 @@ export function FamilyOnboardingWizard({
   const [step, setStep] = useState(1);
 
   const [selfProfile, setSelfProfile] = useState({
+    namePrefix: viewer.name_prefix || "",
     firstName: viewer.first_name,
+    middleName: viewer.middle_name || "",
     lastName: viewer.last_name,
     gender: (viewer.gender || "") as Gender | "",
     dateOfBirth: viewer.date_of_birth || "",
@@ -171,7 +176,9 @@ export function FamilyOnboardingWizard({
     setSelectedExistingId("");
     setLinkingExisting(false);
     setSelfProfile({
+      namePrefix: viewer.name_prefix || "",
       firstName: viewer.first_name,
+      middleName: viewer.middle_name || "",
       lastName: viewer.last_name,
       gender: (viewer.gender || "") as Gender | "",
       dateOfBirth: viewer.date_of_birth || "",
@@ -245,9 +252,9 @@ export function FamilyOnboardingWizard({
   }, [directRelatives, directRelationById]);
 
   const duplicateInMembers = useMemo(() => {
-    const target = normalizeName(stepTwoDraft.firstName, stepTwoDraft.lastName);
+    const target = normalizeName(stepTwoDraft.firstName, stepTwoDraft.middleName, stepTwoDraft.lastName);
     if (!stepTwoDraft.firstName.trim() || !stepTwoDraft.lastName.trim()) return null;
-    const sameNameMembers = members.filter((m) => normalizeName(m.first_name, m.last_name) === target);
+    const sameNameMembers = members.filter((m) => normalizeName(m.first_name, m.middle_name || "", m.last_name) === target);
     if (sameNameMembers.length === 0) return null;
 
     const draftCity = normalizeCity(stepTwoDraft.city);
@@ -261,13 +268,13 @@ export function FamilyOnboardingWizard({
       member: likely || sameNameMembers[0],
       confidence: likely ? ("high" as const) : ("low" as const),
     };
-  }, [stepTwoDraft.firstName, stepTwoDraft.lastName, stepTwoDraft.city, stepTwoDraft.dateOfBirth, members]);
+  }, [stepTwoDraft.firstName, stepTwoDraft.middleName, stepTwoDraft.lastName, stepTwoDraft.city, stepTwoDraft.dateOfBirth, members]);
 
   const existingLinkCandidates = useMemo(
     () =>
       members
         .filter((m) => m.id !== viewer.id)
-        .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
+        .sort((a, b) => formatProfileName(a, { includeMiddle: true, includePrefix: true }).localeCompare(formatProfileName(b, { includeMiddle: true, includePrefix: true }))),
     [members, viewer.id]
   );
 
@@ -283,8 +290,10 @@ export function FamilyOnboardingWizard({
 
   const createMemberPayload = useMemo(
     () =>
-      (draft: { firstName: string; lastName: string; gender: Gender | ""; city: string; dateOfBirth: string; profession: string }) => ({
+      (draft: { namePrefix: string; firstName: string; middleName: string; lastName: string; gender: Gender | ""; city: string; dateOfBirth: string; profession: string }) => ({
+        name_prefix: draft.namePrefix.trim() || null,
         first_name: draft.firstName.trim(),
+        middle_name: draft.middleName.trim() || null,
         last_name: draft.lastName.trim(),
         display_name: null,
         gender: draft.gender || null,
@@ -325,7 +334,9 @@ export function FamilyOnboardingWizard({
 
     try {
       await updateProfile(viewer.id, {
+        name_prefix: selfProfile.namePrefix.trim() || null,
         first_name: selfProfile.firstName.trim(),
+        middle_name: selfProfile.middleName.trim() || null,
         last_name: selfProfile.lastName.trim(),
         gender: selfProfile.gender || null,
         date_of_birth: selfProfile.dateOfBirth ? String(selfProfile.dateOfBirth).slice(0, 10) : null,
@@ -547,9 +558,21 @@ export function FamilyOnboardingWizard({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <input
                       className={inputClass}
+                      placeholder="Prefix / honorific"
+                      value={selfProfile.namePrefix}
+                      onChange={(e) => setSelfProfile((s) => ({ ...s, namePrefix: e.target.value }))}
+                    />
+                    <input
+                      className={inputClass}
                       placeholder="First name"
                       value={selfProfile.firstName}
                       onChange={(e) => setSelfProfile((s) => ({ ...s, firstName: e.target.value }))}
+                    />
+                    <input
+                      className={inputClass}
+                      placeholder="Middle name"
+                      value={selfProfile.middleName}
+                      onChange={(e) => setSelfProfile((s) => ({ ...s, middleName: e.target.value }))}
                     />
                     <input
                       className={inputClass}
@@ -739,7 +762,7 @@ export function FamilyOnboardingWizard({
                           <div className="w-28 h-28 rounded-full border border-gold-400/35 bg-white/[0.06] flex flex-col items-center justify-center text-center shadow-[0_0_32px_rgba(212,165,116,0.2)]">
                             <p className="text-[10px] text-gold-300/85 uppercase tracking-wider">You</p>
                             <p className="text-xs text-white/90 font-medium leading-tight px-2">
-                              {viewer.first_name} {viewer.last_name}
+                              {formatProfileName(viewer, { includeMiddle: true, includePrefix: true })}
                             </p>
                           </div>
                         </div>
@@ -765,19 +788,34 @@ export function FamilyOnboardingWizard({
 
                         {!linkOnlyMode && (
                           <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+	                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <input
                                 className={inputClass}
-                                placeholder="First name"
+                                placeholder="Prefix / honorific"
+                                value={stepTwoDraft.namePrefix}
+                                onChange={(e) => setStepTwoDraft((s) => ({ ...s, namePrefix: e.target.value }))}
+                              />
+	                              <input
+	                                className={inputClass}
+	                                placeholder="First name"
                                 value={stepTwoDraft.firstName}
                                 onChange={(e) => {
                                   setAllowDuplicateStepTwo(false);
                                   setStepTwoDraft((s) => ({ ...s, firstName: e.target.value }));
-                                }}
-                              />
+	                                }}
+	                              />
                               <input
                                 className={inputClass}
-                                placeholder="Last name"
+                                placeholder="Middle name"
+                                value={stepTwoDraft.middleName}
+                                onChange={(e) => {
+                                  setAllowDuplicateStepTwo(false);
+                                  setStepTwoDraft((s) => ({ ...s, middleName: e.target.value }));
+                                }}
+                              />
+	                              <input
+	                                className={inputClass}
+	                                placeholder="Last name"
                                 value={stepTwoDraft.lastName}
                                 onChange={(e) => {
                                   setAllowDuplicateStepTwo(false);
@@ -818,7 +856,7 @@ export function FamilyOnboardingWizard({
                               <div className="mt-3 px-3 py-2 rounded-xl border border-amber-400/20 bg-amber-400/[0.08] text-xs text-amber-200/90">
                                 {duplicateInMembers.confidence === "high" ? "Likely duplicate" : "Potential duplicate"}:
                                 {" "}
-                                {duplicateInMembers.member.first_name} {duplicateInMembers.member.last_name}
+	                                {formatProfileName(duplicateInMembers.member, { includeMiddle: true, includePrefix: true })}
                                 {!allowDuplicateStepTwo && (
                                   <button
                                     type="button"
@@ -854,11 +892,11 @@ export function FamilyOnboardingWizard({
                               className={cn(inputClass, "flex-1")}
                             >
                               <option value="">Select existing member</option>
-                              {existingLinkCandidates.map((m) => (
-                                <option key={m.id} value={m.id}>
-                                  {m.first_name} {m.last_name}
-                                </option>
-                              ))}
+	                              {existingLinkCandidates.map((m) => (
+	                                <option key={m.id} value={m.id}>
+	                                  {formatProfileName(m, { includeMiddle: true, includePrefix: true })}
+	                                </option>
+	                              ))}
                             </select>
                             <button
                               type="button"
@@ -882,7 +920,7 @@ export function FamilyOnboardingWizard({
                       <div className="flex flex-wrap gap-2">
                         {directRelatives.map((m) => (
                           <span key={m.id} className="px-2 py-1 rounded-lg bg-white/[0.03] text-xs text-white/65">
-                            {m.first_name} {m.last_name}
+                            {formatProfileName(m, { includeMiddle: true, includePrefix: true })}
                             <span className="text-severity-mild/80"> · {relationLabel(directRelationById.get(m.id) || "sibling")}</span>
                           </span>
                         ))}

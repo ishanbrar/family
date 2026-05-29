@@ -32,6 +32,7 @@ import { getProfileLocationPoints, type ProfileLocationPoint } from "@/lib/profi
 import type { Profile } from "@/lib/types";
 import { inferCountryCodeFromCity, getCityCoordinates } from "@/lib/cities";
 import { countryName } from "@/lib/country-utils";
+import { formatProfileFullName } from "@/lib/display-format";
 
 interface InteractiveGlobeProps {
   members: Profile[];
@@ -868,7 +869,7 @@ export function InteractiveGlobe({
                 >
                   {group.members.map((m) => (
                     <p key={m.id} className="text-xs font-medium text-white/90">
-                      {m.first_name} {m.last_name}
+                      {formatProfileFullName(m)}
                     </p>
                   ))}
                   {group.city && (

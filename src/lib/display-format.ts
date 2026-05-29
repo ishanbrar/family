@@ -19,10 +19,46 @@ export function normalizePersonNameInput(value: string | null | undefined): stri
   return formatDisplayText(value);
 }
 
-export function formatPersonName(firstName: string, lastName?: string | null): string {
-  const parts = [formatDisplayText(firstName), formatDisplayText(lastName || "")]
+export function formatPersonName(
+  firstName: string,
+  middleNameOrLastName?: string | null,
+  lastName?: string | null,
+  namePrefix?: string | null
+): string {
+  const middleName = lastName === undefined ? "" : middleNameOrLastName;
+  const finalLastName = lastName === undefined ? middleNameOrLastName : lastName;
+  const parts = [
+    formatDisplayText(namePrefix || ""),
+    formatDisplayText(firstName),
+    formatDisplayText(middleName || ""),
+    formatDisplayText(finalLastName || ""),
+  ]
     .filter(Boolean);
   return parts.join(" ");
+}
+
+export function formatProfileName(
+  profile: Pick<Profile, "first_name" | "last_name" | "middle_name" | "name_prefix">,
+  options: { includeMiddle?: boolean; includePrefix?: boolean } = {}
+): string {
+  return formatPersonName(
+    profile.first_name,
+    options.includeMiddle ? profile.middle_name || "" : "",
+    profile.last_name,
+    options.includePrefix ? profile.name_prefix || "" : ""
+  );
+}
+
+export function formatProfileFullName(
+  profile: Pick<Profile, "first_name" | "last_name" | "middle_name" | "name_prefix">
+): string {
+  return formatProfileName(profile, { includeMiddle: true, includePrefix: true });
+}
+
+export function getProfileInitials(
+  profile: Pick<Profile, "first_name" | "last_name">
+): string {
+  return `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase();
 }
 
 export function parseDateOnly(value: string | null | undefined): Date | null {

@@ -43,7 +43,9 @@ export interface CreateAuditLogInput {
 
 export interface JoinPreviewMember {
   id: string;
+  name_prefix?: string | null;
   first_name: string;
+  middle_name?: string | null;
   last_name: string;
   gender: Profile["gender"];
   avatar_url: string | null;
@@ -86,6 +88,11 @@ function familyInviteCodeBase(name: string): string {
   if (!raw) raw = tokens[tokens.length - 1] || "";
   if (!raw || raw.length < 2) raw = "FAMILY";
   return raw.slice(0, 24);
+}
+
+function normalizeOptionalPersonNameInput(value: string | null | undefined): string | null {
+  const normalized = normalizePersonNameInput(value);
+  return normalized || null;
 }
 
 // ── Profiles ────────────────────────────────────
@@ -135,7 +142,9 @@ export async function updateProfile(
 ): Promise<Profile | null> {
   // Map our Profile type fields to DB column names
   const dbUpdates: Record<string, unknown> = {};
+  if (updates.name_prefix !== undefined) dbUpdates.name_prefix = normalizeOptionalPersonNameInput(updates.name_prefix);
   if (updates.first_name !== undefined) dbUpdates.first_name = normalizePersonNameInput(updates.first_name);
+  if (updates.middle_name !== undefined) dbUpdates.middle_name = normalizeOptionalPersonNameInput(updates.middle_name);
   if (updates.last_name !== undefined) dbUpdates.last_name = normalizePersonNameInput(updates.last_name);
   if (updates.display_name !== undefined) dbUpdates.display_name = updates.display_name;
   if (updates.gender !== undefined) dbUpdates.gender = updates.gender;
@@ -197,7 +206,9 @@ export async function ensureProfileForAuthUser(
       {
         id: user.id,
         auth_user_id: user.id,
+        name_prefix: null,
         first_name: normalizePersonNameInput(firstName),
+        middle_name: null,
         last_name: normalizePersonNameInput(lastName),
         gender: null,
         role: "MEMBER",
@@ -611,7 +622,9 @@ export async function addFamilyMember(
   const { data, error } = await supabase
     .from("profiles")
     .insert({
+      name_prefix: normalizeOptionalPersonNameInput(profile.name_prefix),
       first_name: normalizePersonNameInput(profile.first_name),
+      middle_name: normalizeOptionalPersonNameInput(profile.middle_name),
       last_name: normalizePersonNameInput(profile.last_name),
       display_name: profile.display_name,
       gender: profile.gender,
@@ -711,7 +724,9 @@ function mapProfile(row: any): Profile {
   return {
     id: row.id,
     auth_user_id: row.auth_user_id || null,
+    name_prefix: row.name_prefix || null,
     first_name: normalizePersonNameInput(row.first_name),
+    middle_name: row.middle_name || null,
     last_name: normalizePersonNameInput(row.last_name),
     display_name: row.display_name || null,
     gender: row.gender || null,

@@ -16,12 +16,15 @@ import {
   type JoinFamilyPreview,
 } from "@/lib/supabase/db";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
+import { formatProfileFullName } from "@/lib/display-format";
 import type { GeneticMatchResult, Profile, Relationship } from "@/lib/types";
 
 function previewMemberToProfile(member: JoinFamilyPreview["members"][number]): Profile {
   return {
     id: member.id,
+    name_prefix: member.name_prefix ?? null,
     first_name: member.first_name,
+    middle_name: member.middle_name ?? null,
     last_name: member.last_name,
     display_name: null,
     gender: member.gender ?? null,
@@ -149,6 +152,7 @@ function JoinFamilyPageContent() {
         (m) =>
           m.is_claimable &&
           m.first_name.trim().toLowerCase() === profile.first_name.trim().toLowerCase() &&
+          (m.middle_name || "").trim().toLowerCase() === (profile.middle_name || "").trim().toLowerCase() &&
           m.last_name.trim().toLowerCase() === profile.last_name.trim().toLowerCase()
       );
       setSelectedClaimId(exactCandidate?.id || null);
@@ -206,7 +210,9 @@ function JoinFamilyPageContent() {
     () =>
       (preview?.members || [])
         .filter((member) => member.is_claimable)
-        .sort((a, b) => `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)),
+        .sort((a, b) =>
+          formatProfileFullName(previewMemberToProfile(a)).localeCompare(formatProfileFullName(previewMemberToProfile(b)))
+        ),
     [preview]
   );
 
@@ -329,7 +335,7 @@ function JoinFamilyPageContent() {
                           : "border-white/[0.08] bg-white/[0.02] hover:border-gold-400/20"
                       }`}
                     >
-                      <p className="text-sm text-white/90">{member.first_name} {member.last_name}</p>
+                      <p className="text-sm text-white/90">{formatProfileFullName(previewMemberToProfile(member))}</p>
                       <p className="text-[11px] text-white/35">Unclaimed family node</p>
                     </button>
                   );
@@ -371,7 +377,7 @@ function JoinFamilyPageContent() {
 
             <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 space-y-2">
               <p className="text-sm text-white/90">
-                {viewer?.first_name} {viewer?.last_name}
+                {viewer ? formatProfileFullName(viewer) : ""}
               </p>
               <p className="text-[11px] text-white/35">
                 This creates a new member node under your authenticated account.

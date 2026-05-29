@@ -43,13 +43,15 @@ export function FamilyMembersTable({
   const [editingCell, setEditingCell] = useState<{ memberId: string; field: "name" | "dob" | "city" } | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ firstName: "", lastName: "", dob: "", city: "" });
+  const [draft, setDraft] = useState({ namePrefix: "", firstName: "", middleName: "", lastName: "", dob: "", city: "" });
 
   const sortedMembers = [...members].sort((a, b) => {
     const aLast = (a.last_name || "").toLowerCase();
     const bLast = (b.last_name || "").toLowerCase();
     if (aLast !== bLast) return aLast.localeCompare(bLast);
-    return (a.first_name || "").toLowerCase().localeCompare((b.first_name || "").toLowerCase());
+    const aFirst = `${a.first_name || ""} ${a.middle_name || ""}`.trim().toLowerCase();
+    const bFirst = `${b.first_name || ""} ${b.middle_name || ""}`.trim().toLowerCase();
+    return aFirst.localeCompare(bFirst);
   });
 
   const startEdit = useCallback(
@@ -58,7 +60,9 @@ export function FamilyMembersTable({
       setError(null);
       setEditingCell({ memberId: member.id, field });
       setDraft({
+        namePrefix: member.name_prefix || "",
         firstName: member.first_name || "",
+        middleName: member.middle_name || "",
         lastName: member.last_name || "",
         dob: toInputDate(member.date_of_birth),
         city: member.location_city || "",
@@ -87,10 +91,13 @@ export function FamilyMembersTable({
       try {
         if (editingCell.field === "name") {
           const fn = draft.firstName.trim();
+          const mn = draft.middleName.trim();
           const ln = draft.lastName.trim();
           if (fn || ln) {
             await onUpdate(memberId, {
+              name_prefix: draft.namePrefix.trim() || null,
               first_name: fn || member.first_name,
+              middle_name: mn || null,
               last_name: ln || member.last_name,
             });
           }
@@ -172,7 +179,7 @@ export function FamilyMembersTable({
                   >
                     {isEditingName ? (
                       <div
-                        className="flex gap-2"
+                        className="grid grid-cols-2 gap-2 lg:grid-cols-[0.75fr_1fr_1fr_1fr]"
                         onClick={(e) => e.stopPropagation()}
                         onBlur={(e) => {
                           if (!shouldCommitCompositeBlur(e.currentTarget, e.relatedTarget as Node | null)) return;
@@ -180,25 +187,39 @@ export function FamilyMembersTable({
                         }}
                       >
                         <input
+                          value={draft.namePrefix}
+                          onChange={(e) => setDraft((p) => ({ ...p, namePrefix: e.target.value }))}
+                          onKeyDown={(e) => handleKeyDown(e, member.id)}
+                          placeholder="Prefix"
+                          className="min-w-0 h-8 rounded-lg px-2.5 app-input text-sm"
+                        />
+                        <input
                           autoFocus
                           value={draft.firstName}
                           onChange={(e) => setDraft((p) => ({ ...p, firstName: e.target.value }))}
                           onKeyDown={(e) => handleKeyDown(e, member.id)}
                           placeholder="First"
-                          className="flex-1 min-w-0 h-8 rounded-lg px-2.5 app-input text-sm"
+                          className="min-w-0 h-8 rounded-lg px-2.5 app-input text-sm"
+                        />
+                        <input
+                          value={draft.middleName}
+                          onChange={(e) => setDraft((p) => ({ ...p, middleName: e.target.value }))}
+                          onKeyDown={(e) => handleKeyDown(e, member.id)}
+                          placeholder="Middle"
+                          className="min-w-0 h-8 rounded-lg px-2.5 app-input text-sm"
                         />
                         <input
                           value={draft.lastName}
                           onChange={(e) => setDraft((p) => ({ ...p, lastName: e.target.value }))}
                           onKeyDown={(e) => handleKeyDown(e, member.id)}
                           placeholder="Last"
-                          className="flex-1 min-w-0 h-8 rounded-lg px-2.5 app-input text-sm"
+                          className="min-w-0 h-8 rounded-lg px-2.5 app-input text-sm"
                         />
                       </div>
                     ) : (
                       <span className="text-white/88">
                         {member.first_name || member.last_name
-                          ? formatPersonName(member.first_name, member.last_name)
+                          ? formatPersonName(member.first_name, member.middle_name || "", member.last_name, member.name_prefix || "")
                           : "—"}
                       </span>
                     )}

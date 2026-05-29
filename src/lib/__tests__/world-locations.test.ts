@@ -9,7 +9,9 @@ import type { Profile } from "../types";
 function makeProfile(overrides: Partial<Profile>): Profile {
   return {
     id: overrides.id || "profile-1",
+    name_prefix: overrides.name_prefix || null,
     first_name: overrides.first_name || "John",
+    middle_name: overrides.middle_name || null,
     last_name: overrides.last_name || "Doe",
     display_name: overrides.display_name || null,
     gender: overrides.gender || null,
@@ -23,7 +25,7 @@ function makeProfile(overrides: Partial<Profile>): Profile {
     address: overrides.address || null,
     location_lat: overrides.location_lat || null,
     location_lng: overrides.location_lng || null,
-    map_location_source: overrides.map_location_source || null,
+    map_location_source: overrides.map_location_source || undefined,
     pets: overrides.pets || [],
     social_links: overrides.social_links || {},
     about_me: overrides.about_me || null,

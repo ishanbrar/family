@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Filter, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import type { Profile } from "@/lib/types";
-import { formatPersonName } from "@/lib/display-format";
+import { formatProfileFullName } from "@/lib/display-format";
 
 interface TreeControlsProps {
   members: Profile[];
@@ -101,7 +101,7 @@ export function TreeControls({
           <option value="">Related By...</option>
           {members.map((member) => (
             <option key={member.id} value={member.id}>
-              {formatPersonName(member.first_name, member.last_name)}
+              {formatProfileFullName(member)}
             </option>
           ))}
         </select>

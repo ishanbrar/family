@@ -72,10 +72,6 @@ export function CountryLocationMap({ countryCode, pins, className }: CountryLoca
     };
   }, []);
 
-  useEffect(() => {
-    setHoveredPinId(null);
-  }, [pins]);
-
   const countryFeature = useMemo(
     () => resolveCountryMapFeatureByCode(countries, countryCode),
     [countries, countryCode]
@@ -132,8 +128,11 @@ export function CountryLocationMap({ countryCode, pins, className }: CountryLoca
     return { width, height, pathD, projectedPins };
   }, [countryFeature, countryCode, pins]);
 
-  const hoveredPin = hoveredPinId
-    ? mapData.projectedPins.find((entry) => entry.pin.id === hoveredPinId) ?? null
+  const visibleHoveredPinId = mapData.projectedPins.some((entry) => entry.pin.id === hoveredPinId)
+    ? hoveredPinId
+    : null;
+  const hoveredPin = visibleHoveredPinId
+    ? mapData.projectedPins.find((entry) => entry.pin.id === visibleHoveredPinId) ?? null
     : null;
 
   if (loading) {
@@ -178,7 +177,7 @@ export function CountryLocationMap({ countryCode, pins, className }: CountryLoca
 
         {mapData.projectedPins.map(({ pin, x, y }) => {
           const color = PIN_COLORS[pin.source] || PIN_COLORS.birthplace;
-          const active = hoveredPinId === pin.id;
+          const active = visibleHoveredPinId === pin.id;
           const radius = active ? 11 : 8.5;
 
           return (

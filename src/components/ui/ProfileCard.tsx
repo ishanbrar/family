@@ -10,7 +10,7 @@ import { motion } from "framer-motion";
 import { MapPin, Briefcase, Calendar, Star, User } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
-import { calculateAgeFromDateOnly, formatDateOnly, formatGenderLabel, formatPersonName } from "@/lib/display-format";
+import { calculateAgeFromDateOnly, formatDateOnly, formatGenderLabel, formatProfileFullName, getProfileInitials } from "@/lib/display-format";
 import { GeneticMatchRing } from "./GeneticMatchRing";
 import { SocialDock } from "./SocialDock";
 import { GlassCard } from "./GlassCard";
@@ -22,10 +22,6 @@ interface ProfileCardProps {
   compactViewer?: boolean;
   onClick?: () => void;
   className?: string;
-}
-
-function getInitials(first: string, last: string): string {
-  return `${first[0] || ""}${last[0] || ""}`.toUpperCase();
 }
 
 function formatDate(dateStr: string | null): string {
@@ -45,7 +41,7 @@ export function ProfileCard({
   className,
 }: ProfileCardProps) {
   const age = calculateAge(profile.date_of_birth);
-  const initials = getInitials(profile.first_name, profile.last_name);
+  const initials = getProfileInitials(profile);
 
   if (isViewer) {
     return (
@@ -87,7 +83,7 @@ export function ProfileCard({
                 transition={{ delay: 0.15 }}
                 className="text-2xl sm:text-3xl font-serif font-semibold app-text-primary tracking-tight"
               >
-                {formatPersonName(profile.first_name, profile.last_name)}
+                {formatProfileFullName(profile)}
               </motion.h3>
               {profile.display_name && (
                 <p className="mt-1.5 text-sm text-[var(--accent-400)] font-medium">
@@ -236,7 +232,7 @@ export function ProfileCard({
           transition={{ delay: 0.3 }}
           className="mt-4 text-xl font-serif font-semibold text-white/95"
         >
-          {formatPersonName(profile.first_name, profile.last_name)}
+          {formatProfileFullName(profile)}
         </motion.h3>
         {profile.display_name && (
           <p className="mt-1 text-xs text-gold-300/85">

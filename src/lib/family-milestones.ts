@@ -1,4 +1,4 @@
-import { formatDateOnly, formatPersonName, parseDateOnly } from "./display-format";
+import { formatDateOnly, formatProfileFullName, parseDateOnly } from "./display-format";
 import type { Profile, Relationship } from "./types";
 
 export type MilestoneKind = "birthday" | "anniversary" | "memorial";
@@ -128,7 +128,7 @@ export function buildFamilyMilestones(
             {
               id: `birthday:${member.id}`,
               kind: "birthday",
-              title: formatPersonName(member.first_name, member.last_name),
+              title: formatProfileFullName(member),
               detail: age != null ? `Turning ${age}` : "Birthday",
               dateLabel: occurrenceDateLabel(birth.getMonth(), birth.getDate(), today),
               daysFromToday: delta,
@@ -154,7 +154,7 @@ export function buildFamilyMilestones(
             {
               id: `memorial:${member.id}`,
               kind: "memorial",
-              title: formatPersonName(member.first_name, member.last_name),
+              title: formatProfileFullName(member),
               detail: years > 0 ? `${years} year${years === 1 ? "" : "s"} remembered` : "Remembrance",
               dateLabel: occurrenceDateLabel(death.getMonth(), death.getDate(), today),
               daysFromToday: delta,
@@ -193,7 +193,7 @@ export function buildFamilyMilestones(
       {
         id: `anniversary:${pairKey}`,
         kind: "anniversary",
-        title: `${formatPersonName(partnerA.first_name, partnerA.last_name)} & ${formatPersonName(partnerB.first_name, partnerB.last_name)}`,
+        title: `${formatProfileFullName(partnerA)} & ${formatProfileFullName(partnerB)}`,
         detail: years > 0 ? `${years} year${years === 1 ? "" : "s"} together` : "Anniversary",
         dateLabel: occurrenceDateLabel(marriage.getMonth(), marriage.getDate(), today),
         daysFromToday: delta,

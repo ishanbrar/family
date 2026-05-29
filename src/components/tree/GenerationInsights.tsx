@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 import type { Profile } from "@/lib/types";
-import { formatPersonName } from "@/lib/display-format";
+import { formatProfileFullName } from "@/lib/display-format";
 import { getGenerationDepthLabel, type TreeGenerationAnalytics } from "@/lib/generation-insights";
 
 interface GenerationInsightsProps {
@@ -12,7 +12,7 @@ function formatPerson(profile: Profile | null): string {
   if (!profile) return "Not enough birth-date data";
   const parsedDob = Date.parse(profile.date_of_birth || "");
   const year = Number.isNaN(parsedDob) ? null : new Date(parsedDob).getUTCFullYear();
-  const fullName = formatPersonName(profile.first_name, profile.last_name);
+  const fullName = formatProfileFullName(profile);
   return year ? `${fullName} (${year})` : fullName;
 }
 

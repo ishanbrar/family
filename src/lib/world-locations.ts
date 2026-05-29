@@ -1,4 +1,4 @@
-import { formatPersonName } from "./display-format";
+import { formatProfileFullName } from "./display-format";
 import { countryFlag, countryName } from "./country-utils";
 import {
   distanceMilesBetweenCoordinates,
@@ -72,7 +72,7 @@ export function buildWorldCountrySummaries(members: Profile[]): WorldCountrySumm
       countryMap.get(code)!.push({
         id: point.key,
         memberId: member.id,
-        memberName: formatPersonName(member.first_name, member.last_name),
+        memberName: formatProfileFullName(member),
         memberAvatarUrl: member.avatar_url ?? null,
         source: point.source,
         sourceLabel: PROFILE_MAP_SOURCE_LABELS[point.source],
@@ -171,7 +171,7 @@ export function buildFarAndWideRows(members: Profile[]): FarAndWideRow[] {
 
       return {
         id: member.id,
-        name: formatPersonName(member.first_name, member.last_name),
+        name: formatProfileFullName(member),
         birthCity: birthPoint.city,
         currentCity: currentPoint.city,
         miles: Math.round(

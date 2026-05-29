@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, ExternalLink, X } from "lucide-react";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
@@ -96,16 +96,19 @@ function LocationLegend({
 
 export function CountryLocationModal({ country, isOpen, onClose, onProfileClick }: CountryLocationModalProps) {
   const { dialogRef } = useAccessibleDialog({ isOpen, onClose });
-  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
-  const [activeSources, setActiveSources] = useState<Set<ProfileMapLocationSource>>(
-    () => new Set(LOCATION_SOURCE_ORDER)
+  const countryCode = country?.code ?? null;
+  const [expandedState, setExpandedState] = useState<{ countryCode: string | null; memberId: string | null }>({
+    countryCode: null,
+    memberId: null,
+  });
+  const [sourceState, setSourceState] = useState<{ countryCode: string | null; sources: Set<ProfileMapLocationSource> }>(
+    () => ({ countryCode: null, sources: new Set(LOCATION_SOURCE_ORDER) })
   );
-
-  useEffect(() => {
-    if (!country) return;
-    setActiveSources(new Set(LOCATION_SOURCE_ORDER));
-    setExpandedMemberId(null);
-  }, [country?.code]);
+  const expandedMemberId = expandedState.countryCode === countryCode ? expandedState.memberId : null;
+  const activeSources = useMemo(
+    () => (sourceState.countryCode === countryCode ? sourceState.sources : new Set(LOCATION_SOURCE_ORDER)),
+    [countryCode, sourceState]
+  );
 
   const filteredLocations = useMemo(
     () => (country ? filterWorldCountryLocations(country, activeSources) : []),
@@ -123,16 +126,17 @@ export function CountryLocationModal({ country, isOpen, onClose, onProfileClick 
   );
 
   const toggleSource = (source: ProfileMapLocationSource) => {
-    setActiveSources((current) => {
-      const next = new Set(current);
+    setSourceState((current) => {
+      const baseSources = current.countryCode === countryCode ? current.sources : new Set(LOCATION_SOURCE_ORDER);
+      const next = new Set(baseSources);
       if (next.has(source)) {
         next.delete(source);
       } else {
         next.add(source);
       }
-      return next;
+      return { countryCode, sources: next };
     });
-    setExpandedMemberId(null);
+    setExpandedState({ countryCode, memberId: null });
   };
 
   return (
@@ -226,7 +230,10 @@ export function CountryLocationModal({ country, isOpen, onClose, onProfileClick 
                           <button
                             type="button"
                             onClick={() =>
-                              setExpandedMemberId(expanded ? null : group.memberId)
+                              setExpandedState({
+                                countryCode,
+                                memberId: expanded ? null : group.memberId,
+                              })
                             }
                             className="flex min-w-0 flex-1 items-center gap-3 text-left transition-colors hover:opacity-90"
                             aria-expanded={expanded}

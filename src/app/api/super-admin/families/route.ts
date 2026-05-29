@@ -4,6 +4,7 @@ import {
   isSuperAdminUser,
   jsonError,
 } from "@/lib/admin-family-user-api";
+import { formatPersonName } from "@/lib/display-format";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient, hasServiceRoleKey } from "@/lib/supabase/admin";
 
@@ -54,7 +55,12 @@ export async function GET() {
       .filter((member) => member.role === "ADMIN" && member.auth_user_id)
       .map((member) => ({
         profileId: member.id,
-        name: `${member.first_name || ""} ${member.last_name || ""}`.trim() || "Family Admin",
+        name: formatPersonName(
+          member.first_name || "",
+          member.middle_name || "",
+          member.last_name || "",
+          member.name_prefix || ""
+        ) || "Family Admin",
       }));
 
     return {

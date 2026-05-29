@@ -2,7 +2,7 @@ import { geoGraticule10, geoNaturalEarth1, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import { findCityByInput, getCityCoordinates } from "@/lib/cities";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
-import { formatDateOnly, formatGenderLabel } from "@/lib/display-format";
+import { formatDateOnly, formatGenderLabel, formatProfileFullName, getProfileInitials } from "@/lib/display-format";
 import type { Profile, Relationship } from "@/lib/types";
 
 type ExportScope = "entire" | "related";
@@ -42,7 +42,7 @@ const WORLD_TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110
 let worldCountriesPromise: Promise<CountryFeature[]> | null = null;
 
 function formatFullName(member: Profile): string {
-  return `${member.first_name} ${member.last_name}`.trim();
+  return formatProfileFullName(member);
 }
 
 function formatExportName(member: Profile, mode: ExportNameMode): string {
@@ -447,7 +447,7 @@ function drawProfilePanel(
     ctx.textBaseline = "middle";
     ctx.font = "700 58px Georgia, serif";
     ctx.fillStyle = "#3b2a1a";
-    ctx.fillText(`${member.first_name[0] || ""}${member.last_name[0] || ""}`.toUpperCase(), cx, y + 150);
+    ctx.fillText(getProfileInitials(member), cx, y + 150);
   }
   ctx.restore();
   ctx.beginPath();
@@ -857,7 +857,7 @@ export async function exportFamilyTreeAsImage({
       ctx.fillStyle = nFill;
       ctx.fill();
 
-      const initials = `${node.profile.first_name[0] || ""}${node.profile.last_name[0] || ""}`.toUpperCase();
+      const initials = getProfileInitials(node.profile);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.font = `600 ${Math.round(circleR * 0.62)}px Georgia, serif`;

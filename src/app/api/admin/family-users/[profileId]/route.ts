@@ -64,7 +64,7 @@ async function patchViaServiceRole(
 ) {
   const { data: target, error: targetError } = await admin
     .from("profiles")
-    .select("id,auth_user_id,first_name,last_name,role,family_id,social_links,created_at")
+    .select("id,auth_user_id,name_prefix,first_name,middle_name,last_name,role,family_id,social_links,created_at")
     .eq("id", profileId)
     .eq("family_id", requester.family_id)
     .maybeSingle();
@@ -143,7 +143,7 @@ async function patchViaServiceRole(
 
   const { data: refreshedProfile, error: refreshProfileError } = await admin
     .from("profiles")
-    .select("id,auth_user_id,first_name,last_name,role,family_id,social_links,created_at")
+    .select("id,auth_user_id,name_prefix,first_name,middle_name,last_name,role,family_id,social_links,created_at")
     .eq("id", targetProfile.id)
     .single();
   if (refreshProfileError || !refreshedProfile?.auth_user_id) {
@@ -175,7 +175,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const { data: target, error: targetError } = await auth.client
     .from("profiles")
-    .select("id,auth_user_id,first_name,last_name,role,family_id,social_links,created_at")
+    .select("id,auth_user_id,name_prefix,first_name,middle_name,last_name,role,family_id,social_links,created_at")
     .eq("id", profileId)
     .eq("family_id", familyId)
     .maybeSingle();
@@ -348,7 +348,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
   const { profileId } = await context.params;
   const { data: target, error: targetError } = await auth.client
     .from("profiles")
-    .select("id,auth_user_id,first_name,last_name,role,family_id,social_links,created_at")
+    .select("id,auth_user_id,name_prefix,first_name,middle_name,last_name,role,family_id,social_links,created_at")
     .eq("id", profileId)
     .eq("family_id", familyId)
     .maybeSingle();

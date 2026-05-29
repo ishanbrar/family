@@ -29,6 +29,7 @@ import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import { useFamilyData } from "@/hooks/use-family-data";
 import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findSharedConditionAncestors } from "@/lib/genetic-match";
+import { formatProfileFullName, getProfileInitials } from "@/lib/display-format";
 import type { MedicalCondition } from "@/lib/types";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
@@ -225,7 +226,7 @@ export default function HealthPage() {
                   );
                   return (
                     <div key={uc.id}>
-                      <p className="text-[10px] text-white/25 font-medium mb-1 ml-1">{member.first_name} {member.last_name}</p>
+                      <p className="text-[10px] text-white/25 font-medium mb-1 ml-1">{formatProfileFullName(member)}</p>
                       <MedicalHistoryCard userCondition={uc} condition={condition}
                         isPrivate={showPrivacy && !isImmediate}
                         isHighlighted={highlightedCondition === condition.id}
@@ -290,7 +291,7 @@ export default function HealthPage() {
                     return (
                       <div key={ancestor.memberId} className="flex flex-col items-center shrink-0">
                         <GeneticMatchRing percentage={ancestor.match.percentage} size={72} strokeWidth={2}
-                          initials={`${member.first_name[0]}${member.last_name[0]}`} />
+                          initials={getProfileInitials(member)} />
                         <p className="mt-2 text-xs text-white/60 font-medium">{member.first_name}</p>
                         <p className="text-[10px] text-white/30">{ancestor.match.relationship}</p>
                       </div>

@@ -25,7 +25,9 @@ CREATE TABLE families (
 -- but non-auth family members get a generated UUID (see policy below).
 CREATE TABLE profiles (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name_prefix     TEXT,
   first_name      TEXT NOT NULL,
+  middle_name     TEXT,
   last_name       TEXT NOT NULL,
   display_name    TEXT,
   gender          TEXT CHECK (gender IN ('female', 'male')),

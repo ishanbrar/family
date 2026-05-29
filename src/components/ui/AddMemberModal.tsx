@@ -60,8 +60,8 @@ const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: "male", label: "Male" },
 ];
 
-function normalizeName(first: string, last: string) {
-  return `${first.trim().toLowerCase()}::${last.trim().toLowerCase()}`;
+function normalizeName(first: string, middle: string, last: string) {
+  return `${first.trim().toLowerCase()}::${middle.trim().toLowerCase()}::${last.trim().toLowerCase()}`;
 }
 
 function normalizeCity(value: string | null | undefined) {
@@ -83,7 +83,9 @@ export function AddMemberModal({
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const avatarObjectUrlRef = useRef<string | null>(null);
+  const [namePrefix, setNamePrefix] = useState("");
   const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
   const [lastName, setLastName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
@@ -114,9 +116,9 @@ export function AddMemberModal({
 
   const duplicateMatch = useMemo(() => {
     if (!firstName.trim() || !lastName.trim()) return null;
-    const target = normalizeName(firstName, lastName);
+    const target = normalizeName(firstName, middleName, lastName);
     const sameNameMembers = existingMembers.filter(
-      (m) => normalizeName(m.first_name, m.last_name) === target
+      (m) => normalizeName(m.first_name, m.middle_name || "", m.last_name) === target
     );
     if (sameNameMembers.length === 0) return null;
 
@@ -131,7 +133,7 @@ export function AddMemberModal({
       member: likely || sameNameMembers[0],
       confidence: likely ? "high" : ("low" as "high" | "low"),
     };
-  }, [firstName, lastName, dob, locationCity, existingMembers]);
+  }, [firstName, middleName, lastName, dob, locationCity, existingMembers]);
 
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -196,7 +198,9 @@ export function AddMemberModal({
     try {
       await onAdd(
         {
+          name_prefix: namePrefix.trim() || null,
           first_name: firstName.trim(),
+          middle_name: middleName.trim() || null,
           last_name: lastName.trim(),
           display_name: displayName.trim() || null,
           gender: gender || null,
@@ -226,7 +230,9 @@ export function AddMemberModal({
       );
 
       // Reset
+      setNamePrefix("");
       setFirstName("");
+      setMiddleName("");
       setLastName("");
       setDisplayName("");
       setGender("");
@@ -325,11 +331,23 @@ export function AddMemberModal({
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
                 </div>
                 <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    value={namePrefix}
+                    onChange={(e) => setNamePrefix(e.target.value)}
+                    className={inputClass}
+                    placeholder="Prefix / honorific"
+                  />
                   <input type="text" value={firstName} onChange={(e) => {
                     setFirstName(e.target.value);
                     setAllowDuplicateAdd(false);
                   }}
                     className={inputClass} placeholder="First name *" />
+                  <input type="text" value={middleName} onChange={(e) => {
+                    setMiddleName(e.target.value);
+                    setAllowDuplicateAdd(false);
+                  }}
+                    className={inputClass} placeholder="Middle name" />
                   <input type="text" value={lastName} onChange={(e) => {
                     setLastName(e.target.value);
                     setAllowDuplicateAdd(false);
@@ -355,7 +373,12 @@ export function AddMemberModal({
                   {duplicateMatch.confidence === "high"
                     ? "Likely duplicate found"
                     : "Potential duplicate found"}
-                  : {formatPersonName(duplicateMatch.member.first_name, duplicateMatch.member.last_name)}
+                  : {formatPersonName(
+                    duplicateMatch.member.first_name,
+                    duplicateMatch.member.middle_name || "",
+                    duplicateMatch.member.last_name,
+                    duplicateMatch.member.name_prefix || ""
+                  )}
                   {duplicateMatch.confidence === "high"
                     ? " (matching name plus city/date)."
                     : " (matching name only)."}
@@ -396,7 +419,7 @@ export function AddMemberModal({
                       <option value="">Select member</option>
                       {existingMembers.map((m) => (
                         <option key={m.id} value={m.id}>
-                          {m.first_name} {m.last_name}
+                          {formatPersonName(m.first_name, m.middle_name || "", m.last_name, m.name_prefix || "")}
                         </option>
                       ))}
                     </select>

@@ -28,7 +28,9 @@ export type ConditionSeverity = "mild" | "moderate" | "severe";
 export interface Profile {
   id: string;
   auth_user_id?: string | null;
+  name_prefix?: string | null;
   first_name: string;
+  middle_name?: string | null;
   last_name: string;
   display_name: string | null;
   gender: Gender | null;

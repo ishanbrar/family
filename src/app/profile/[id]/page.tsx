@@ -41,7 +41,8 @@ import {
   formatDateOnly,
   formatDisplayText,
   formatGenderLabel,
-  formatPersonName,
+  formatProfileFullName,
+  getProfileInitials,
 } from "@/lib/display-format";
 import { googleMapsHrefFor } from "@/lib/maps";
 import {
@@ -247,7 +248,7 @@ export default function MemberProfilePage({
             </button>
             <div>
               <h1 className="font-serif text-3xl font-bold text-white/95">
-                {formatPersonName(member.first_name, member.last_name)}
+                {formatProfileFullName(member)}
               </h1>
               {member.display_name && (
                 <p className="text-sm text-gold-300/80 mt-0.5">
@@ -274,11 +275,11 @@ export default function MemberProfilePage({
             <div className="flex flex-col items-center">
               <GeneticMatchRing percentage={geneticMatch.percentage} size={160} strokeWidth={3}
                 avatarUrl={member.avatar_url}
-                initials={`${member.first_name[0]}${member.last_name[0]}`}
+                initials={getProfileInitials(member)}
                 showPercentage={!isViewer} label={isViewer ? "You" : geneticMatch.relationship} />
 
               <h2 className="mt-5 font-serif text-2xl font-bold text-white/95">
-                {formatPersonName(member.first_name, member.last_name)}
+                {formatProfileFullName(member)}
               </h2>
               {member.display_name && (
                 <p className="text-xs text-gold-300/85 mt-1">{member.display_name}</p>
@@ -438,7 +439,7 @@ export default function MemberProfilePage({
                               href={`/profile/${spouse.id}`}
                               className="text-gold-300 transition-colors hover:text-gold-200"
                             >
-                              {formatPersonName(spouse.first_name, spouse.last_name)}
+                              {formatProfileFullName(spouse)}
                             </Link>
                           </>
                         )}
@@ -546,7 +547,7 @@ export default function MemberProfilePage({
                       className="flex flex-col items-center p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:border-gold-400/20 transition-colors cursor-pointer">
                       <GeneticMatchRing percentage={item.match.percentage} size={64} strokeWidth={2}
                         avatarUrl={item.profile.avatar_url}
-                        initials={`${item.profile.first_name[0]}${item.profile.last_name[0]}`} />
+                        initials={getProfileInitials(item.profile)} />
                       <p className="mt-2 text-xs text-white/60 font-medium">{formatDisplayText(item.profile.first_name)}</p>
                       <p className="text-[10px] text-white/30">{item.match.relationship}</p>
                     </motion.div>

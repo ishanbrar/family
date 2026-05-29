@@ -48,7 +48,8 @@ import {
   calculateAggregateYearsLived,
   formatDisplayText,
   formatFamilyTreeTitle,
-  formatPersonName,
+  formatProfileFullName,
+  getProfileInitials,
 } from "@/lib/display-format";
 
 const ONBOARDING_SNOOZE_KEY = "legatree:onboarding-snoozed-until";
@@ -178,7 +179,7 @@ export default function DashboardPage() {
 
     return members
       .map((member) => {
-        const fullName = `${member.first_name} ${member.last_name}`.trim();
+        const fullName = formatProfileFullName(member);
         const displayName = member.display_name ?? "";
         const relationship =
           member.id === viewer.id
@@ -191,7 +192,9 @@ export default function DashboardPage() {
         const haystack = [
           fullName,
           member.first_name,
+          member.middle_name || "",
           member.last_name,
+          member.name_prefix || "",
           displayName,
           location,
           profession,
@@ -213,6 +216,7 @@ export default function DashboardPage() {
           if (displayName.toLowerCase() === q) score += 180;
           if (displayName.toLowerCase().startsWith(q)) score += 130;
           if (member.first_name.toLowerCase().startsWith(q)) score += 120;
+          if ((member.middle_name || "").toLowerCase().startsWith(q)) score += 90;
           if (member.last_name.toLowerCase().startsWith(q)) score += 120;
           if (relationship.toLowerCase().includes(q)) score += 95;
           if (profession.toLowerCase().includes(q)) score += 80;
@@ -232,9 +236,7 @@ export default function DashboardPage() {
       .sort(
         (a, b) =>
           b.score - a.score ||
-          `${a.profile.first_name} ${a.profile.last_name}`.localeCompare(
-            `${b.profile.first_name} ${b.profile.last_name}`
-          )
+          formatProfileFullName(a.profile).localeCompare(formatProfileFullName(b.profile))
       )
       .slice(0, 8);
   }, [viewer, members, relationships, memberSearchQuery, family?.relation_language]);
@@ -436,7 +438,7 @@ export default function DashboardPage() {
         scope: useRelatedScope ? "related" : "entire",
         scopeLabel: useRelatedScope
           ? `Scope: Related By – ${
-              scopedMember ? `${scopedMember.first_name} ${scopedMember.last_name}` : "Selection"
+              scopedMember ? formatProfileFullName(scopedMember) : "Selection"
             }`
           : "Scope: Entire Family Tree",
         exportOptions,
@@ -739,7 +741,7 @@ export default function DashboardPage() {
                       >
                         {members.map((member) => (
                           <option key={member.id} value={member.id}>
-                            {member.first_name} {member.last_name}
+                            {formatProfileFullName(member)}
                           </option>
                         ))}
                       </select>
@@ -905,7 +907,7 @@ export default function DashboardPage() {
                           hover:bg-white/[0.05] active:bg-white/[0.06] transition-colors flex flex-col justify-center"
                       >
                         <p className="text-sm text-white/85">
-                          {formatPersonName(entry.profile.first_name, entry.profile.last_name)}
+                          {formatProfileFullName(entry.profile)}
                         </p>
                         {entry.profile.display_name && (
                           <p className="text-[11px] text-gold-300/70 mt-0.5">
@@ -1000,7 +1002,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-white/50">
                     Showing blood relatives of{" "}
                     <span className="text-gold-300 font-medium">
-                      {formatPersonName(filterMember.first_name, filterMember.last_name)}
+                      {formatProfileFullName(filterMember)}
                     </span>
                     {" "}&mdash; {highlightedIds.size} member{highlightedIds.size !== 1 ? "s" : ""} share blood
                   </p>
@@ -1090,7 +1092,7 @@ export default function DashboardPage() {
                   onClick={() => navigateToProfile(item.profile.id)}>
                   <GeneticMatchRing percentage={item.match.percentage} size={90} strokeWidth={2.5}
                     avatarUrl={item.profile.avatar_url}
-                    initials={`${item.profile.first_name[0]}${item.profile.last_name[0]}`}
+                    initials={getProfileInitials(item.profile)}
                     label={item.match.relationship} />
                   <p className="mt-2 text-xs text-white/60 font-medium">
                     {formatDisplayText(item.profile.first_name)}

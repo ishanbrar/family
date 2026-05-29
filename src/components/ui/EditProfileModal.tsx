@@ -78,7 +78,9 @@ export function EditProfileModal({
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [galleryPhotos, setGalleryPhotos] = useState<string[]>(profile.gallery_photos || []);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [namePrefix, setNamePrefix] = useState(profile.name_prefix || "");
   const [firstName, setFirstName] = useState(profile.first_name);
+  const [middleName, setMiddleName] = useState(profile.middle_name || "");
   const [lastName, setLastName] = useState(profile.last_name);
   const [displayName, setDisplayName] = useState(profile.display_name || "");
   const [gender, setGender] = useState<Gender | "">(profile.gender || "");
@@ -115,7 +117,9 @@ export function EditProfileModal({
     setAvatarFile(null);
     setGalleryPhotos(profile.gallery_photos || []);
     setGalleryFiles([]);
+    setNamePrefix(profile.name_prefix || "");
     setFirstName(profile.first_name);
+    setMiddleName(profile.middle_name || "");
     setLastName(profile.last_name);
     setDisplayName(profile.display_name || "");
     setGender(profile.gender || "");
@@ -147,7 +151,10 @@ export function EditProfileModal({
     () =>
       familyMembers
         .filter((member) => member.id !== profile.id)
-        .sort((a, b) => formatPersonName(a.first_name, a.last_name).localeCompare(formatPersonName(b.first_name, b.last_name))),
+        .sort((a, b) =>
+          formatPersonName(a.first_name, a.middle_name || "", a.last_name, a.name_prefix || "")
+            .localeCompare(formatPersonName(b.first_name, b.middle_name || "", b.last_name, b.name_prefix || ""))
+        ),
     [familyMembers, profile.id]
   );
 
@@ -222,7 +229,9 @@ export function EditProfileModal({
     setSaveError(null);
     try {
       await onSave({
+        name_prefix: namePrefix.trim() || null,
         first_name: firstName.trim(),
+        middle_name: middleName.trim() || null,
         last_name: lastName.trim(),
         display_name: displayName.trim() || null,
         gender: gender || null,
@@ -399,8 +408,16 @@ export function EditProfileModal({
               {/* Name */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">Prefix / Honorific</label>
+                  <input type="text" value={namePrefix} onChange={(e) => setNamePrefix(e.target.value)} className={inputClass} placeholder="e.g., Dr." />
+                </div>
+                <div>
                   <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">First Name</label>
                   <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClass} />
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">Middle Name</label>
+                  <input type="text" value={middleName} onChange={(e) => setMiddleName(e.target.value)} className={inputClass} />
                 </div>
                 <div>
                   <label className="text-[10px] text-white/30 font-medium uppercase tracking-wider mb-1.5 block">Last Name</label>
@@ -569,7 +586,7 @@ export function EditProfileModal({
                       <option value="">No spouse selected</option>
                       {spouseOptions.map((member) => (
                         <option key={member.id} value={member.id}>
-                          {formatPersonName(member.first_name, member.last_name)}
+                          {formatPersonName(member.first_name, member.middle_name || "", member.last_name, member.name_prefix || "")}
                         </option>
                       ))}
                     </select>

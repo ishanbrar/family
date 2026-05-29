@@ -14,7 +14,7 @@ import { GeneticMatchRing } from "@/components/ui/GeneticMatchRing";
 import type { Profile, GeneticMatchResult } from "@/lib/types";
 import { countryFlag } from "@/lib/country-utils";
 import { inferCountryCodeFromCity } from "@/lib/cities";
-import { formatDisplayText, formatDateOnly, formatPersonName, parseDateOnly } from "@/lib/display-format";
+import { formatDisplayText, formatDateOnly, formatPersonName, formatProfileFullName, getProfileInitials, parseDateOnly } from "@/lib/display-format";
 import { spousePairKey } from "@/lib/spouse-relationship";
 import { shouldZoomTreeOnWheel } from "@/lib/tree-interaction";
 
@@ -63,10 +63,6 @@ interface FamilyTreeProps {
   canvasHeight?: number;
   fitPadding?: number;
   className?: string;
-}
-
-function getInitials(first: string, last: string): string {
-  return `${first[0] || ""}${last[0] || ""}`.toUpperCase();
 }
 
 function marriageLabelForPair(
@@ -848,7 +844,7 @@ export function FamilyTree({
           const isHighlighted = highlightedMembers?.has(member.profile.id);
           const isDimmed = hasHighlight && !isHighlighted;
           const isViewerNode = viewerId === member.profile.id;
-          const initials = getInitials(member.profile.first_name, member.profile.last_name);
+          const initials = getProfileInitials(member.profile);
           const birthYear = parseDateOnly(member.profile.date_of_birth)?.getFullYear() ?? null;
           const deathValue = (member.profile as { date_of_death?: string | null }).date_of_death || null;
           const deathYear = parseDateOnly(deathValue)?.getFullYear() ?? null;
@@ -1003,7 +999,7 @@ export function FamilyTree({
             }}
           >
             <p className="text-sm font-medium text-white/92">
-              {formatPersonName(hoveredMember.profile.first_name, hoveredMember.profile.last_name)}
+              {formatProfileFullName(hoveredMember.profile)}
             </p>
             <p className="text-[11px] text-gold-300/85 mt-0.5">{hoveredMember.match.relationship}</p>
             <p className="text-[11px] text-white/55 mt-1">

@@ -3,12 +3,15 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient, hasServiceRoleKey } from "@/lib/supabase/admin";
+import { formatPersonName } from "@/lib/display-format";
 import type { AdminAssignableProfileNode, AdminFamilyUser, Role } from "@/lib/types";
 
 export type ProfileRow = {
   id: string;
   auth_user_id: string | null;
+  name_prefix: string | null;
   first_name: string | null;
+  middle_name: string | null;
   last_name: string | null;
   role: Role;
   family_id: string | null;
@@ -19,7 +22,9 @@ export type ProfileRow = {
 export type FamilyJoinedUserRow = {
   profile_id: string;
   auth_user_id: string;
+  name_prefix: string | null;
   first_name: string | null;
+  middle_name: string | null;
   last_name: string | null;
   role: Role;
   social_links: Record<string, unknown> | null;
@@ -31,7 +36,9 @@ export type FamilyJoinedUserRow = {
 
 export type AssignableProfileNodeRow = {
   id: string;
+  name_prefix: string | null;
   first_name: string | null;
+  middle_name: string | null;
   last_name: string | null;
   created_at: string;
 };
@@ -152,7 +159,7 @@ export function mapAdminFamilyUser(profile: ProfileRow, authUser: User | null): 
   return {
     profileId: profile.id,
     authUserId: profile.auth_user_id,
-    name: `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Family Member",
+    name: formatPersonName(profile.first_name || "", profile.middle_name || "", profile.last_name || "", profile.name_prefix || "") || "Family Member",
     role: profile.role,
     email: authUser?.email || null,
     phone: phoneFromProfileOrAuth(profile, authUser),
@@ -165,7 +172,7 @@ export function mapJoinedUserRow(row: FamilyJoinedUserRow): AdminFamilyUser {
   return {
     profileId: row.profile_id,
     authUserId: row.auth_user_id,
-    name: `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Family Member",
+    name: formatPersonName(row.first_name || "", row.middle_name || "", row.last_name || "", row.name_prefix || "") || "Family Member",
     role: row.role,
     email: row.email,
     phone: row.phone,
@@ -177,7 +184,7 @@ export function mapJoinedUserRow(row: FamilyJoinedUserRow): AdminFamilyUser {
 export function mapAssignableProfileNode(row: AssignableProfileNodeRow): AdminAssignableProfileNode {
   return {
     profileId: row.id,
-    name: `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Unnamed Family Node",
+    name: formatPersonName(row.first_name || "", row.middle_name || "", row.last_name || "", row.name_prefix || "") || "Unnamed Family Node",
     createdAt: row.created_at,
   };
 }
@@ -210,7 +217,7 @@ export async function listFamilyJoinedUsersViaServiceRole(
 ): Promise<{ users: AdminFamilyUser[]; error: string | null }> {
   const { data: profiles, error } = await admin
     .from("profiles")
-    .select("id,auth_user_id,first_name,last_name,role,family_id,social_links,created_at")
+    .select("id,auth_user_id,name_prefix,first_name,middle_name,last_name,role,family_id,social_links,created_at")
     .eq("family_id", familyId)
     .not("auth_user_id", "is", null)
     .order("created_at", { ascending: true });
@@ -237,7 +244,7 @@ export async function listFamilyJoinedUsersFallback(
 ): Promise<AdminFamilyUser[]> {
   const { data: profiles } = await client
     .from("profiles")
-    .select("id,auth_user_id,first_name,last_name,role,family_id,social_links,created_at")
+    .select("id,auth_user_id,name_prefix,first_name,middle_name,last_name,role,family_id,social_links,created_at")
     .eq("family_id", familyId)
     .not("auth_user_id", "is", null)
     .order("created_at", { ascending: true });
@@ -253,7 +260,7 @@ export async function listFamilyAssignableProfileNodes(
 ): Promise<AdminAssignableProfileNode[]> {
   const { data } = await client
     .from("profiles")
-    .select("id,first_name,last_name,created_at")
+    .select("id,name_prefix,first_name,middle_name,last_name,created_at")
     .eq("family_id", familyId)
     .is("auth_user_id", null)
     .order("first_name", { ascending: true })

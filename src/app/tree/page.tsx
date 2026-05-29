@@ -39,6 +39,8 @@ import {
   calculateAgeFromDateOnly,
   formatDateOnly,
   formatGenderLabel,
+  formatProfileFullName,
+  getProfileInitials,
 } from "@/lib/display-format";
 import { cn } from "@/lib/cn";
 import {
@@ -52,10 +54,6 @@ function formatBirthDate(value: string | null): string {
 
 function getAge(value: string | null): number | null {
   return calculateAgeFromDateOnly(value);
-}
-
-function getInitials(first: string, last: string): string {
-  return `${first[0] || ""}${last[0] || ""}`.toUpperCase();
 }
 
 function mapQueryForMember(member: Profile): string | null {
@@ -413,7 +411,7 @@ export default function TreeExplorerPage() {
                       >
                         {members.map((member) => (
                           <option key={member.id} value={member.id}>
-                            {member.first_name} {member.last_name}
+                            {formatProfileFullName(member)}
                           </option>
                         ))}
                       </select>
@@ -560,7 +558,7 @@ export default function TreeExplorerPage() {
 
         {filterMember && (
           <div className="mb-4 rounded-xl border border-gold-400/20 bg-gold-400/[0.08] px-4 py-3 text-xs text-white/70">
-            Highlighting blood relatives of <span className="text-gold-300 font-medium">{filterMember.first_name} {filterMember.last_name}</span>
+            Highlighting blood relatives of <span className="text-gold-300 font-medium">{formatProfileFullName(filterMember)}</span>
             {" "}({highlightedIds.size} member{highlightedIds.size !== 1 ? "s" : ""}).
           </div>
         )}
@@ -628,11 +626,11 @@ export default function TreeExplorerPage() {
                       size={104}
                       strokeWidth={3}
                       avatarUrl={selectedMember.avatar_url}
-                      initials={getInitials(selectedMember.first_name, selectedMember.last_name)}
+                      initials={getProfileInitials(selectedMember)}
                       showPercentage={false}
                     />
                     <h3 className="mt-3 font-serif text-xl text-white/93">
-                      {selectedMember.first_name} {selectedMember.last_name}
+                      {formatProfileFullName(selectedMember)}
                     </h3>
                     {selectedMember.display_name && (
                       <p className="text-xs text-gold-300/85 mt-0.5">{selectedMember.display_name}</p>
@@ -659,11 +657,11 @@ export default function TreeExplorerPage() {
                           selectedMarriageDate
                             ? `${formatBirthDate(selectedMarriageDate)}${
                                 selectedSpouse
-                                  ? ` · ${selectedSpouse.first_name} ${selectedSpouse.last_name}`
+                                  ? ` · ${formatProfileFullName(selectedSpouse)}`
                                   : ""
                               }`
                             : selectedSpouse
-                              ? `${selectedSpouse.first_name} ${selectedSpouse.last_name}`
+                              ? formatProfileFullName(selectedSpouse)
                               : "Not set"
                         }
                       />
@@ -673,7 +671,7 @@ export default function TreeExplorerPage() {
                   {selectedMapQuery && (
                     <div className="mt-4 overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]">
                       <iframe
-                        title={`${selectedMember.first_name} ${selectedMember.last_name} map`}
+                        title={`${formatProfileFullName(selectedMember)} map`}
                         src={`https://www.google.com/maps?q=${encodeURIComponent(selectedMapQuery)}&output=embed`}
                         className="h-32 w-full"
                         loading="lazy"
