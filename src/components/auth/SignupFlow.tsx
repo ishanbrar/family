@@ -3,14 +3,17 @@
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Loader2, Lock, Mail, Phone, User, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Lock, Mail, Palette, Phone, User, Users } from "lucide-react";
 import { useState } from "react";
 
 import { LegatreeBrandLink } from "@/components/branding/LegatreeBrandLink";
 import { PreAuthBackdrop } from "@/components/marketing/PreAuthBackdrop";
 import { useKeyboardGuardedInput } from "@/hooks/use-keyboard-guarded-input";
 import { createClient } from "@/lib/supabase/client";
+import { RELATION_LANGUAGE_OPTIONS } from "@/lib/relation-language-options";
 import { CREATE_FAMILY_SIGNUP_PATH, JOIN_FAMILY_SIGNUP_PATH, loginPathForInvite, normalizeInviteCode } from "@/lib/signup-flow";
+import { setThemePalette, type ThemePalette } from "@/lib/theme";
+import type { RelationLanguageCode } from "@/lib/supabase/db";
 import type { Gender } from "@/lib/types";
 
 type SignupMode = "join" | "create";
@@ -22,6 +25,15 @@ interface SignupFlowProps {
 const GENDER_OPTIONS: { value: Gender; label: string }[] = [
   { value: "female", label: "Female" },
   { value: "male", label: "Male" },
+];
+
+const SIGNUP_STEPS = ["Identity", "Account", "Family"];
+
+const THEME_COLOR_OPTIONS: { value: ThemePalette; label: string; className: string }[] = [
+  { value: "gold", label: "Gold", className: "bg-[#c79355]" },
+  { value: "blue", label: "Blue", className: "bg-[#6da7d8]" },
+  { value: "red", label: "Red", className: "bg-[#c85f5a]" },
+  { value: "yellow", label: "Yellow", className: "bg-[#e0c45f]" },
 ];
 
 function GoogleIcon() {
@@ -60,8 +72,11 @@ export function SignupFlow({ mode }: SignupFlowProps) {
   const [gender, setGender] = useState<Gender | "">("");
   const { ref: inviteInputRef, guardedProps: inviteInputProps } = useKeyboardGuardedInput();
   const [familyName, setFamilyName] = useState("");
+  const [relationLanguage, setRelationLanguage] = useState<RelationLanguageCode>("en");
+  const [themeColor, setThemeColor] = useState<ThemePalette>("gold");
   const [phone, setPhone] = useState("");
   const [inviteCode, setInviteCode] = useState(initialInviteCode);
+  const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +84,56 @@ export function SignupFlow({ mode }: SignupFlowProps) {
 
   const normalizedInviteCode = normalizeInviteCode(inviteCode);
   const signInHref = isJoin ? loginPathForInvite(normalizedInviteCode) : "/login";
+
+  const handleThemeColorChange = (palette: ThemePalette) => {
+    setThemeColor(palette);
+    setThemePalette(palette);
+  };
+
+  const validateCurrentStep = () => {
+    setError(null);
+    if (activeStep === 0) {
+      if (!firstName.trim() || !lastName.trim()) {
+        setError("Please enter your first and last name.");
+        return false;
+      }
+      if (!gender) {
+        setError("Please select gender.");
+        return false;
+      }
+    }
+    if (activeStep === 1) {
+      if (!email.trim()) {
+        setError("Please enter your email address.");
+        return false;
+      }
+      if (password.length < 6) {
+        setError("Please enter a password with at least 6 characters.");
+        return false;
+      }
+    }
+    if (activeStep === 2) {
+      if (isJoin && !normalizedInviteCode) {
+        setError("Please enter your family invite code.");
+        return false;
+      }
+      if (!isJoin && !familyName.trim()) {
+        setError("Please enter a family name.");
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const goNext = () => {
+    if (!validateCurrentStep()) return;
+    setActiveStep((step) => Math.min(step + 1, SIGNUP_STEPS.length - 1));
+  };
+
+  const goBack = () => {
+    setError(null);
+    setActiveStep((step) => Math.max(step - 1, 0));
+  };
 
   const handleGoogleSignUp = async () => {
     if (!isJoin) return;
@@ -95,6 +160,7 @@ export function SignupFlow({ mode }: SignupFlowProps) {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateCurrentStep()) return;
     setLoading(true);
     setError(null);
 
@@ -155,6 +221,7 @@ export function SignupFlow({ mode }: SignupFlowProps) {
         p_gender: selectedGender,
         p_family_name: isJoin ? null : familyName.trim(),
         p_invite_code: isJoin ? normalizedInviteCode : null,
+        p_relation_language: isJoin ? null : relationLanguage,
       });
       if (pendingErr) {
         setError(
@@ -208,7 +275,7 @@ export function SignupFlow({ mode }: SignupFlowProps) {
 
     const { data: family, error: famErr } = await supabase
       .from("families")
-      .insert({ name: familyName.trim(), created_by: userId })
+      .insert({ name: familyName.trim(), created_by: userId, relation_language: relationLanguage })
       .select("id")
       .single();
 
@@ -300,6 +367,30 @@ export function SignupFlow({ mode }: SignupFlowProps) {
             {isJoin ? "Use your family invite code to create your account" : "Start a private family platform"}
           </p>
 
+          <div className="mb-6 grid grid-cols-3 gap-2" aria-label="Signup steps">
+            {SIGNUP_STEPS.map((step, index) => {
+              const selected = activeStep === index;
+              return (
+                <button
+                  key={step}
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setActiveStep(index);
+                  }}
+                  className={`h-9 rounded-xl border text-[11px] font-medium transition-colors ${
+                    selected
+                      ? "border-gold-400/35 bg-gold-400/[0.1] text-gold-300"
+                      : "border-white/[0.08] bg-white/[0.025] text-white/45 hover:text-white/70"
+                  }`}
+                >
+                  <span className="mr-1 font-mono">{index + 1}</span>
+                  {step}
+                </button>
+              );
+            })}
+          </div>
+
           {isJoin && inviteCode && (
             <div className="mb-4 rounded-xl border border-gold-400/15 bg-gold-400/[0.06] px-3 py-2">
               <p className="text-xs text-gold-300/85">
@@ -309,7 +400,7 @@ export function SignupFlow({ mode }: SignupFlowProps) {
             </div>
           )}
 
-          {isJoin && (
+          {isJoin && activeStep === 1 && (
             <>
               <motion.button
                 type="button"
@@ -343,75 +434,139 @@ export function SignupFlow({ mode }: SignupFlowProps) {
           )}
 
           <form onSubmit={handleSignup} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="relative">
-                <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
-                <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="First name" required className={inputClass} />
+            {activeStep === 0 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="relative">
+                    <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
+                    <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="First name" required className={inputClass} />
+                  </div>
+                  <div className="relative">
+                    <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
+                    <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Last name" required className={inputClass} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Gender">
+                    {GENDER_OPTIONS.map((opt) => {
+                      const selected = gender === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => setGender(opt.value)}
+                          className={`h-12 rounded-xl border text-sm font-medium transition-all ${
+                            selected
+                              ? "border-gold-400/40 bg-gold-400/[0.1] text-gold-300"
+                              : "border-white/[0.08] bg-white/[0.025] text-white/62 hover:border-white/[0.16] hover:text-white/82"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-              <div className="relative">
-                <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
-                <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Last name" required className={inputClass} />
+            )}
+
+            {activeStep === 1 && (
+              <div className="space-y-4">
+                <div className="relative">
+                  <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email address" required className={inputClass} />
+                </div>
+
+                <div className="relative">
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password (min 6 characters)" required minLength={6} className={inputClass} />
+                </div>
+
+                <div className="relative">
+                  <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
+                  <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Phone number (optional)" className={inputClass} />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="relative">
-              <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
-              <select
-                value={gender}
-                onChange={(e) => setGender(e.target.value as Gender | "")}
-                required
-                className={inputClass}
-              >
-                <option value="" disabled>Select gender</option>
-                {GENDER_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {activeStep === 2 && (
+              <div className="space-y-4">
+                {isJoin ? (
+                  <div className="relative">
+                    <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
+                    <input
+                      ref={inviteInputRef}
+                      type="text"
+                      value={inviteCode}
+                      onChange={(e) => setInviteCode(e.target.value)}
+                      placeholder="Family invite code"
+                      required
+                      autoCapitalize="none"
+                      autoComplete="off"
+                      className={inputClass}
+                      {...inviteInputProps}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
+                      <input type="text" value={familyName} onChange={(e) => setFamilyName(e.target.value)}
+                        placeholder="Family name (e.g., The Brars)" required className={inputClass} />
+                    </div>
 
-            <div className="relative">
-              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email address" required className={inputClass} />
-            </div>
+                    <label className="block">
+                      <span className="text-xs text-white/45">Relationship labels</span>
+                      <select
+                        value={relationLanguage}
+                        onChange={(e) => setRelationLanguage(e.target.value as RelationLanguageCode)}
+                        className="mt-1.5 w-full app-input rounded-xl px-3 py-3 text-sm outline-none transition-all duration-200"
+                      >
+                        {RELATION_LANGUAGE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </>
+                )}
 
-            <div className="relative">
-              <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
-              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                placeholder="Phone number (optional)" className={inputClass} />
-            </div>
-
-            <div className="relative">
-              <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password (min 6 characters)" required minLength={6} className={inputClass} />
-            </div>
-
-            {isJoin ? (
-              <div className="relative">
-                <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
-                <input
-                  ref={inviteInputRef}
-                  type="text"
-                  value={inviteCode}
-                  onChange={(e) => setInviteCode(e.target.value)}
-                  placeholder="Family invite code"
-                  required
-                  autoCapitalize="none"
-                  autoComplete="off"
-                  className={inputClass}
-                  {...inviteInputProps}
-                />
-              </div>
-            ) : (
-              <div className="relative">
-                <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 app-input-icon" />
-                <input type="text" value={familyName} onChange={(e) => setFamilyName(e.target.value)}
-                  placeholder="Family name (e.g., The Brars)" required className={inputClass} />
+                <div className="relative">
+                  <div className="flex items-center gap-2 text-xs text-white/45 mb-2">
+                    <Palette size={13} />
+                    <span>Theme color</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {THEME_COLOR_OPTIONS.map((option) => {
+                      const selected = themeColor === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => handleThemeColorChange(option.value)}
+                          className={`h-11 rounded-xl border text-[11px] font-medium text-white/70 transition-all ${
+                            selected
+                              ? "border-gold-400/45 bg-white/[0.06]"
+                              : "border-white/[0.08] bg-white/[0.025] hover:border-white/[0.16]"
+                          }`}
+                          aria-pressed={selected}
+                        >
+                          <span className={`mx-auto mb-1 block h-3 w-3 rounded-full ${option.className}`} />
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -422,17 +577,46 @@ export function SignupFlow({ mode }: SignupFlowProps) {
               </motion.p>
             )}
 
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                bg-gradient-to-r from-gold-500 to-gold-400 text-[#0a0a0a] font-semibold text-sm
-                hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <><span>{isJoin ? "Join Family" : "Create Family"}</span><ArrowRight size={14} /></>}
-            </motion.button>
+            <div className="flex gap-3 pt-1">
+              {activeStep > 0 && (
+                <button
+                  type="button"
+                  onClick={goBack}
+                  disabled={loading}
+                  className="h-11 w-12 shrink-0 rounded-xl border border-white/[0.1] bg-white/[0.03] text-white/55 hover:text-white/82 disabled:opacity-50 transition-colors"
+                  aria-label="Back"
+                >
+                  <ArrowLeft size={15} className="mx-auto" />
+                </button>
+              )}
+
+              {activeStep < SIGNUP_STEPS.length - 1 ? (
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  type="button"
+                  onClick={goNext}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                    bg-gradient-to-r from-gold-500 to-gold-400 text-[#0a0a0a] font-semibold text-sm
+                    hover:opacity-90 transition-opacity"
+                >
+                  <span>Continue</span>
+                  <ArrowRight size={14} />
+                </motion.button>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                    bg-gradient-to-r from-gold-500 to-gold-400 text-[#0a0a0a] font-semibold text-sm
+                    hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <><span>{isJoin ? "Join Family" : "Create Family"}</span><ArrowRight size={14} /></>}
+                </motion.button>
+              )}
+            </div>
           </form>
         </div>
 
