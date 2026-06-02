@@ -1,0 +1,15 @@
+{
+  "stamp": "20260602181801",
+  "password": "LegatreeQA!2026",
+  "baseUrl": "http://127.0.0.1:3000",
+  "familyName": "QA Publish Check 20260602181801",
+  "familyId": "42d12c1f-9955-45ce-87b6-a0944a50549d",
+  "inviteCode": "FAMILY1962",
+  "ownerEmail": "legatree-qa-owner-20260602181801@example.com",
+  "claimEmail": "legatree-qa-claim-20260602181801@example.com",
+  "newNodeEmail": "legatree-qa-newnode-20260602181801@example.com",
+  "claimTarget": "Maya Recipient",
+  "signupLink": "http://127.0.0.1:3000/signup?code=FAMILY1962",
+  "loginLink": "http://127.0.0.1:3000/login?code=FAMILY1962",
+  "joinLink": "http://127.0.0.1:3000/join?code=FAMILY1962"
+}

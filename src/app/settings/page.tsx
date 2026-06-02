@@ -18,6 +18,8 @@ import {
   type ThemeMode,
   type ThemePalette,
 } from "@/lib/theme";
+import { RELATION_LANGUAGE_OPTIONS, normalizeRelationLanguage } from "@/lib/relation-language-options";
+import type { RelationLanguageCode } from "@/lib/supabase/db";
 
 const SETTINGS_STORAGE_KEY = "legatree:settings:v1";
 
@@ -130,13 +132,6 @@ function ToggleRow({
   );
 }
 
-const RELATION_LANGUAGE_OPTIONS: { value: "en" | "punjabi" | "es" | "fr"; label: string }[] = [
-  { value: "en", label: "English" },
-  { value: "punjabi", label: "Punjabi" },
-  { value: "es", label: "Spanish" },
-  { value: "fr", label: "French" },
-];
-
 export default function SettingsPage() {
   const { viewer, family, loading, updateFamilyRelationLanguage, repairRelationships, auditLogs } = useFamilyData();
   const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
@@ -151,7 +146,7 @@ export default function SettingsPage() {
   const [relationLangSaving, setRelationLangSaving] = useState(false);
   const [repairingRelationships, setRepairingRelationships] = useState(false);
   const [relationshipRepairMessage, setRelationshipRepairMessage] = useState<string | null>(null);
-  const relationLanguage = (family?.relation_language as "en" | "punjabi" | "es" | "fr") || "en";
+  const relationLanguage = normalizeRelationLanguage(family?.relation_language);
   const isFamilyAdmin = !!viewer && viewer.role === "ADMIN" && !!family;
 
   useEffect(() => {
@@ -431,7 +426,7 @@ export default function SettingsPage() {
                   value={relationLanguage}
                   disabled={loading || relationLangSaving}
                   onChange={async (e) => {
-                    const next = e.target.value as "en" | "punjabi" | "es" | "fr";
+                    const next = e.target.value as RelationLanguageCode;
                     setRelationLangSaving(true);
                     await updateFamilyRelationLanguage(next);
                     setRelationLangSaving(false);

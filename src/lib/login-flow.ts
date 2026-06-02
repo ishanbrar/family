@@ -6,6 +6,7 @@ export interface PendingIntentPayload {
   family_name?: string | null;
   invite_code?: string | null;
   phone_number?: string | null;
+  relation_language?: string | null;
 }
 
 export const AUTH_TIMEOUT_MS = 30000;
@@ -59,6 +60,7 @@ export function parsePendingSignupIntent(value: unknown): PendingIntentPayload |
     family_name: maybeIntent.family_name || null,
     invite_code: maybeIntent.invite_code || null,
     phone_number: maybeIntent.phone_number || null,
+    relation_language: maybeIntent.relation_language || null,
   };
 }
 

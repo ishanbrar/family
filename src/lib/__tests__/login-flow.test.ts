@@ -54,6 +54,7 @@ describe("login flow helpers", () => {
       ...intent,
       invite_code: null,
       phone_number: null,
+      relation_language: null,
     });
     expect(result.redirectPath).toBe("/dashboard");
     expect(result.pendingIntent).toBeNull();
@@ -97,6 +98,7 @@ describe("login flow helpers", () => {
       family_name: null,
       gender: null,
       phone_number: null,
+      relation_language: null,
     });
     expect(result.setupError?.message).toBe("Profile setup failed");
   });

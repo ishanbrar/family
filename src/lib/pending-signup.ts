@@ -7,6 +7,7 @@ export interface PendingSignupIntent {
   gender?: "female" | "male";
   family_name?: string;
   invite_code?: string;
+  relation_language?: string;
 }
 
 export function savePendingSignup(intent: PendingSignupIntent): void {

@@ -18,6 +18,7 @@ import {
   UserPlus,
   Users,
   Download,
+  ChevronDown,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -86,6 +87,7 @@ export default function TreeExplorerPage() {
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
   const [showCurrentCountryFlag, setShowCurrentCountryFlag] = useState(false);
   const [showMarriageDate, setShowMarriageDate] = useState(false);
+  const [membersTableOpen, setMembersTableOpen] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState(false);
   const [draftFamilyName, setDraftFamilyName] = useState("");
@@ -699,20 +701,41 @@ export default function TreeExplorerPage() {
           </AnimatePresence>
 
           <GlassCard className={cn("p-4 sm:p-5", selectedMember && "lg:col-span-2 mt-5")}>
-            <h2 className="font-serif text-lg text-white/92 mb-3">Members Table</h2>
-            <p className="text-xs text-white/35 mb-4">
-              {canEditTitle
-                ? "Click any cell to edit Name, Birth date, or City. Changes save on blur or Enter."
-                : "View all family members. Click a row to open the detail panel."}
-            </p>
-            <FamilyMembersTable
-              members={members}
-              canEdit={canEditTitle}
-              onUpdate={async (memberId, updates) => {
-                await updateProfile(memberId, updates);
-              }}
-              onMemberClick={handleMemberClick}
-            />
+            <button
+              type="button"
+              onClick={() => setMembersTableOpen((open) => !open)}
+              aria-expanded={membersTableOpen}
+              className="flex w-full items-center justify-between gap-3 text-left"
+            >
+              <span>
+                <span className="block font-serif text-lg text-white/92">Members Table</span>
+                <span className="block text-xs text-white/35">{members.length} members</span>
+              </span>
+              <ChevronDown
+                size={18}
+                className={cn(
+                  "text-white/45 transition-transform",
+                  !membersTableOpen && "-rotate-90"
+                )}
+              />
+            </button>
+            {membersTableOpen && (
+              <div className="mt-4">
+                <p className="text-xs text-white/35 mb-4">
+                  {canEditTitle
+                    ? "Click any cell to edit Name, Birth date, or City. Changes save on blur or Enter."
+                    : "View all family members. Click a row to open the detail panel."}
+                </p>
+                <FamilyMembersTable
+                  members={members}
+                  canEdit={canEditTitle}
+                  onUpdate={async (memberId, updates) => {
+                    await updateProfile(memberId, updates);
+                  }}
+                  onMemberClick={handleMemberClick}
+                />
+              </div>
+            )}
           </GlassCard>
         </div>
         <footer className="mt-10 border-t border-white/[0.08] pt-6">

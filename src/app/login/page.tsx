@@ -24,6 +24,7 @@ import {
 import { joinFamilySignupPath } from "@/lib/signup-flow";
 import { createClient } from "@/lib/supabase/client";
 import { DEV_SUPER_ADMIN_ENABLED, enableDevSuperAdmin } from "@/lib/dev-auth";
+import { normalizeRelationLanguage } from "@/lib/relation-language-options";
 
 function GoogleIcon() {
   return (
@@ -118,7 +119,11 @@ function LoginPageContent() {
     if (intent.mode === "create" && intent.family_name?.trim()) {
       const { data: family, error: famErr } = await supabase
         .from("families")
-        .insert({ name: intent.family_name.trim(), created_by: userId })
+        .insert({
+          name: intent.family_name.trim(),
+          created_by: userId,
+          relation_language: normalizeRelationLanguage(intent.relation_language),
+        })
         .select("id")
         .single();
       if (famErr || !family) throw famErr || new Error("Family creation failed");

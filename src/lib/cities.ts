@@ -44,23 +44,110 @@ const RAW: [string, string, string, string][] = [
   ["Charlotte", "NC", "USA", "USA"],
   ["Salt Lake City", "UT", "USA", "USA"],
   ["Honolulu", "HI", "USA", "USA"],
+  // USA metros / anchor cities over ~800k population.
+  ["Dallas-Fort Worth", "TX", "USA", "USA"],
+  ["Miami-Fort Lauderdale", "FL", "USA", "USA"],
+  ["Fort Lauderdale", "FL", "USA", "USA"],
+  ["Washington-Arlington-Alexandria", "DC/VA/MD", "USA", "USA"],
+  ["Riverside-San Bernardino", "CA", "USA", "USA"],
+  ["Riverside", "CA", "USA", "USA"],
+  ["San Bernardino", "CA", "USA", "USA"],
+  ["Anaheim", "CA", "USA", "USA"],
+  ["Oakland", "CA", "USA", "USA"],
+  ["Minneapolis-St. Paul", "MN", "USA", "USA"],
+  ["St. Paul", "MN", "USA", "USA"],
+  ["Tampa-St. Petersburg", "FL", "USA", "USA"],
+  ["St. Petersburg", "FL", "USA", "USA"],
+  ["Virginia Beach-Norfolk", "VA", "USA", "USA"],
+  ["Virginia Beach", "VA", "USA", "USA"],
+  ["Norfolk", "VA", "USA", "USA"],
+  ["Providence", "RI", "USA", "USA"],
+  ["Oklahoma City", "OK", "USA", "USA"],
+  ["Richmond", "VA", "USA", "USA"],
+  ["Louisville", "KY", "USA", "USA"],
+  ["Hartford", "CT", "USA", "USA"],
+  ["Buffalo", "NY", "USA", "USA"],
+  ["Birmingham", "AL", "USA", "USA"],
+  ["Rochester", "NY", "USA", "USA"],
+  ["Grand Rapids", "MI", "USA", "USA"],
+  ["Tulsa", "OK", "USA", "USA"],
+  ["Fresno", "CA", "USA", "USA"],
+  ["Worcester", "MA", "USA", "USA"],
+  ["Omaha", "NE", "USA", "USA"],
+  ["Bridgeport-Stamford", "CT", "USA", "USA"],
+  ["Bridgeport", "CT", "USA", "USA"],
+  ["Stamford", "CT", "USA", "USA"],
+  ["Albuquerque", "NM", "USA", "USA"],
+  ["Greenville", "SC", "USA", "USA"],
+  ["Bakersfield", "CA", "USA", "USA"],
+  ["Albany", "NY", "USA", "USA"],
+  ["Knoxville", "TN", "USA", "USA"],
+  ["McAllen", "TX", "USA", "USA"],
+  ["Baton Rouge", "LA", "USA", "USA"],
+  ["Allentown", "PA", "USA", "USA"],
+  ["Columbia", "SC", "USA", "USA"],
+  ["Dayton", "OH", "USA", "USA"],
+  ["North Port-Sarasota", "FL", "USA", "USA"],
+  ["Sarasota", "FL", "USA", "USA"],
+  ["Greensboro", "NC", "USA", "USA"],
+  ["Charleston", "SC", "USA", "USA"],
+  ["Cape Coral", "FL", "USA", "USA"],
+  ["Lakeland", "FL", "USA", "USA"],
+  ["Colorado Springs", "CO", "USA", "USA"],
+  ["Des Moines", "IA", "USA", "USA"],
+  ["Akron", "OH", "USA", "USA"],
+  ["New Haven", "CT", "USA", "USA"],
+  ["Ogden", "UT", "USA", "USA"],
+  ["Provo", "UT", "USA", "USA"],
+  ["Madison", "WI", "USA", "USA"],
+  ["Durham", "NC", "USA", "USA"],
+  ["Winston-Salem", "NC", "USA", "USA"],
+  ["Syracuse", "NY", "USA", "USA"],
+  ["Wichita", "KS", "USA", "USA"],
+  ["Toledo", "OH", "USA", "USA"],
+  ["Poughkeepsie", "NY", "USA", "USA"],
+  ["Palm Bay", "FL", "USA", "USA"],
+  ["Harrisburg", "PA", "USA", "USA"],
+  ["Little Rock", "AR", "USA", "USA"],
+  ["Augusta", "GA", "USA", "USA"],
+  ["Chattanooga", "TN", "USA", "USA"],
+  ["Spokane", "WA", "USA", "USA"],
+  ["Scranton", "PA", "USA", "USA"],
+  ["Reno", "NV", "USA", "USA"],
   ["Toronto", "ON", "Canada", "CAN"],
   ["Vancouver", "BC", "Canada", "CAN"],
   ["Montreal", "QC", "Canada", "CAN"],
   ["Calgary", "AB", "Canada", "CAN"],
   ["Ottawa", "ON", "Canada", "CAN"],
+  ["Ottawa-Gatineau", "ON/QC", "Canada", "CAN"],
+  ["Gatineau", "QC", "Canada", "CAN"],
+  ["Hamilton", "ON", "Canada", "CAN"],
+  ["Kitchener-Cambridge-Waterloo", "ON", "Canada", "CAN"],
+  ["Kitchener", "ON", "Canada", "CAN"],
+  ["Cambridge", "ON", "Canada", "CAN"],
+  ["Waterloo", "ON", "Canada", "CAN"],
   ["Mexico City", "", "Mexico", "MEX"],
   ["Guadalajara", "", "Mexico", "MEX"],
   ["Monterrey", "", "Mexico", "MEX"],
   // Europe
   ["London", "", "United Kingdom", "GBR"],
   ["Manchester", "", "United Kingdom", "GBR"],
+  ["Greater Manchester", "", "United Kingdom", "GBR"],
   ["Edinburgh", "", "United Kingdom", "GBR"],
   ["Birmingham", "", "United Kingdom", "GBR"],
+  ["West Midlands", "", "United Kingdom", "GBR"],
   ["Glasgow", "", "United Kingdom", "GBR"],
   ["Liverpool", "", "United Kingdom", "GBR"],
   ["Bristol", "", "United Kingdom", "GBR"],
   ["Leeds", "", "United Kingdom", "GBR"],
+  ["Leeds-Bradford", "", "United Kingdom", "GBR"],
+  ["Bradford", "", "United Kingdom", "GBR"],
+  ["Southampton-Portsmouth", "", "United Kingdom", "GBR"],
+  ["Southampton", "", "United Kingdom", "GBR"],
+  ["Portsmouth", "", "United Kingdom", "GBR"],
+  ["Newcastle upon Tyne", "", "United Kingdom", "GBR"],
+  ["Sheffield", "", "United Kingdom", "GBR"],
+  ["Nottingham", "", "United Kingdom", "GBR"],
   ["Oxford", "", "United Kingdom", "GBR"],
   ["Cambridge", "", "United Kingdom", "GBR"],
   ["Bath", "", "United Kingdom", "GBR"],
@@ -246,6 +333,7 @@ const RAW: [string, string, string, string][] = [
   ["Tampa", "FL", "USA", "USA"],
   ["Orlando", "FL", "USA", "USA"],
   ["Pittsburgh", "PA", "USA", "USA"],
+  ["Cleveland", "OH", "USA", "USA"],
   ["Cincinnati", "OH", "USA", "USA"],
   ["Kansas City", "MO", "USA", "USA"],
   ["St. Louis", "MO", "USA", "USA"],
@@ -407,10 +495,10 @@ const FEATURED_CITY_NAMES = new Set([
 ]);
 
 function cityScore(city: City, q: string): number {
-  const name = city.name.toLowerCase();
-  const region = city.region.toLowerCase();
-  const country = city.country.toLowerCase();
-  const label = city.label.toLowerCase();
+  const name = normalize(city.name);
+  const region = normalize(city.region);
+  const country = normalize(city.country);
+  const label = normalize(city.label);
   const aliasBucket = REGION_ALIASES[city.region] || [];
   const aliases = aliasBucket.map((a) => a.toLowerCase());
   const priorityBonus = PRIORITY_COUNTRIES.has(city.countryCode) ? 12 : 0;
@@ -477,8 +565,11 @@ export function findCityByInput(value: string): City | null {
     if (normalize(city.label) === q) return city;
   }
 
-  for (const city of WORLD_CITIES) {
-    if (normalize(city.name) === q) return city;
+  const exactNameMatches = WORLD_CITIES.filter((city) => normalize(city.name) === q);
+  if (exactNameMatches.length > 0) {
+    return exactNameMatches
+      .map((city) => ({ city, score: cityScore(city, q) }))
+      .sort((a, b) => b.score - a.score || a.city.label.localeCompare(b.city.label))[0].city;
   }
 
   const ranked = searchCities(normalize(value), 1);

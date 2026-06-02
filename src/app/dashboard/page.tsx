@@ -67,6 +67,7 @@ export default function DashboardPage() {
     family,
     inviteCodes,
     updateProfile,
+    updateFamilyRelationLanguage,
     addMember: addMemberAction,
     linkMembers,
     updateRelationship,
@@ -530,6 +531,7 @@ export default function DashboardPage() {
         onComplete={completeOnboarding}
         onRegenerateInviteCode={regenerateInviteCode}
         updateProfile={updateProfile}
+        updateFamilyRelationLanguage={updateFamilyRelationLanguage}
         addMember={handleAddMember}
         linkMembers={linkMembers}
         linkOnlyMode={postJoinLinkOnlyRequired}

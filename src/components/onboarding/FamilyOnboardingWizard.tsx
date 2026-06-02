@@ -19,11 +19,14 @@ import { ManualDateInput } from "@/components/ui/ManualDateInput";
 import { inferCountryCodeFromCity } from "@/lib/cities";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 import { formatProfileName } from "@/lib/display-format";
+import { RELATION_LANGUAGE_OPTIONS, normalizeRelationLanguage } from "@/lib/relation-language-options";
+import type { RelationLanguageCode } from "@/lib/supabase/db";
 
 interface InviteFamilyLite {
   id: string;
   name: string;
   invite_code: string;
+  relation_language?: string | null;
 }
 
 interface FamilyOnboardingWizardProps {
@@ -37,6 +40,7 @@ interface FamilyOnboardingWizardProps {
   onComplete: () => void;
   onRegenerateInviteCode?: () => Promise<void>;
   updateProfile: (userId: string, updates: Partial<Profile>) => Promise<void>;
+  updateFamilyRelationLanguage?: (relationLanguage: RelationLanguageCode) => Promise<void>;
   addMember: (
     member: Omit<Profile, "id" | "created_at" | "updated_at">,
     rel: { relativeId: string; type: RelationshipType }
@@ -123,6 +127,7 @@ export function FamilyOnboardingWizard({
   onComplete,
   onRegenerateInviteCode,
   updateProfile,
+  updateFamilyRelationLanguage,
   addMember,
   linkMembers,
   linkOnlyMode = false,
@@ -152,8 +157,12 @@ export function FamilyOnboardingWizard({
   const [allowDuplicateStepTwo, setAllowDuplicateStepTwo] = useState(false);
   const [compactStepTwo, setCompactStepTwo] = useState(false);
   const [linksForged, setLinksForged] = useState(0);
+  const [relationLanguage, setRelationLanguage] = useState<RelationLanguageCode>(
+    normalizeRelationLanguage(family?.relation_language)
+  );
 
   const [savingSelf, setSavingSelf] = useState(false);
+  const [savingRelationLanguage, setSavingRelationLanguage] = useState(false);
   const [addingRelative, setAddingRelative] = useState(false);
   const [copyInviteDone, setCopyInviteDone] = useState(false);
   const [copyCodeDone, setCopyCodeDone] = useState(false);
@@ -170,6 +179,7 @@ export function FamilyOnboardingWizard({
     setSavingSelf(false);
     setAddingRelative(false);
     setLinksForged(0);
+    setRelationLanguage(normalizeRelationLanguage(family?.relation_language));
     setCopyInviteDone(false);
     setCopyCodeDone(false);
     setInviteStepDone(false);
@@ -192,7 +202,7 @@ export function FamilyOnboardingWizard({
     if (typeof window !== "undefined") {
       setCompactStepTwo(window.innerWidth < 900);
     }
-  }, [isOpen, viewer]);
+  }, [family?.relation_language, isOpen, viewer]);
 
   const directRelativeIds = useMemo(() => {
     const ids = new Set<string>();
@@ -317,6 +327,19 @@ export function FamilyOnboardingWizard({
   const safeDismiss = () => {
     if (mandatory) return;
     onDismiss();
+  };
+
+  const handleRelationLanguageChange = async (next: RelationLanguageCode) => {
+    setRelationLanguage(next);
+    if (!family || !updateFamilyRelationLanguage) return;
+    setSavingRelationLanguage(true);
+    try {
+      await updateFamilyRelationLanguage(next);
+    } catch {
+      setStepError("Could not save relationship labels language. Please try again.");
+    } finally {
+      setSavingRelationLanguage(false);
+    }
   };
 
   const handleSaveSelf = async () => {
@@ -619,6 +642,23 @@ export function FamilyOnboardingWizard({
                     value={selfProfile.aboutMe}
                     onChange={(e) => setSelfProfile((s) => ({ ...s, aboutMe: e.target.value }))}
                   />
+                  {family && updateFamilyRelationLanguage && !linkOnlyMode && (
+                    <label className="block rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+                      <span className="text-xs text-white/45">Relationship labels</span>
+                      <select
+                        value={relationLanguage}
+                        disabled={savingRelationLanguage}
+                        onChange={(e) => void handleRelationLanguageChange(e.target.value as RelationLanguageCode)}
+                        className="mt-1.5 w-full app-input rounded-xl px-3 py-2.5 text-sm outline-none transition-colors disabled:opacity-60"
+                      >
+                        {RELATION_LANGUAGE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                 </div>
               )}
 
