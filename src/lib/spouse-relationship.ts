@@ -63,3 +63,29 @@ export function normalizeMarriageDate(value: string | null | undefined): string 
   if (!trimmed) return null;
   return trimmed.slice(0, 10);
 }
+
+export function changedSpouseSaveFields({
+  spouseId,
+  marriageDate,
+  initialSpouseId,
+  initialMarriageDate,
+}: {
+  spouseId: string | null | undefined;
+  marriageDate: string | null | undefined;
+  initialSpouseId: string | null | undefined;
+  initialMarriageDate: string | null | undefined;
+}): { spouseId?: string | null; marriageDate?: string | null } {
+  const nextSpouseId = spouseId || null;
+  const nextMarriageDate = normalizeMarriageDate(marriageDate);
+  const previousSpouseId = initialSpouseId || null;
+  const previousMarriageDate = normalizeMarriageDate(initialMarriageDate);
+
+  if (nextSpouseId === previousSpouseId && nextMarriageDate === previousMarriageDate) {
+    return {};
+  }
+
+  return {
+    spouseId: nextSpouseId,
+    marriageDate: nextMarriageDate,
+  };
+}

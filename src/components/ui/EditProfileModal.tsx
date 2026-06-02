@@ -32,6 +32,7 @@ import { ManualDateInput } from "./ManualDateInput";
 import type { Profile, ProfileMapLocationSource, SocialLinks, Gender } from "@/lib/types";
 import { PROFILE_MAP_SOURCE_LABELS } from "@/lib/profile-locations";
 import { inferCountryCodeFromCity } from "@/lib/cities";
+import { changedSpouseSaveFields } from "@/lib/spouse-relationship";
 import { useAccessibleDialog } from "@/hooks/use-accessible-dialog";
 import { useResolvedGalleryPhotos } from "@/hooks/use-resolved-gallery-photos";
 
@@ -225,6 +226,13 @@ export function EditProfileModal({
     if (social.website) cleanSocial.website = social.website;
     if (social.phone_number) cleanSocial.phone_number = social.phone_number;
 
+    const spouseFields = changedSpouseSaveFields({
+      spouseId,
+      marriageDate,
+      initialSpouseId,
+      initialMarriageDate,
+    });
+
     setSaving(true);
     setSaveError(null);
     try {
@@ -254,8 +262,7 @@ export function EditProfileModal({
         gallery_photos: galleryPhotos.filter((photo) => !/^blob:|^data:/i.test(photo)),
         ...(avatarFile ? { avatarFile } : {}),
         ...(galleryFiles.length > 0 ? { galleryFiles } : {}),
-        spouseId: spouseId || null,
-        marriageDate: marriageDate ? String(marriageDate).slice(0, 10) : null,
+        ...spouseFields,
       });
       onClose();
     } catch (err) {

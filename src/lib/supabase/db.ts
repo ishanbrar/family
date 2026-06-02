@@ -95,6 +95,14 @@ function normalizeOptionalPersonNameInput(value: string | null | undefined): str
   return normalized || null;
 }
 
+function missingSchemaColumn(error: unknown): string | null {
+  if (!error || typeof error !== "object") return null;
+  const maybeError = error as { code?: string; message?: string };
+  if (maybeError.code !== "PGRST204" || !maybeError.message) return null;
+  const match = maybeError.message.match(/'([^']+)' column/);
+  return match?.[1] || null;
+}
+
 // ── Profiles ────────────────────────────────────
 
 export async function getProfile(
@@ -172,15 +180,25 @@ export async function updateProfile(
     dbUpdates.onboarding_completed = updates.onboarding_completed;
   }
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .update(dbUpdates)
-    .eq("id", userId)
-    .select("*")
-    .single();
+  const pendingUpdates = { ...dbUpdates };
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .update(pendingUpdates)
+      .eq("id", userId)
+      .select("*")
+      .single();
 
-  if (error || !data) return null;
-  return mapProfile(data);
+    if (!error && data) return mapProfile(data);
+
+    const missingColumn = missingSchemaColumn(error);
+    if (!missingColumn || !(missingColumn in pendingUpdates)) {
+      return null;
+    }
+    delete pendingUpdates[missingColumn];
+  }
+
+  return null;
 }
 
 /**

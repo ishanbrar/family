@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getProfile } from "../db";
+import { getProfile, updateProfile } from "../db";
 
 function profileRow(overrides: Record<string, unknown>) {
   const now = "2026-05-11T00:00:00.000Z";
@@ -57,6 +57,29 @@ function fakeSupabaseForProfileLookups(results: Array<{ data: unknown; error: un
   };
 }
 
+function fakeSupabaseForProfileUpdate(results: Array<{ data: unknown; error: unknown }>) {
+  const updates: Record<string, unknown>[] = [];
+
+  return {
+    updates,
+    client: {
+      from(table: string) {
+        expect(table).toBe("profiles");
+        const query = {
+          update: (payload: Record<string, unknown>) => {
+            updates.push({ ...payload });
+            return query;
+          },
+          eq: () => query,
+          select: () => query,
+          single: async () => results.shift() ?? { data: null, error: null },
+        };
+        return query;
+      },
+    },
+  };
+}
+
 describe("getProfile", () => {
   it("loads a claimed family node by auth_user_id before falling back to profile id", async () => {
     const { calls, client } = fakeSupabaseForProfileLookups([
@@ -102,5 +125,41 @@ describe("getProfile", () => {
       { table: "profiles", column: "auth_user_id", value: "auth-user-id" },
       { table: "profiles", column: "id", value: "auth-user-id" },
     ]);
+  });
+});
+
+describe("updateProfile", () => {
+  it("retries without optional profile columns missing from Supabase schema cache", async () => {
+    const { updates, client } = fakeSupabaseForProfileUpdate([
+      {
+        data: null,
+        error: {
+          code: "PGRST204",
+          message: "Could not find the 'middle_name' column of 'profiles' in the schema cache",
+        },
+      },
+      {
+        data: profileRow({
+          id: "profile-id",
+          first_name: "Test",
+          middle_name: undefined,
+          display_name: "Tester",
+        }),
+        error: null,
+      },
+    ]);
+
+    const profile = await updateProfile(client as never, "profile-id", {
+      middle_name: "Optional",
+      display_name: "Tester",
+    });
+
+    expect(profile?.display_name).toBe("Tester");
+    expect(updates).toHaveLength(2);
+    expect(updates[0]).toMatchObject({
+      middle_name: "Optional",
+      display_name: "Tester",
+    });
+    expect(updates[1]).toEqual({ display_name: "Tester" });
   });
 });

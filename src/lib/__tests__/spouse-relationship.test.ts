@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildMarriageDateByPair,
+  changedSpouseSaveFields,
   findSpouseRelationship,
   findSpouseRelationshipBetween,
   getSpouseId,
@@ -35,5 +36,45 @@ describe("spouse relationship helpers", () => {
   it("normalizes marriage dates", () => {
     expect(normalizeMarriageDate(" 2018-05-26 ")).toBe("2018-05-26");
     expect(normalizeMarriageDate("")).toBeNull();
+  });
+
+  it("omits spouse fields when the modal did not change spouse data", () => {
+    expect(
+      changedSpouseSaveFields({
+        spouseId: "spouse-1",
+        marriageDate: " 2018-05-26 ",
+        initialSpouseId: "spouse-1",
+        initialMarriageDate: "2018-05-26",
+      })
+    ).toEqual({});
+
+    expect(
+      changedSpouseSaveFields({
+        spouseId: "",
+        marriageDate: "",
+        initialSpouseId: null,
+        initialMarriageDate: null,
+      })
+    ).toEqual({});
+  });
+
+  it("includes spouse fields when spouse or anniversary changed", () => {
+    expect(
+      changedSpouseSaveFields({
+        spouseId: null,
+        marriageDate: null,
+        initialSpouseId: "spouse-1",
+        initialMarriageDate: "2018-05-26",
+      })
+    ).toEqual({ spouseId: null, marriageDate: null });
+
+    expect(
+      changedSpouseSaveFields({
+        spouseId: "spouse-1",
+        marriageDate: "2020-01-02",
+        initialSpouseId: "spouse-1",
+        initialMarriageDate: "2018-05-26",
+      })
+    ).toEqual({ spouseId: "spouse-1", marriageDate: "2020-01-02" });
   });
 });
