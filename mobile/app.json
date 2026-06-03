@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Legatree",
+    "slug": "legatree",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "legatree",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jarjarb.legatree",
+      "appleTeamId": "C7GY6B6ZW4",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.jarjarb.legatree",
+      "adaptiveIcon": {
+        "backgroundColor": "#eef5ee",
+        "foregroundImage": "./assets/images/icon.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#eef5ee",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "owner": "jarjarb",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "dccc6993-de8b-4599-8838-342b0853fa30"
+      }
+    }
+  }
+}
