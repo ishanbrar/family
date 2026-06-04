@@ -103,6 +103,28 @@ function missingSchemaColumn(error: unknown): string | null {
   return match?.[1] || null;
 }
 
+type SupabaseRowMutationResult = { data: unknown; error: unknown };
+
+async function mutateWithSchemaColumnFallback<T>(
+  payload: Record<string, unknown>,
+  run: (pending: Record<string, unknown>) => Promise<SupabaseRowMutationResult>,
+  maxAttempts = 4
+): Promise<{ data: T | null; error: unknown }> {
+  const pendingUpdates = { ...payload };
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const { data, error } = await run(pendingUpdates);
+    if (!error) return { data: data as T, error: null };
+
+    const missingColumn = missingSchemaColumn(error);
+    if (!missingColumn || !(missingColumn in pendingUpdates)) {
+      return { data: null, error };
+    }
+    delete pendingUpdates[missingColumn];
+  }
+
+  return { data: null, error: null };
+}
+
 // ── Profiles ────────────────────────────────────
 
 export async function getProfile(
@@ -180,24 +202,13 @@ export async function updateProfile(
     dbUpdates.onboarding_completed = updates.onboarding_completed;
   }
 
-  const pendingUpdates = { ...dbUpdates };
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .update(pendingUpdates)
-      .eq("id", userId)
-      .select("*")
-      .single();
+  const { data, error } = await mutateWithSchemaColumnFallback<Record<string, unknown>>(
+    dbUpdates,
+    (pendingUpdates) =>
+      supabase.from("profiles").update(pendingUpdates).eq("id", userId).select("*").single()
+  );
 
-    if (!error && data) return mapProfile(data);
-
-    const missingColumn = missingSchemaColumn(error);
-    if (!missingColumn || !(missingColumn in pendingUpdates)) {
-      return null;
-    }
-    delete pendingUpdates[missingColumn];
-  }
-
+  if (!error && data) return mapProfile(data);
   return null;
 }
 
@@ -218,24 +229,21 @@ export async function ensureProfileForAuthUser(
   const firstName = parts[0] || (user.email?.split("@")[0]) || "Family";
   const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "Member";
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .upsert(
-      {
-        id: user.id,
-        auth_user_id: user.id,
-        name_prefix: null,
-        first_name: normalizePersonNameInput(firstName),
-        middle_name: null,
-        last_name: normalizePersonNameInput(lastName),
-        gender: null,
-        role: "MEMBER",
-        family_id: null,
-      },
-      { onConflict: "id" }
-    )
-    .select("*")
-    .single();
+  const { data, error } = await mutateWithSchemaColumnFallback<Record<string, unknown>>(
+    {
+      id: user.id,
+      auth_user_id: user.id,
+      name_prefix: null,
+      first_name: normalizePersonNameInput(firstName),
+      middle_name: null,
+      last_name: normalizePersonNameInput(lastName),
+      gender: null,
+      role: "MEMBER",
+      family_id: null,
+    },
+    (pendingUpdates) =>
+      supabase.from("profiles").upsert(pendingUpdates, { onConflict: "id" }).select("*").single()
+  );
 
   if (error || !data) return null;
   return mapProfile(data);
@@ -637,35 +645,37 @@ export async function addFamilyMember(
   profile: Omit<Profile, "id" | "created_at" | "updated_at"> & { family_id: string }
 ): Promise<Profile | null> {
   // For non-auth members, we generate a UUID on the server
-  const { data, error } = await supabase
-    .from("profiles")
-    .insert({
-      name_prefix: normalizeOptionalPersonNameInput(profile.name_prefix),
-      first_name: normalizePersonNameInput(profile.first_name),
-      middle_name: normalizeOptionalPersonNameInput(profile.middle_name),
-      last_name: normalizePersonNameInput(profile.last_name),
-      display_name: profile.display_name,
-      gender: profile.gender,
-      avatar_url: profile.avatar_url,
-      date_of_birth: profile.date_of_birth != null ? String(profile.date_of_birth).slice(0, 10) : profile.date_of_birth,
-      place_of_birth: profile.place_of_birth,
-      profession: profile.profession,
-      location_city: profile.location_city,
-      secondary_location_city: profile.secondary_location_city,
-      address: profile.address,
-      location_lat: profile.location_lat,
-      location_lng: profile.location_lng,
-      pets: profile.pets || [],
-      social_links: profile.social_links || {},
-      about_me: profile.about_me,
-      country_code: profile.country_code,
-      gallery_photos: profile.gallery_photos || [],
-      role: profile.role || "MEMBER",
-      is_alive: profile.is_alive ?? true,
-      family_id: profile.family_id,
-    })
-    .select("*")
-    .single();
+  const insertPayload = {
+    name_prefix: normalizeOptionalPersonNameInput(profile.name_prefix),
+    first_name: normalizePersonNameInput(profile.first_name),
+    middle_name: normalizeOptionalPersonNameInput(profile.middle_name),
+    last_name: normalizePersonNameInput(profile.last_name),
+    display_name: profile.display_name,
+    gender: profile.gender,
+    avatar_url: profile.avatar_url,
+    date_of_birth:
+      profile.date_of_birth != null ? String(profile.date_of_birth).slice(0, 10) : profile.date_of_birth,
+    place_of_birth: profile.place_of_birth,
+    profession: profile.profession,
+    location_city: profile.location_city,
+    secondary_location_city: profile.secondary_location_city,
+    address: profile.address,
+    location_lat: profile.location_lat,
+    location_lng: profile.location_lng,
+    pets: profile.pets || [],
+    social_links: profile.social_links || {},
+    about_me: profile.about_me,
+    country_code: profile.country_code,
+    gallery_photos: profile.gallery_photos || [],
+    role: profile.role || "MEMBER",
+    is_alive: profile.is_alive ?? true,
+    family_id: profile.family_id,
+  };
+
+  const { data, error } = await mutateWithSchemaColumnFallback<Record<string, unknown>>(
+    insertPayload,
+    (pendingUpdates) => supabase.from("profiles").insert(pendingUpdates).select("*").single()
+  );
 
   if (error || !data) {
     const err = error as { message?: string; code?: string; details?: string; hint?: string } | null;

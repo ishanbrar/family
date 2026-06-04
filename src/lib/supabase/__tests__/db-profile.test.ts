@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getProfile, updateProfile } from "../db";
+import { addFamilyMember, getProfile, updateProfile } from "../db";
 
 function profileRow(overrides: Record<string, unknown>) {
   const now = "2026-05-11T00:00:00.000Z";
@@ -125,6 +125,70 @@ describe("getProfile", () => {
       { table: "profiles", column: "auth_user_id", value: "auth-user-id" },
       { table: "profiles", column: "id", value: "auth-user-id" },
     ]);
+  });
+});
+
+function fakeSupabaseForProfileInsert(results: Array<{ data: unknown; error: unknown }>) {
+  const inserts: Record<string, unknown>[] = [];
+
+  return {
+    inserts,
+    client: {
+      from(table: string) {
+        expect(table).toBe("profiles");
+        const query = {
+          insert: (payload: Record<string, unknown>) => {
+            inserts.push({ ...payload });
+            return query;
+          },
+          select: () => query,
+          single: async () => results.shift() ?? { data: null, error: null },
+        };
+        return query;
+      },
+    },
+  };
+}
+
+describe("addFamilyMember", () => {
+  it("retries without optional profile columns missing from Supabase schema cache", async () => {
+    const { inserts, client } = fakeSupabaseForProfileInsert([
+      {
+        data: null,
+        error: {
+          code: "PGRST204",
+          message: "Could not find the 'middle_name' column of 'profiles' in the schema cache",
+        },
+      },
+      {
+        data: profileRow({
+          id: "new-member-id",
+          first_name: "Test",
+          last_name: "Member",
+          family_id: "family-id",
+        }),
+        error: null,
+      },
+    ]);
+
+    const profile = await addFamilyMember(client as never, {
+      name_prefix: null,
+      first_name: "Test",
+      middle_name: "Optional",
+      last_name: "Member",
+      family_id: "family-id",
+      gender: "male",
+      role: "MEMBER",
+    });
+
+    expect(profile?.first_name).toBe("Test");
+    expect(inserts).toHaveLength(2);
+    expect(inserts[0]).toMatchObject({
+      first_name: "Test",
+      middle_name: "Optional",
+      last_name: "Member",
+    });
+    expect(inserts[1]).not.toHaveProperty("middle_name");
   });
 });
 
