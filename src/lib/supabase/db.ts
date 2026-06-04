@@ -204,7 +204,7 @@ export async function updateProfile(
 
   const { data, error } = await mutateWithSchemaColumnFallback<Record<string, unknown>>(
     dbUpdates,
-    (pendingUpdates) =>
+    async (pendingUpdates) =>
       supabase.from("profiles").update(pendingUpdates).eq("id", userId).select("*").single()
   );
 
@@ -241,7 +241,7 @@ export async function ensureProfileForAuthUser(
       role: "MEMBER",
       family_id: null,
     },
-    (pendingUpdates) =>
+    async (pendingUpdates) =>
       supabase.from("profiles").upsert(pendingUpdates, { onConflict: "id" }).select("*").single()
   );
 
@@ -674,7 +674,7 @@ export async function addFamilyMember(
 
   const { data, error } = await mutateWithSchemaColumnFallback<Record<string, unknown>>(
     insertPayload,
-    (pendingUpdates) => supabase.from("profiles").insert(pendingUpdates).select("*").single()
+    async (pendingUpdates) => supabase.from("profiles").insert(pendingUpdates).select("*").single()
   );
 
   if (error || !data) {
