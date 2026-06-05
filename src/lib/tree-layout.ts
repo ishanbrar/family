@@ -118,10 +118,15 @@ export function createFamilyTreeLayout(
 
   // Build parentIdsByChild early for root selection and sibships
   const parentIdsByChild = new Map<string, Set<string>>();
+  const explicitParentEdgeKeys = new Set<string>();
   const addParentMapEntry = (parentId: string, childId: string) => {
     if (!parentIdsByChild.has(childId)) parentIdsByChild.set(childId, new Set());
     parentIdsByChild.get(childId)!.add(parentId);
   };
+  for (const rel of relationships) {
+    if (rel.type === "parent") explicitParentEdgeKeys.add(`${rel.user_id}:${rel.relative_id}`);
+    else if (rel.type === "child") explicitParentEdgeKeys.add(`${rel.relative_id}:${rel.user_id}`);
+  }
   for (const rel of effectiveRelationships) {
     if (rel.type === "parent") addParentMapEntry(rel.user_id, rel.relative_id);
     else if (rel.type === "child") addParentMapEntry(rel.relative_id, rel.user_id);
@@ -549,22 +554,98 @@ export function createFamilyTreeLayout(
     }
   }
 
+  const rowSpouseUnits = (ids: string[]) => {
+    const idSet = new Set(ids);
+    const visited = new Set<string>();
+    const units: string[][] = [];
+    for (const id of ids) {
+      if (visited.has(id)) continue;
+      const stack = [id];
+      const unit: string[] = [];
+      visited.add(id);
+      while (stack.length > 0) {
+        const cur = stack.pop()!;
+        unit.push(cur);
+        const neighbors = spouseAdj.get(cur);
+        if (!neighbors) continue;
+        for (const next of neighbors) {
+          if (!idSet.has(next) || visited.has(next)) continue;
+          visited.add(next);
+          stack.push(next);
+        }
+      }
+      units.push(unit);
+    }
+    return units;
+  };
+
+  const translateUnit = (unit: string[], dx: number) => {
+    if (Math.abs(dx) < 0.5) return;
+    for (const id of unit) {
+      const pos = positions.get(id);
+      if (!pos) continue;
+      positions.set(id, { x: pos.x + dx, y: pos.y });
+    }
+  };
+
+  const unitBounds = (unit: string[]) => {
+    const xs = unit
+      .map((id) => positions.get(id)?.x)
+      .filter((x): x is number => x != null);
+    if (xs.length === 0) return null;
+    return {
+      min: Math.min(...xs),
+      max: Math.max(...xs),
+      center: xs.reduce((sum, x) => sum + x, 0) / xs.length,
+    };
+  };
+
+  const orderSpouseUnit = (unit: string[]) =>
+    [...unit].sort((a, b) => {
+      const ag = memberById.get(a)?.gender;
+      const bg = memberById.get(b)?.gender;
+      if (ag === "male" && bg === "female") return -1;
+      if (ag === "female" && bg === "male") return 1;
+      return a.localeCompare(b);
+    });
+
+  const compactRowSpouseUnits = () => {
+    const spouseGap = 156;
+    for (const gen of orderedRows) {
+      const rowMembers = byGenRefined.get(gen) || [];
+      for (const unit of rowSpouseUnits(rowMembers.map((m) => m.id))) {
+        if (unit.length < 2) continue;
+        const bounds = unitBounds(unit);
+        if (!bounds) continue;
+        const orderedUnit = orderSpouseUnit(unit);
+        const y = positions.get(orderedUnit[0])?.y;
+        if (y == null) continue;
+        const start = bounds.center - ((orderedUnit.length - 1) * spouseGap) / 2;
+        orderedUnit.forEach((id, idx) => {
+          positions.set(id, { x: start + idx * spouseGap, y });
+        });
+      }
+    }
+  };
+
   // Pull older generations closer to descendant anchors (e.g., grandparents above their lineage branch).
+  // Move spouse units as one body so a descendant anchor cannot pull one spouse away from the other.
   for (let pass = 0; pass < 3; pass++) {
     for (let row = 0; row < orderedRows.length; row++) {
       const gen = orderedRows[row];
       const rowMembers = byGenRefined.get(gen) || [];
-      for (const member of rowMembers) {
-        const children = childIdsByParent.get(member.id);
-        if (!children || children.size === 0) continue;
-        const childXs = [...children]
-          .map((id) => positions.get(id)?.x)
-          .filter((x): x is number => x != null);
+      const units = rowSpouseUnits(rowMembers.map((m) => m.id));
+      for (const unit of units) {
+        const childXs = unit.flatMap((id) =>
+          [...(childIdsByParent.get(id) ?? new Set<string>())]
+            .map((childId) => positions.get(childId)?.x)
+            .filter((x): x is number => x != null)
+        );
         if (childXs.length === 0) continue;
-        const current = positions.get(member.id);
-        if (!current) continue;
+        const bounds = unitBounds(unit);
+        if (!bounds) continue;
         const childAvg = childXs.reduce((s, x) => s + x, 0) / childXs.length;
-        positions.set(member.id, { x: current.x * 0.55 + childAvg * 0.45, y: current.y });
+        translateUnit(unit, (childAvg - bounds.center) * 0.45);
       }
     }
   }
@@ -582,16 +663,17 @@ export function createFamilyTreeLayout(
         return [...pids].some((pid) => motherParents.has(pid));
       });
       if (maternalSiblings.length > 0) {
-        const clusterIds = [...maternalSiblings, motherParent.id];
-        const cluster = clusterIds
-          .map((id) => ({ id, x: positions.get(id)?.x ?? 0 }))
-          .sort((a, b) => a.x - b.x);
-        const center = cluster.reduce((s, n) => s + n.x, 0) / cluster.length;
-    const spacing = 184;
-        const start = center - ((cluster.length - 1) * spacing) / 2;
-        const y = positions.get(motherParent.id)?.y ?? nodeYStart + motherRow * levelGap;
-        cluster.forEach((n, i) => {
-          positions.set(n.id, { x: start + i * spacing, y });
+        const clusterIds = new Set([...maternalSiblings, motherParent.id]);
+        const units = rowSpouseUnits(rowIds)
+          .filter((unit) => unit.some((id) => clusterIds.has(id)))
+          .map((unit) => ({ unit, bounds: unitBounds(unit) }))
+          .filter((entry): entry is { unit: string[]; bounds: { min: number; max: number; center: number } } => !!entry.bounds)
+          .sort((a, b) => a.bounds.center - b.bounds.center);
+        const center = units.reduce((s, entry) => s + entry.bounds.center, 0) / units.length;
+        const spacing = 228;
+        const start = center - ((units.length - 1) * spacing) / 2;
+        units.forEach((entry, i) => {
+          translateUnit(entry.unit, start + i * spacing - entry.bounds.center);
         });
       }
     }
@@ -606,7 +688,7 @@ export function createFamilyTreeLayout(
     if (!a || !b) continue;
     if (Math.abs(a.y - b.y) > 1) continue;
     const dx = Math.abs(a.x - b.x);
-  const minSpouseGap = 152;
+    const minSpouseGap = 152;
     if (dx >= minSpouseGap) continue;
     const mid = (a.x + b.x) / 2;
     const leftId = a.x <= b.x ? rel.user_id : rel.relative_id;
@@ -619,24 +701,171 @@ export function createFamilyTreeLayout(
   const ensureRowSpacing = (minGap: number) => {
     for (const gen of orderedRows) {
       const rowMembers = byGenRefined.get(gen) || [];
-      const ordered = rowMembers
-        .map((m) => ({ id: m.id, pos: positions.get(m.id) }))
-        .filter((entry): entry is { id: string; pos: { x: number; y: number } } => !!entry.pos)
-        .sort((a, b) => a.pos.x - b.pos.x);
+      const ordered = rowSpouseUnits(rowMembers.map((m) => m.id))
+        .map((unit) => ({ unit, bounds: unitBounds(unit) }))
+        .filter((entry): entry is { unit: string[]; bounds: { min: number; max: number; center: number } } => !!entry.bounds)
+        .sort((a, b) => a.bounds.min - b.bounds.min);
+      if (ordered.length === 0) continue;
+      const beforeCenter = (ordered[0].bounds.min + ordered[ordered.length - 1].bounds.max) / 2;
       for (let i = 1; i < ordered.length; i++) {
         const prev = ordered[i - 1];
         const cur = ordered[i];
-        if (cur.pos.x - prev.pos.x < minGap) {
-          const nextX = prev.pos.x + minGap;
-          positions.set(cur.id, { x: nextX, y: cur.pos.y });
-          ordered[i].pos = { x: nextX, y: cur.pos.y };
+        if (cur.bounds.min - prev.bounds.max < minGap) {
+          const dx = prev.bounds.max + minGap - cur.bounds.min;
+          translateUnit(cur.unit, dx);
+          ordered[i].bounds = {
+            min: cur.bounds.min + dx,
+            max: cur.bounds.max + dx,
+            center: cur.bounds.center + dx,
+          };
         }
+      }
+      const afterCenter = (ordered[0].bounds.min + ordered[ordered.length - 1].bounds.max) / 2;
+      const rowShift = beforeCenter - afterCenter;
+      for (const entry of ordered) translateUnit(entry.unit, rowShift);
+    }
+  };
+
+  const collectSiblingBlocks = () => {
+    const seenParentKeys = new Set<string>();
+    const blocks: Array<{
+      key: string;
+      rowGen: number;
+      parentIds: string[];
+      parentCenter: number;
+      units: string[][];
+      bounds: { min: number; max: number; center: number };
+    }> = [];
+
+    for (const [childId, parentIds] of parentIdsByChild.entries()) {
+      if (!positions.has(childId) || parentIds.size === 0) continue;
+      const parentArr = [...parentIds].filter((pid) => positions.has(pid)).sort();
+      if (parentArr.length === 0) continue;
+      const key = parentArr.join(",");
+      if (seenParentKeys.has(key)) continue;
+      seenParentKeys.add(key);
+
+      const siblingIds = members
+        .map((member) => member.id)
+        .filter((id) => {
+          if (!positions.has(id)) return false;
+          const pids = parentIdsByChild.get(id);
+          if (!pids || pids.size !== parentArr.length) return false;
+          return parentArr.every((pid) => pids.has(pid));
+        });
+      if (siblingIds.length === 0) continue;
+
+      const childRows = new Set(
+        siblingIds
+          .map((id) => refinedGeneration.get(id))
+          .filter((gen): gen is number => gen != null)
+      );
+      if (childRows.size !== 1) continue;
+
+      const rowGen = [...childRows][0];
+      const rowIds = (byGenRefined.get(rowGen) || []).map((m) => m.id);
+      const siblingSet = new Set(siblingIds);
+      const siblingUnits = rowSpouseUnits(rowIds)
+        .filter((unit) => unit.some((id) => siblingSet.has(id)))
+        .map((unit) => ({ unit, bounds: unitBounds(unit) }))
+        .filter((entry): entry is { unit: string[]; bounds: { min: number; max: number; center: number } } => !!entry.bounds)
+        .sort((a, b) => a.bounds.center - b.bounds.center);
+      if (siblingUnits.length === 0) continue;
+
+      const parentXs = parentArr
+        .map((parentId) => positions.get(parentId)?.x)
+        .filter((x): x is number => x != null);
+      if (parentXs.length === 0) continue;
+
+      const parentCenter = parentXs.reduce((sum, x) => sum + x, 0) / parentXs.length;
+      const min = Math.min(...siblingUnits.map((entry) => entry.bounds.min));
+      const max = Math.max(...siblingUnits.map((entry) => entry.bounds.max));
+      blocks.push({
+        key,
+        rowGen,
+        parentIds: parentArr,
+        parentCenter,
+        units: siblingUnits.map((entry) => entry.unit),
+        bounds: { min, max, center: (min + max) / 2 },
+      });
+    }
+
+    return blocks;
+  };
+
+  const restoreSiblingBlocks = () => {
+    const unitGap = 200;
+    for (const block of collectSiblingBlocks()) {
+      const siblingUnits = block.units
+        .map((unit) => ({ unit, bounds: unitBounds(unit) }))
+        .filter((entry): entry is { unit: string[]; bounds: { min: number; max: number; center: number } } => !!entry.bounds)
+        .sort((a, b) => a.bounds.center - b.bounds.center);
+      if (siblingUnits.length < 2) continue;
+      const totalWidth =
+        siblingUnits.reduce((sum, entry) => sum + (entry.bounds.max - entry.bounds.min), 0) +
+        (siblingUnits.length - 1) * unitGap;
+      let cursor = block.parentCenter - totalWidth / 2;
+      for (const entry of siblingUnits) {
+        const width = entry.bounds.max - entry.bounds.min;
+        const nextCenter = cursor + width / 2;
+        translateUnit(entry.unit, nextCenter - entry.bounds.center);
+        cursor += width + unitGap;
+      }
+    }
+  };
+
+  const separateSiblingBlocks = () => {
+    const blockGap = 260;
+    const blocksByRow = new Map<number, ReturnType<typeof collectSiblingBlocks>>();
+    for (const block of collectSiblingBlocks()) {
+      const units = block.units;
+      const unitBoundsList = units
+        .map((unit) => unitBounds(unit))
+        .filter((bounds): bounds is { min: number; max: number; center: number } => !!bounds);
+      if (unitBoundsList.length === 0) continue;
+      block.bounds = {
+        min: Math.min(...unitBoundsList.map((bounds) => bounds.min)),
+        max: Math.max(...unitBoundsList.map((bounds) => bounds.max)),
+        center:
+          (Math.min(...unitBoundsList.map((bounds) => bounds.min)) +
+            Math.max(...unitBoundsList.map((bounds) => bounds.max))) /
+          2,
+      };
+      if (!blocksByRow.has(block.rowGen)) blocksByRow.set(block.rowGen, []);
+      blocksByRow.get(block.rowGen)!.push(block);
+    }
+
+    for (const blocks of blocksByRow.values()) {
+      blocks.sort((a, b) => a.parentCenter - b.parentCenter);
+      for (let i = 1; i < blocks.length; i++) {
+        const prev = blocks[i - 1];
+        const cur = blocks[i];
+        if (cur.bounds.min - prev.bounds.max >= blockGap) continue;
+        const dx = prev.bounds.max + blockGap - cur.bounds.min;
+        for (const unit of cur.units) translateUnit(unit, dx);
+        if (cur.parentIds.length === 1) {
+          const parentId = cur.parentIds[0];
+          const parentGen = refinedGeneration.get(parentId);
+          const parentRowIds =
+            parentGen == null ? [] : (byGenRefined.get(parentGen) || []).map((m) => m.id);
+          const parentUnit = rowSpouseUnits(parentRowIds).find((unit) => unit.includes(parentId));
+          if (parentUnit) translateUnit(parentUnit, dx);
+        }
+        cur.bounds = {
+          min: cur.bounds.min + dx,
+          max: cur.bounds.max + dx,
+          center: cur.bounds.center + dx,
+        };
       }
     }
   };
 
   // 2) Ensure minimum horizontal gap across each generation row.
+  compactRowSpouseUnits();
   ensureRowSpacing(156);
+  restoreSiblingBlocks();
+  compactRowSpouseUnits();
+  separateSiblingBlocks();
 
   // Keep parent couples visually paired over their shared child branch after
   // descendant anchoring and row spacing. Without this, a parent's sibling can
@@ -668,19 +897,41 @@ export function createFamilyTreeLayout(
       positions.set(leftId, { x: leftX, y: a.y });
       positions.set(rightId, { x: rightX, y: a.y });
 
-      const buffer = 340;
-      for (const [id, pos] of positions.entries()) {
-        if (id === leftId || id === rightId || Math.abs(pos.y - a.y) > 1) continue;
-        if (pos.x < leftX - buffer || pos.x > rightX + buffer) continue;
-        const nextX = pos.x < center ? leftX - buffer : rightX + buffer;
-        positions.set(id, { x: nextX, y: pos.y });
+      const buffer = 260;
+      const rowIds = members
+        .filter((member) => {
+          const pos = positions.get(member.id);
+          return pos && Math.abs(pos.y - a.y) <= 1;
+        })
+        .map((member) => member.id);
+      for (const unit of rowSpouseUnits(rowIds)) {
+        if (unit.includes(leftId) || unit.includes(rightId)) continue;
+        const bounds = unitBounds(unit);
+        if (!bounds) continue;
+        if (bounds.max < leftX - buffer || bounds.min > rightX + buffer) continue;
+        const targetCenter = bounds.center < center ? leftX - buffer : rightX + buffer;
+        translateUnit(unit, targetCenter - bounds.center);
       }
     }
   };
 
   restoreSharedChildSpousePairs();
+  restoreSiblingBlocks();
+  compactRowSpouseUnits();
+  separateSiblingBlocks();
+  ensureRowSpacing(196);
+  restoreSiblingBlocks();
+  compactRowSpouseUnits();
+  separateSiblingBlocks();
+  restoreSharedChildSpousePairs();
+  restoreSiblingBlocks();
+  compactRowSpouseUnits();
+  separateSiblingBlocks();
   ensureRowSpacing(196);
   restoreSharedChildSpousePairs();
+  restoreSiblingBlocks();
+  compactRowSpouseUnits();
+  separateSiblingBlocks();
   ensureRowSpacing(196);
 
   const nodes: TreeLayoutNode[] = members
@@ -757,7 +1008,14 @@ export function createFamilyTreeLayout(
   const sibships: TreeLayoutSibship[] = [];
   for (const { parents, children } of childrenByParents.values()) {
     if (children.length > 0) {
-      sibships.push({ parents, children });
+      const hasInferredParentEdge = children.some((childId) =>
+        parents.some((parentId) => !explicitParentEdgeKeys.has(`${parentId}:${childId}`))
+      );
+      sibships.push({
+        parents,
+        children,
+        railStyle: parents.length === 1 || hasInferredParentEdge ? "stems" : undefined,
+      });
     }
   }
 

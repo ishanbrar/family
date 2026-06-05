@@ -189,4 +189,155 @@ describe("pedigree layout constraints", () => {
       children: ["viewer", "sibling"],
     });
   });
+
+  it("keeps Brar-style spouse units adjacent with children under the correct couple", () => {
+    const members: Profile[] = [
+      { ...profile("kuldeep", "Kuldeep", "Brar", "male"), date_of_birth: "1934-01-01" },
+      { ...profile("rajwant", "Rajwant", "Brar", "female"), date_of_birth: "1936-01-01" },
+      { ...profile("sarup", "Sarup", "Singh", "male"), date_of_birth: "1935-01-01" },
+      { ...profile("gill", "Grandmother", "Gill", "female"), date_of_birth: "1937-01-01" },
+      { ...profile("rajdeep", "Rajdeep", "Brar", "male"), date_of_birth: "1961-01-01" },
+      { ...profile("nikki", "Nikki", "Brar", "female"), date_of_birth: "1968-01-01" },
+      { ...profile("ian", "Ian", "Shields", "male"), date_of_birth: "1959-01-01" },
+      { ...profile("jasmine", "Jasmine", "Mann", "female"), date_of_birth: "1964-01-01" },
+      { ...profile("ajeet", "Ajeet", "Mann", "male"), date_of_birth: "1971-01-01" },
+      { ...profile("nita", "Nita", "Mann", "female"), date_of_birth: "1972-01-01" },
+      { ...profile("sanjeet", "Sanjeet", "Brar", "male"), role: "ADMIN", date_of_birth: "2003-01-01" },
+      { ...profile("ishan", "Ishan", "Brar", "male"), date_of_birth: "2004-01-01" },
+      { ...profile("serena", "Serena", "Mann", "female"), date_of_birth: "2001-01-01" },
+      { ...profile("kai", "Kai", "Mann", "male"), date_of_birth: "2005-01-01" },
+      { ...profile("alena", "Alena", "Mann", "female"), date_of_birth: "2007-01-01" },
+      { ...profile("narinder", "Narinder", "Toor", "male"), date_of_birth: "1965-01-01" },
+      { ...profile("pammi", "Pammi", "Toor", "female"), date_of_birth: "1967-01-01" },
+      { ...profile("pawan", "Pawan", "Sekhon", "male"), date_of_birth: "1968-01-01" },
+      { ...profile("babli", "Babli", "Sekhon", "female"), date_of_birth: "1970-01-01" },
+      { ...profile("deepi", "Deepi", "Toor", "male"), date_of_birth: "1995-01-01" },
+      { ...profile("jashan", "Jashan", "Toor", "female"), date_of_birth: "1996-01-01" },
+      { ...profile("jugnu", "Jugnu", "Ghuman", "female"), date_of_birth: "1997-01-01" },
+      { ...profile("monu", "Monu", "Dhillon", "female"), date_of_birth: "1999-01-01" },
+      { ...profile("yashvir", "Yashvir", "Sekhon", "male"), date_of_birth: "1998-01-01" },
+      { ...profile("jasleen", "Jasleen", "Sekhon", "female"), date_of_birth: "2001-01-01" },
+      { ...profile("harket", "Harket", "Ghuman", "male"), date_of_birth: "2020-01-01" },
+      { ...profile("viraj", "Viraj", "Ghuman", "male"), date_of_birth: "2022-01-01" },
+      { ...profile("veer", "Veer", "Dhillon", "male"), date_of_birth: "2023-01-01" },
+    ];
+
+    const relationships: Relationship[] = [
+      rel("r1", "kuldeep", "rajdeep", "parent"),
+      rel("r2", "rajwant", "rajdeep", "parent"),
+      rel("r3", "sarup", "nikki", "parent"),
+      rel("r4", "gill", "nikki", "parent"),
+      rel("r5", "sarup", "ian", "parent"),
+      rel("r6", "gill", "ian", "parent"),
+      rel("r7", "sarup", "ajeet", "parent"),
+      rel("r8", "gill", "ajeet", "parent"),
+      rel("r9", "rajdeep", "nikki", "spouse"),
+      rel("r10", "ian", "jasmine", "spouse"),
+      rel("r11", "ajeet", "nita", "spouse"),
+      rel("r12", "rajdeep", "sanjeet", "parent"),
+      rel("r13", "nikki", "sanjeet", "parent"),
+      rel("r14", "rajdeep", "ishan", "parent"),
+      rel("r15", "nikki", "ishan", "parent"),
+      rel("r16", "ajeet", "serena", "parent"),
+      rel("r17", "nita", "serena", "parent"),
+      rel("r18", "ajeet", "kai", "parent"),
+      rel("r19", "nita", "kai", "parent"),
+      rel("r20", "ajeet", "alena", "parent"),
+      rel("r21", "nita", "alena", "parent"),
+      rel("r22", "sarup", "pammi", "parent"),
+      rel("r23", "gill", "pammi", "parent"),
+      rel("r24", "sarup", "babli", "parent"),
+      rel("r25", "gill", "babli", "parent"),
+      rel("r26", "narinder", "pammi", "spouse"),
+      rel("r27", "pawan", "babli", "spouse"),
+      rel("r28", "pammi", "deepi", "parent"),
+      rel("r29", "pammi", "jugnu", "parent"),
+      rel("r30", "pammi", "monu", "parent"),
+      rel("r31", "deepi", "jashan", "spouse"),
+      rel("r32", "babli", "yashvir", "parent"),
+      rel("r33", "babli", "jasleen", "parent"),
+      rel("r34", "jugnu", "harket", "parent"),
+      rel("r35", "jugnu", "viraj", "parent"),
+      rel("r36", "monu", "veer", "parent"),
+    ];
+
+    const tree = createFamilyTreeLayout(members, relationships, "sanjeet");
+    const byId = new Map(tree.nodes.map((n) => [n.profile.id, n]));
+    const pair = (a: string, b: string) => {
+      const first = byId.get(a);
+      const second = byId.get(b);
+      expect(first).toBeTruthy();
+      expect(second).toBeTruthy();
+      if (!first || !second) throw new Error(`Missing ${a}/${b}`);
+      expect(first.y).toBe(second.y);
+      expect(Math.abs(first.x - second.x)).toBeLessThanOrEqual(180);
+      return { first, second, center: (first.x + second.x) / 2 };
+    };
+
+    const rajdeepNikki = pair("rajdeep", "nikki");
+    const ianJasmine = pair("ian", "jasmine");
+    const ajeetNita = pair("ajeet", "nita");
+    pair("narinder", "pammi");
+    pair("pawan", "babli");
+
+    const ishan = byId.get("ishan")!;
+    const sanjeet = byId.get("sanjeet")!;
+    const brarChildCenter = (ishan.x + sanjeet.x) / 2;
+    expect(Math.abs(brarChildCenter - rajdeepNikki.center)).toBeLessThanOrEqual(150);
+    expect(
+      ishan.x > Math.min(ianJasmine.first.x, ianJasmine.second.x) &&
+        ishan.x < Math.max(ianJasmine.first.x, ianJasmine.second.x)
+    ).toBe(false);
+
+    const mannChildCenter =
+      (byId.get("serena")!.x + byId.get("kai")!.x + byId.get("alena")!.x) / 3;
+    expect(Math.abs(mannChildCenter - ajeetNita.center)).toBeLessThanOrEqual(230);
+
+    const pammiChildren = ["deepi", "jugnu", "monu"].map((id) => byId.get(id)!.x);
+    const babliChildren = ["yashvir", "jasleen"].map((id) => byId.get(id)!.x);
+    expect(
+      Math.max(...pammiChildren) < Math.min(...babliChildren) ||
+        Math.max(...babliChildren) < Math.min(...pammiChildren)
+    ).toBe(true);
+
+    const jugnuChildren = ["harket", "viraj"].map((id) => byId.get(id)!.x);
+    const veer = byId.get("veer")!;
+    expect(
+      veer.x > Math.min(...jugnuChildren) &&
+        veer.x < Math.max(...jugnuChildren)
+    ).toBe(false);
+
+    expect(tree.sibships).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          parents: expect.arrayContaining(["rajdeep", "nikki"]),
+          children: expect.arrayContaining(["ishan", "sanjeet"]),
+        }),
+        expect.objectContaining({
+          parents: expect.arrayContaining(["ajeet", "nita"]),
+          children: expect.arrayContaining(["serena", "kai", "alena"]),
+        }),
+        expect.objectContaining({
+          parents: expect.arrayContaining(["pammi"]),
+          children: expect.arrayContaining(["deepi", "jugnu", "monu"]),
+          railStyle: "stems",
+        }),
+        expect.objectContaining({
+          parents: expect.arrayContaining(["babli"]),
+          children: expect.arrayContaining(["yashvir", "jasleen"]),
+          railStyle: "stems",
+        }),
+        expect.objectContaining({
+          parents: expect.arrayContaining(["jugnu"]),
+          children: expect.arrayContaining(["harket", "viraj"]),
+          railStyle: "stems",
+        }),
+        expect.objectContaining({
+          parents: expect.arrayContaining(["monu"]),
+          children: expect.arrayContaining(["veer"]),
+          railStyle: "stems",
+        }),
+      ])
+    );
+  });
 });

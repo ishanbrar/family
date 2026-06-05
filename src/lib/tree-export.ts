@@ -755,8 +755,71 @@ export async function exportFamilyTreeAsImage({
   // ── Connections ──
   ctx.lineCap = "round";
 
+  const sibshipRailLaneByIndex = new Map<number, number>();
+  {
+    const laneGap = 18;
+    const spanGap = 28;
+    const routes = tree.sibships.map((sib, index) => {
+      const pNodes = sib.parents.map((id) => renderNodeById.get(id)).filter(Boolean) as ExportRenderNode[];
+      const cNodes = sib.children.map((id) => renderNodeById.get(id)).filter(Boolean) as ExportRenderNode[];
+      if (cNodes.length === 0 || sib.railStyle === "none" || sib.railStyle === "rays") return null;
+      if (pNodes.length === 0 && cNodes.length < 2) return null;
+
+      const sortedP = [...pNodes].sort((a, b) => mapX(a) - mapX(b));
+      const sortedC = [...cNodes].sort((a, b) => mapX(a) - mapX(b));
+      const cY = sortedC.reduce((s, c) => s + mapY(c), 0) / sortedC.length;
+      const hasCouple = sortedP.length >= 2;
+      const hasParents = sortedP.length > 0;
+      const pY = hasParents ? sortedP.reduce((s, p) => s + mapY(p), 0) / sortedP.length : cY;
+      const lx = hasParents ? mapX(sortedP[0]) : mapX(sortedC[0]);
+      const rx = hasParents ? mapX(sortedP[sortedP.length - 1]) : mapX(sortedC[sortedC.length - 1]);
+      const ux = hasCouple ? (lx + rx) / 2 : hasParents ? lx : sortedC.reduce((s, c) => s + mapX(c), 0) / sortedC.length;
+      const dropStart = hasCouple ? pY : pY + circleR;
+      const childTop = cY - circleR;
+      const baseRailY = hasParents
+        ? Math.min(
+            childTop - 28,
+            Math.max(dropStart + 28, dropStart + (childTop - dropStart) * 0.72)
+          )
+        : childTop - 28;
+      const minX = Math.min(ux, ...sortedC.map((c) => mapX(c)));
+      const maxX = Math.max(ux, ...sortedC.map((c) => mapX(c)));
+      return { index, baseRailY, dropStart, childTop, minX, maxX };
+    }).filter((route): route is {
+      index: number;
+      baseRailY: number;
+      dropStart: number;
+      childTop: number;
+      minX: number;
+      maxX: number;
+    } => !!route);
+
+    const rows = new Map<number, typeof routes>();
+    for (const route of routes) {
+      const key = Math.round(route.baseRailY / 8) * 8;
+      if (!rows.has(key)) rows.set(key, []);
+      rows.get(key)!.push(route);
+    }
+
+    for (const rowRoutes of rows.values()) {
+      const laneEnds: number[] = [];
+      for (const route of rowRoutes.sort((a, b) => a.minX - b.minX || a.maxX - b.maxX)) {
+        let lane = 0;
+        while (laneEnds[lane] != null && route.minX < laneEnds[lane] + spanGap) {
+          lane++;
+        }
+        laneEnds[lane] = route.maxX;
+        const maxDown = Math.max(0, route.childTop - 14 - route.baseRailY);
+        const maxUp = Math.max(0, route.baseRailY - (route.dropStart + 14));
+        const preferred = lane * laneGap;
+        const offset = preferred <= maxUp ? -preferred : Math.min(maxDown, preferred);
+        sibshipRailLaneByIndex.set(route.index, offset);
+      }
+    }
+  }
+
   // Sibship brackets
-  for (const sib of tree.sibships) {
+  for (const [sibIdx, sib] of tree.sibships.entries()) {
     const pNodes = sib.parents.map((id) => renderNodeById.get(id)).filter(Boolean) as ExportRenderNode[];
     const cNodes = sib.children.map((id) => renderNodeById.get(id)).filter(Boolean) as ExportRenderNode[];
     if (cNodes.length === 0) continue;
@@ -774,12 +837,19 @@ export async function exportFamilyTreeAsImage({
     const ux = hasCouple ? (lx + rx) / 2 : hasParents ? lx : sortedC.reduce((s, c) => s + mapX(c), 0) / sortedC.length;
     const dropStart = hasCouple ? pY : pY + circleR;
     const childTop = cY - circleR;
-    const railY = hasParents
+    const baseRailY = hasParents
       ? Math.min(
           childTop - 28,
           Math.max(dropStart + 28, dropStart + (childTop - dropStart) * 0.72)
         )
       : childTop - 28;
+    const railOffset = sibshipRailLaneByIndex.get(sibIdx) ?? 0;
+    const railY = hasParents
+      ? Math.min(
+          childTop - 14,
+          Math.max(dropStart + 14, baseRailY + railOffset)
+        )
+      : baseRailY + railOffset;
 
     ctx.strokeStyle = "#b8a080";
     ctx.lineWidth = 2;
@@ -790,20 +860,33 @@ export async function exportFamilyTreeAsImage({
       ctx.lineTo(rx - circleR, pY);
     }
 
-    if (hasParents) {
+    if (hasParents && sib.railStyle !== "none" && sib.railStyle !== "rays") {
       ctx.moveTo(ux, dropStart);
       ctx.lineTo(ux, railY);
     }
 
-    const railL = Math.min(ux, ...sortedC.map((c) => mapX(c)));
-    const railR = Math.max(ux, ...sortedC.map((c) => mapX(c)));
-    if (railR - railL > 0.5) {
-      ctx.moveTo(railL, railY);
-      ctx.lineTo(railR, railY);
-    }
-    for (const c of sortedC) {
-      ctx.moveTo(mapX(c), railY);
-      ctx.lineTo(mapX(c), childTop);
+    if (sib.railStyle === "rays") {
+      for (const c of sortedC) {
+        ctx.moveTo(ux, dropStart);
+        ctx.lineTo(mapX(c), childTop);
+      }
+    } else if (sib.railStyle === "stems") {
+      for (const c of sortedC) {
+        ctx.moveTo(ux, railY);
+        ctx.lineTo(mapX(c), railY);
+        ctx.lineTo(mapX(c), childTop);
+      }
+    } else if (sib.railStyle !== "none") {
+      const railL = Math.min(ux, ...sortedC.map((c) => mapX(c)));
+      const railR = Math.max(ux, ...sortedC.map((c) => mapX(c)));
+      if (railR - railL > 0.5) {
+        ctx.moveTo(railL, railY);
+        ctx.lineTo(railR, railY);
+      }
+      for (const c of sortedC) {
+        ctx.moveTo(mapX(c), railY);
+        ctx.lineTo(mapX(c), childTop);
+      }
     }
     ctx.stroke();
   }

@@ -206,6 +206,72 @@ export function FamilyTree({
     return map;
   }, [members]);
 
+  const sibshipRailLaneByIndex = useMemo(() => {
+    const NODE_R = 42;
+    const LANE_GAP = 18;
+    const SPAN_GAP = 28;
+    const routes = sibships.map((sib, index) => {
+      const parentNodes = sib.parents
+        .map((id) => memberById.get(id))
+        .filter(Boolean) as TreeMember[];
+      const childNodes = sib.children
+        .map((id) => memberById.get(id))
+        .filter(Boolean) as TreeMember[];
+      if (childNodes.length === 0 || sib.railStyle === "none" || sib.railStyle === "rays") return null;
+      if (parentNodes.length === 0 && childNodes.length < 2) return null;
+
+      const sortedParents = [...parentNodes].sort((a, b) => a.x - b.x);
+      const sortedChildren = [...childNodes].sort((a, b) => a.x - b.x);
+      const childY = sortedChildren.reduce((sum, child) => sum + child.y, 0) / sortedChildren.length;
+      const parentY = sortedParents.length > 0
+        ? sortedParents.reduce((sum, parent) => sum + parent.y, 0) / sortedParents.length
+        : childY;
+      const hasCouple = sortedParents.length >= 2;
+      const leftParent = sortedParents[0];
+      const rightParent = sortedParents[sortedParents.length - 1];
+      const unionX = hasCouple
+        ? (leftParent.x + rightParent.x) / 2
+        : sortedParents[0]?.x ?? sortedChildren.reduce((sum, child) => sum + child.x, 0) / sortedChildren.length;
+      const dropStartY = hasCouple ? parentY : parentY + NODE_R;
+      const childTopEdge = childY - NODE_R;
+      const baseRailY = sortedParents.length > 0
+        ? Math.min(
+            childTopEdge - 24,
+            Math.max(dropStartY + 24, dropStartY + (childTopEdge - dropStartY) * 0.72)
+          )
+        : childTopEdge - 24;
+      const minX = Math.min(unionX, ...sortedChildren.map((child) => child.x));
+      const maxX = Math.max(unionX, ...sortedChildren.map((child) => child.x));
+      return { index, baseRailY, dropStartY, childTopEdge, minX, maxX };
+    }).filter((route): route is NonNullable<typeof route> => !!route);
+
+    const laneByIndex = new Map<number, number>();
+    const rows = new Map<number, typeof routes>();
+    for (const route of routes) {
+      const key = Math.round(route.baseRailY / 8) * 8;
+      if (!rows.has(key)) rows.set(key, []);
+      rows.get(key)!.push(route);
+    }
+
+    for (const rowRoutes of rows.values()) {
+      const laneEnds: number[] = [];
+      for (const route of rowRoutes.sort((a, b) => a.minX - b.minX || a.maxX - b.maxX)) {
+        let lane = 0;
+        while (laneEnds[lane] != null && route.minX < laneEnds[lane] + SPAN_GAP) {
+          lane++;
+        }
+        laneEnds[lane] = route.maxX;
+        const maxDown = Math.max(0, route.childTopEdge - 14 - route.baseRailY);
+        const maxUp = Math.max(0, route.baseRailY - (route.dropStartY + 14));
+        const preferred = lane * LANE_GAP;
+        const offset = preferred <= maxUp ? -preferred : Math.min(maxDown, preferred);
+        laneByIndex.set(route.index, offset);
+      }
+    }
+
+    return laneByIndex;
+  }, [memberById, sibships]);
+
   const MIN_ZOOM = 0.18;
   const MAX_ZOOM = 3;
   const NODE_VISUAL_RADIUS = 92;
@@ -660,12 +726,19 @@ export function FamilyTree({
             const hasParents = sortedParents.length > 0;
             const dropStartY = hasCouple ? parentY : parentY + NODE_R;
             const childTopEdge = childY - NODE_R;
-            const railY = hasParents
+            const baseRailY = hasParents
               ? Math.min(
                   childTopEdge - 24,
                   Math.max(dropStartY + 24, dropStartY + (childTopEdge - dropStartY) * 0.72)
                 )
               : childTopEdge - 24;
+            const railOffset = sibshipRailLaneByIndex.get(sibIdx) ?? 0;
+            const railY = hasParents
+              ? Math.min(
+                  childTopEdge - 14,
+                  Math.max(dropStartY + 14, baseRailY + railOffset)
+                )
+              : baseRailY + railOffset;
 
             const allIds = [...sib.parents, ...sib.children];
             const bothHighlighted = hasHighlight && allIds.every((id) => highlightedMembers!.has(id));
@@ -673,7 +746,7 @@ export function FamilyTree({
 
             const bracketSegments: string[] = [];
 
-            if (hasParents && sib.railStyle !== "none") {
+            if (hasParents && sib.railStyle !== "none" && sib.railStyle !== "rays") {
               bracketSegments.push(`M ${unionX} ${dropStartY} L ${unionX} ${railY}`);
             }
 
