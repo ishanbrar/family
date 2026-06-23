@@ -176,9 +176,22 @@ describe("addFamilyMember", () => {
       first_name: "Test",
       middle_name: "Optional",
       last_name: "Member",
-      family_id: "family-id",
+      display_name: null,
       gender: "male",
+      avatar_url: null,
+      date_of_birth: null,
+      place_of_birth: null,
+      profession: null,
+      location_city: null,
+      location_lat: null,
+      location_lng: null,
+      pets: [],
+      social_links: {},
+      about_me: null,
+      country_code: null,
       role: "MEMBER",
+      is_alive: true,
+      family_id: "family-id",
     });
 
     expect(profile?.first_name).toBe("Test");
