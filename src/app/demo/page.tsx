@@ -304,6 +304,7 @@ export default function DemoPage() {
               sibships={treeLayout?.sibships || []}
               highlightedMembers={highlightedIds} dimNonHighlighted={!!store.relatedByFilter}
               viewerId={viewer.id}
+              enableLargeFamilyMode={false}
               showPercentages={showPercentages}
               showRelationLabels={showRelationLabels}
               showLastNames={showLastNames}

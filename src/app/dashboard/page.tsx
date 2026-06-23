@@ -45,7 +45,9 @@ import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import type { Profile, RelationshipType } from "@/lib/types";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
+import { createFocusedFamilyTreeLayout } from "@/lib/focused-family-layout";
 import { createGenerationAnalytics } from "@/lib/generation-insights";
+import { cn } from "@/lib/cn";
 import { exportFamilyTreeAsImage, type ExportSideContent, type FamilyTreeExportOptions } from "@/lib/tree-export";
 import { shouldPromptPostJoinLink } from "@/lib/flow-readiness";
 import {
@@ -95,6 +97,7 @@ export default function DashboardPage() {
   const [globeSize, setGlobeSize] = useState(360);
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
+  const [treeViewMode, setTreeViewMode] = useState<"close" | "whole">("whole");
   const [showPercentages, setShowPercentages] = useState(false);
   const [showRelationLabels, setShowRelationLabels] = useState(true);
   const [showLastNames, setShowLastNames] = useState(true);
@@ -145,21 +148,30 @@ export default function DashboardPage() {
   );
 
   // ── Build tree members ──────────────────────────
+  // The whole-family layout always backs the summary stats + generation
+  // insights so toggling the close/whole view never changes those numbers.
   const treeLayout = useMemo(() => {
     if (!viewer) return { nodes: [], connections: [], sibships: [], width: 800, height: 560 };
     return createFamilyTreeLayout(members, relationships, viewer.id);
   }, [viewer, members, relationships]);
 
+  const closeTreeLayout = useMemo(() => {
+    if (!viewer) return { nodes: [], connections: [], sibships: [], width: 800, height: 560 };
+    return createFocusedFamilyTreeLayout(members, relationships, viewer.id);
+  }, [viewer, members, relationships]);
+
+  const displayTreeLayout = treeViewMode === "close" ? closeTreeLayout : treeLayout;
+
   const treeMembers = useMemo(() => {
     if (!viewer) return [];
-    return treeLayout.nodes.map((n) => ({
+    return displayTreeLayout.nodes.map((n) => ({
       profile: n.profile,
       match: calculateGeneticMatch(viewer.id, n.profile.id, relationships, n.profile.gender, family?.relation_language, members),
       x: n.x,
       y: n.y,
       generation: n.generation,
     }));
-  }, [viewer, treeLayout.nodes, relationships, family?.relation_language, members]);
+  }, [viewer, displayTreeLayout.nodes, relationships, family?.relation_language, members]);
 
   const generationAnalytics = useMemo(
     () => createGenerationAnalytics(treeLayout.nodes),
@@ -1119,6 +1131,35 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              <div className="mb-4 inline-flex rounded-xl border border-white/[0.1] bg-white/[0.035] p-1">
+                <button
+                  type="button"
+                  onClick={() => setTreeViewMode("close")}
+                  aria-pressed={treeViewMode === "close"}
+                  className={cn(
+                    "h-9 rounded-lg px-3 text-xs font-medium transition-colors",
+                    treeViewMode === "close"
+                      ? "bg-gold-400/15 text-gold-300"
+                      : "text-white/52 hover:bg-white/[0.05] hover:text-white/82"
+                  )}
+                >
+                  Close Family
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTreeViewMode("whole")}
+                  aria-pressed={treeViewMode === "whole"}
+                  className={cn(
+                    "h-9 rounded-lg px-3 text-xs font-medium transition-colors",
+                    treeViewMode === "whole"
+                      ? "bg-gold-400/15 text-gold-300"
+                      : "text-white/52 hover:bg-white/[0.05] hover:text-white/82"
+                  )}
+                >
+                  Whole Family
+                </button>
+              </div>
+
               {filterMember && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
@@ -1137,11 +1178,13 @@ export default function DashboardPage() {
 
               <FamilyTree
                 members={treeMembers}
-                sibships={treeLayout.sibships}
-                connections={treeLayout.connections}
+                sibships={displayTreeLayout.sibships}
+                connections={displayTreeLayout.connections}
                 highlightedMembers={highlightedIds}
                 dimNonHighlighted={!!relatedByFilter}
                 viewerId={viewer.id}
+                povId={treeViewMode === "close" ? viewer.id : undefined}
+                enableLargeFamilyMode={treeViewMode === "whole"}
                 showPercentages={showPercentages}
                 showRelationLabels={showRelationLabels}
                 showLastNames={showLastNames}
@@ -1151,8 +1194,8 @@ export default function DashboardPage() {
                 showCurrentCountryFlag={showCurrentCountryFlag}
                 onMemberClick={(id) => navigateToProfile(id)}
                 onBackgroundClick={() => router.push("/tree")}
-                canvasWidth={treeLayout.width}
-                canvasHeight={treeLayout.height}
+                canvasWidth={displayTreeLayout.width}
+                canvasHeight={displayTreeLayout.height}
                 fitPadding={32}
               />
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2.5">

@@ -294,6 +294,7 @@ export default function DemoTreePage() {
               highlightedMembers={highlightedIds}
               dimNonHighlighted={!!relatedByFilter}
               viewerId={viewer.id}
+              enableLargeFamilyMode={false}
               showPercentages={showPercentages}
               showRelationLabels={showRelationLabels}
               showLastNames={showLastNames}

@@ -276,6 +276,7 @@ export default function DemoHealthPage() {
                 connections={treeLayout.connections}
                 sibships={treeLayout.sibships}
                 viewerId={viewer.id}
+                enableLargeFamilyMode={false}
                 showPercentages
                 showRelationLabels
                 showLastNames
