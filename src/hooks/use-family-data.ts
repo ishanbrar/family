@@ -55,7 +55,12 @@ import {
 import { isConfigured as isSupabaseConfigured } from "@/lib/supabase/config";
 import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
 import { disableDevSuperAdmin, isDevSuperAdminClient } from "@/lib/dev-auth";
-import { isFamilyDataCacheFresh } from "@/lib/family-data-cache";
+import {
+  clearPersistedFamilyData,
+  isFamilyDataCacheFresh,
+  loadPersistedFamilyData,
+  savePersistedFamilyData,
+} from "@/lib/family-data-cache";
 import { inferRelationshipsForNewLink } from "@/lib/relationship-inference";
 import {
   MOCK_PROFILES,
@@ -363,7 +368,29 @@ function useFamilyDataController(): FamilyDataContextValue {
 
   const writeSnapshot = useCallback(
     (snapshot: Omit<FamilyDataSnapshot, "updatedAt">) => {
-      familyDataCache = { ...snapshot, updatedAt: Date.now() };
+      const updatedAt = Date.now();
+      familyDataCache = { ...snapshot, updatedAt };
+
+      // Persist a non-sensitive subset to the device so the tree renders
+      // instantly next session. Medical/genetic data (conditions +
+      // userConditions) is deliberately excluded. Only real (online) data for a
+      // signed-in viewer is persisted; mock/signed-out states clear the cache.
+      const userKey = snapshot.viewer?.id ?? null;
+      if (snapshot.isOnline && userKey) {
+        savePersistedFamilyData(userKey, {
+          viewer: snapshot.viewer,
+          family: snapshot.family,
+          inviteCodes: snapshot.inviteCodes,
+          auditLogs: snapshot.auditLogs,
+          members: snapshot.members,
+          relationships: snapshot.relationships,
+          isOnline: snapshot.isOnline,
+          familyId: snapshot.familyId,
+          updatedAt,
+        });
+      } else {
+        clearPersistedFamilyData();
+      }
     },
     []
   );
@@ -414,6 +441,32 @@ function useFamilyDataController(): FamilyDataContextValue {
 
   const loadData = useCallback(async (options?: { force?: boolean }) => {
     const force = options?.force === true;
+
+    // Cold start: seed the in-memory cache from the on-device snapshot so the
+    // tree paints immediately. The persisted bundle is typically older than the
+    // stale window, so the stale-while-revalidate path below still refetches in
+    // the background and fills in the excluded medical/genetic data.
+    if (!force && !familyDataCache) {
+      const persisted = loadPersistedFamilyData();
+      if (persisted) {
+        familyDataCache = {
+          viewer: persisted.data.viewer,
+          family: persisted.data.family,
+          inviteCodes: persisted.data.inviteCodes,
+          auditLogs: persisted.data.auditLogs,
+          members: persisted.data.members,
+          relationships: persisted.data.relationships,
+          conditions: [],
+          userConditions: [],
+          isOnline: persisted.data.isOnline,
+          familyId: persisted.data.familyId,
+          // Force staleness: render instantly from disk, but always revalidate
+          // so the excluded medical/genetic data is fetched and filled in.
+          updatedAt: 0,
+        };
+      }
+    }
+
     if (!force && familyDataCache && isFamilyDataCacheFresh(familyDataCache.updatedAt)) {
       hydrateFromSnapshot(familyDataCache);
       return;
@@ -1364,6 +1417,10 @@ function useFamilyDataController(): FamilyDataContextValue {
   );
 
   const signOut = useCallback(async () => {
+    // Drop the on-device family bundle so a different account on this device
+    // never sees the previous user's cached tree.
+    familyDataCache = null;
+    clearPersistedFamilyData();
     if (isDevSuperAdminClient()) {
       disableDevSuperAdmin();
       window.location.href = "/login";
