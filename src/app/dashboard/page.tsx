@@ -20,6 +20,10 @@ import {
   Download,
   MoreHorizontal,
   Loader2,
+  Share2,
+  Copy,
+  Check,
+  Link2,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -99,6 +103,8 @@ export default function DashboardPage() {
   const [showBirthCountryFlag, setShowBirthCountryFlag] = useState(false);
   const [showCurrentCountryFlag, setShowCurrentCountryFlag] = useState(false);
   const [moreActionsOpen, setMoreActionsOpen] = useState(false);
+  const [shareActionsOpen, setShareActionsOpen] = useState(false);
+  const [copiedShareItem, setCopiedShareItem] = useState<"code" | "link" | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportScope, setExportScope] = useState<"entire" | "related">("entire");
   const [exportingTree, setExportingTree] = useState(false);
@@ -114,6 +120,7 @@ export default function DashboardPage() {
   const [onboardingSnoozedUntil, setOnboardingSnoozedUntil] = useState<number | null>(null);
   const [postJoinLinkOnlyRequired, setPostJoinLinkOnlyRequired] = useState(false);
   const moreActionsRef = useRef<HTMLDivElement | null>(null);
+  const shareActionsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const host = globeHostRef.current;
@@ -271,18 +278,22 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
-    if (!moreActionsOpen) return;
+    if (!moreActionsOpen && !shareActionsOpen) return;
 
     const handleOutsideClick = (event: MouseEvent) => {
-      if (!moreActionsRef.current) return;
-      if (!moreActionsRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (moreActionsRef.current && !moreActionsRef.current.contains(target)) {
         setMoreActionsOpen(false);
+      }
+      if (shareActionsRef.current && !shareActionsRef.current.contains(target)) {
+        setShareActionsOpen(false);
       }
     };
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMoreActionsOpen(false);
+        setShareActionsOpen(false);
       }
     };
 
@@ -292,7 +303,7 @@ export default function DashboardPage() {
       document.removeEventListener("mousedown", handleOutsideClick);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, [moreActionsOpen]);
+  }, [moreActionsOpen, shareActionsOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !viewer?.id) return;
@@ -384,6 +395,20 @@ export default function DashboardPage() {
   }, []);
 
   const canExportRelated = !!relatedByFilter && highlightedIds.size > 0;
+  const primaryInviteCode = useMemo(() => {
+    const activeCodes = inviteCodes.filter((code) => code.is_active);
+    const primary =
+      activeCodes.find((code) => code.code === family?.invite_code) ||
+      activeCodes[0];
+    return primary?.code || family?.invite_code || "";
+  }, [family?.invite_code, inviteCodes]);
+  const primaryInviteLink = useMemo(() => {
+    if (!primaryInviteCode) return "";
+    const path = `/join?code=${encodeURIComponent(primaryInviteCode)}`;
+    if (typeof window === "undefined") return path;
+    return `${window.location.origin}${path}`;
+  }, [primaryInviteCode]);
+
   const handleOpenExportModal = useCallback(() => {
     if (!canExportRelated) setExportScope("entire");
     setExportError(null);
@@ -393,6 +418,19 @@ export default function DashboardPage() {
     }));
     setExportModalOpen(true);
   }, [canExportRelated, members, viewer?.id]);
+
+  const copyShareText = useCallback(async (text: string, item: "code" | "link") => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedShareItem(item);
+      window.setTimeout(() => {
+        setCopiedShareItem((current) => (current === item ? null : current));
+      }, 1400);
+    } catch (err) {
+      console.error("[Dashboard] Could not copy share text:", err);
+    }
+  }, []);
 
   const toggleExportSideContent = useCallback((content: ExportSideContent) => {
     setExportOptions((prev) => {
@@ -816,11 +854,107 @@ export default function DashboardPage() {
                 </motion.button>
               )}
 
+              <div className="relative" ref={shareActionsRef}>
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  type="button"
+                  onClick={() => {
+                    setShareActionsOpen((prev) => !prev);
+                    setMoreActionsOpen(false);
+                  }}
+                  className="app-control inline-flex items-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl active:scale-[0.99] touch-target-44"
+                  aria-haspopup="menu"
+                  aria-expanded={shareActionsOpen}
+                >
+                  <Share2 size={15} />
+                  Share
+                </motion.button>
+
+                {shareActionsOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full mt-2 w-[min(320px,calc(100vw-2rem))] rounded-xl app-popover border border-white/[0.12] p-2 shadow-2xl z-40"
+                  >
+                    <div className="px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wider text-white/35">Family Invite Code</p>
+                      {primaryInviteCode ? (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <code className="min-w-0 flex-1 truncate font-mono text-sm tracking-[0.12em] text-gold-300">
+                            {primaryInviteCode}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => copyShareText(primaryInviteCode, "code")}
+                            className="app-control app-icon-button flex items-center justify-center"
+                            aria-label="Copy family invite code"
+                            title="Copy invite code"
+                          >
+                            {copiedShareItem === "code" ? <Check size={14} /> : <Copy size={14} />}
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-white/40">No active invite code available.</p>
+                      )}
+                    </div>
+
+                    <div className="px-3 py-2 border-t border-white/[0.06]">
+                      <p className="text-[10px] uppercase tracking-wider text-white/35">Invite Link</p>
+                      {primaryInviteLink ? (
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <div className="min-w-0 flex-1 truncate text-xs text-white/58">
+                            {primaryInviteLink}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => copyShareText(primaryInviteLink, "link")}
+                            className="app-control app-icon-button flex items-center justify-center"
+                            aria-label="Copy family invite link"
+                            title="Copy invite link"
+                          >
+                            {copiedShareItem === "link" ? <Check size={14} /> : <Link2 size={14} />}
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="mt-1.5 text-xs text-white/40">Create an invite code to generate a link.</p>
+                      )}
+                    </div>
+
+                    {family && viewer.role === "ADMIN" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShareActionsOpen(false);
+                          setInviteModalOpen(true);
+                        }}
+                        className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/78 hover:text-white/92 hover:bg-white/[0.05] transition-colors inline-flex items-center gap-2"
+                      >
+                        <MailPlus size={14} />
+                        Manage Invites
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShareActionsOpen(false);
+                        handleOpenExportModal();
+                      }}
+                      className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/78 hover:text-white/92 hover:bg-white/[0.05] transition-colors inline-flex items-center gap-2"
+                    >
+                      <Download size={14} />
+                      Export Tree
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="relative" ref={moreActionsRef}>
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   type="button"
-                  onClick={() => setMoreActionsOpen((prev) => !prev)}
+                  onClick={() => {
+                    setMoreActionsOpen((prev) => !prev);
+                    setShareActionsOpen(false);
+                  }}
                   className="app-control inline-flex items-center gap-2 h-10 min-h-[44px] px-3.5 rounded-xl active:scale-[0.99] touch-target-44"
                   aria-haspopup="menu"
                   aria-expanded={moreActionsOpen}
@@ -867,16 +1001,6 @@ export default function DashboardPage() {
                       className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/78 hover:text-white/92 hover:bg-white/[0.05] transition-colors"
                     >
                       Modify Relationships
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMoreActionsOpen(false);
-                        handleOpenExportModal();
-                      }}
-                      className="w-full px-3 py-2.5 rounded-lg text-left text-sm text-white/78 hover:text-white/92 hover:bg-white/[0.05] transition-colors"
-                    >
-                      Export Tree
                     </button>
                   </div>
                 )}

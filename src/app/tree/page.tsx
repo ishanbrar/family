@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   GitBranch,
   Loader2,
@@ -19,6 +19,7 @@ import {
   Users,
   Download,
   ChevronDown,
+  LocateFixed,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -34,7 +35,8 @@ import { useFamilyData } from "@/hooks/use-family-data";
 import { useFamilyStore } from "@/store/family-store";
 import { calculateGeneticMatch, findBloodRelatives } from "@/lib/genetic-match";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
-import { exportFamilyTreeAsImage, type ExportSideContent, type FamilyTreeExportOptions } from "@/lib/tree-export";
+import { createFocusedFamilyTreeLayout } from "@/lib/focused-family-layout";
+import { exportFamilyTreesAsPdf, type ExportSideContent, type FamilyTreeExportOptions, type FamilyTreePdfExportItem } from "@/lib/tree-export";
 import type { Profile, RelationshipType } from "@/lib/types";
 import {
   calculateAgeFromDateOnly,
@@ -61,8 +63,11 @@ function mapQueryForMember(member: Profile): string | null {
   return member.location_city || member.place_of_birth || null;
 }
 
+type TreeExportTarget = "close" | "whole" | "both";
+
 export default function TreeExplorerPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const {
     viewer,
     family,
@@ -97,6 +102,8 @@ export default function TreeExplorerPage() {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportingTree, setExportingTree] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [exportTarget, setExportTarget] = useState<TreeExportTarget>("close");
+  const [exportClosePersonId, setExportClosePersonId] = useState("");
   const [exportOptions, setExportOptions] = useState<FamilyTreeExportOptions>({
     showBirthDates: true,
     showDeathDates: true,
@@ -106,21 +113,40 @@ export default function TreeExplorerPage() {
     profileMemberId: null,
   });
 
-  const treeLayout = useMemo(() => {
+  const requestedView = searchParams.get("view");
+  const treeViewMode: "close" | "whole" = requestedView === "whole" ? "whole" : "close";
+  const requestedPersonId = searchParams.get("person");
+  const focusedPerson = useMemo(() => {
+    if (!viewer) return null;
+    return members.find((member) => member.id === requestedPersonId) || viewer;
+  }, [members, requestedPersonId, viewer]);
+  const focusedPersonId = focusedPerson?.id || viewer?.id || null;
+
+  const wholeTreeLayout = useMemo(() => {
     if (!viewer) return { nodes: [], connections: [], sibships: [], width: 900, height: 620 };
     return createFamilyTreeLayout(members, relationships, viewer.id);
   }, [viewer, members, relationships]);
 
+  const closeTreeLayout = useMemo(() => {
+    if (!viewer || !focusedPersonId) {
+      return { nodes: [], connections: [], sibships: [], width: 900, height: 620, scopeMemberIds: new Set<string>() };
+    }
+    return createFocusedFamilyTreeLayout(members, relationships, focusedPersonId);
+  }, [focusedPersonId, members, relationships, viewer]);
+
+  const treeLayout = treeViewMode === "close" ? closeTreeLayout : wholeTreeLayout;
+  const activeRootId = treeViewMode === "close" ? focusedPersonId : viewer?.id;
+
   const treeMembers = useMemo(() => {
-    if (!viewer) return [];
+    if (!viewer || !activeRootId) return [];
     return treeLayout.nodes.map((node) => ({
       profile: node.profile,
-      match: calculateGeneticMatch(viewer.id, node.profile.id, relationships, node.profile.gender, family?.relation_language, members),
+      match: calculateGeneticMatch(activeRootId, node.profile.id, relationships, node.profile.gender, family?.relation_language, members),
       x: node.x,
       y: node.y,
       generation: node.generation,
     }));
-  }, [viewer, treeLayout.nodes, relationships, family?.relation_language, members]);
+  }, [activeRootId, viewer, treeLayout.nodes, relationships, family?.relation_language, members]);
 
   const highlightedIds = useMemo(() => {
     if (!relatedByFilter) return new Set<string>();
@@ -157,6 +183,25 @@ export default function TreeExplorerPage() {
     setSelectedMemberId(memberId);
   }, []);
 
+  const closeTreeHref = useCallback((personId: string) => {
+    return `/tree?view=close&person=${encodeURIComponent(personId)}`;
+  }, []);
+
+  const handleViewModeChange = useCallback((nextMode: "close" | "whole") => {
+    const personPart = focusedPersonId ? `&person=${encodeURIComponent(focusedPersonId)}` : "";
+    router.push(`/tree?view=${nextMode}${personPart}`);
+  }, [focusedPersonId, router]);
+
+  const handleFocusedPersonChange = useCallback((personId: string) => {
+    router.push(closeTreeHref(personId));
+    setSelectedMemberId(null);
+  }, [closeTreeHref, router]);
+
+  const handleViewMemberTree = useCallback((personId: string) => {
+    router.push(closeTreeHref(personId));
+    setSelectedMemberId(null);
+  }, [closeTreeHref, router]);
+
   const canEditTitle = viewer?.role === "ADMIN" && !!family;
   const familyTreeTitle = useMemo(() => {
     const raw = (family?.name || `${viewer?.last_name || "Family"}`).trim();
@@ -192,12 +237,14 @@ export default function TreeExplorerPage() {
 
   const openExportModal = useCallback(() => {
     setExportError(null);
+    setExportTarget(treeViewMode === "whole" ? "whole" : "close");
+    setExportClosePersonId(focusedPersonId || viewer?.id || members[0]?.id || "");
     setExportOptions((prev) => ({
       ...prev,
       profileMemberId: prev.profileMemberId || selectedMemberId || viewer?.id || members[0]?.id || null,
     }));
     setExportModalOpen(true);
-  }, [members, selectedMemberId, viewer?.id]);
+  }, [focusedPersonId, members, selectedMemberId, treeViewMode, viewer?.id]);
 
   const toggleExportSideContent = useCallback((content: ExportSideContent) => {
     setExportOptions((prev) => {
@@ -213,22 +260,58 @@ export default function TreeExplorerPage() {
     setExportingTree(true);
     setExportError(null);
     try {
-      await exportFamilyTreeAsImage({
-        familyName: family?.name || `${viewer.last_name || "Family"} Family Tree`,
-        members,
-        relationships,
-        rootId: viewer.id,
-        scope: "entire",
-        scopeLabel: "Family Tree",
-        exportOptions,
-      });
+      const familyName = family?.name || `${viewer.last_name || "Family"} Family Tree`;
+      const pdfItems: FamilyTreePdfExportItem[] = [];
+
+      if (exportTarget === "close" || exportTarget === "both") {
+        const closeRootId = exportClosePersonId || focusedPersonId || viewer.id;
+        const closeRoot = members.find((member) => member.id === closeRootId) || viewer;
+        const closeLayout = createFocusedFamilyTreeLayout(members, relationships, closeRootId);
+        const closeIds = new Set(closeLayout.nodes.map((node) => node.profile.id));
+        const closeMembers = members.filter((member) => closeIds.has(member.id));
+        const closeRelationships = relationships.filter(
+          (relationship) =>
+            closeIds.has(relationship.user_id) &&
+            closeIds.has(relationship.relative_id)
+        );
+
+        if (closeMembers.length === 0) {
+          throw new Error("No members are available in the selected close-family tree.");
+        }
+
+        pdfItems.push({
+          familyName,
+          members: closeMembers,
+          relationships: closeRelationships,
+          rootId: closeRootId,
+          scope: "related",
+          scopeLabel: `Close Family: ${formatProfileFullName(closeRoot)}`,
+          layoutMode: "close",
+          exportOptions,
+        });
+      }
+
+      if (exportTarget === "whole" || exportTarget === "both") {
+        pdfItems.push({
+          familyName,
+          members,
+          relationships,
+          rootId: viewer.id,
+          scope: "entire",
+          scopeLabel: "Whole Family Tree",
+          layoutMode: "whole",
+          exportOptions,
+        });
+      }
+
+      await exportFamilyTreesAsPdf(pdfItems);
       setExportModalOpen(false);
     } catch (err) {
-      setExportError(err instanceof Error ? err.message : "Could not export tree image.");
+      setExportError(err instanceof Error ? err.message : "Could not export tree PDF.");
     } finally {
       setExportingTree(false);
     }
-  }, [viewer, family?.name, members, relationships, exportOptions]);
+  }, [viewer, family?.name, exportTarget, exportClosePersonId, focusedPersonId, members, relationships, exportOptions]);
 
   if (loading) {
     return <LegatreeLoader fullScreen label="Loading family tree..." />;
@@ -295,10 +378,78 @@ export default function TreeExplorerPage() {
               <div className="px-5 py-4 border-b border-white/[0.06]">
                 <h3 id="export-tree-title" className="font-serif text-lg text-white/92">Export Family Tree</h3>
                 <p className="text-xs text-white/40 mt-1">
-                  Choose labels, portraits, and the side content to include in the landscape export.
+                  Choose which tree views to include. Exports are generated as high-resolution PDF pages.
                 </p>
               </div>
               <div className="px-5 py-4 flex-1 min-h-0 overflow-y-auto space-y-5">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-white/42 mb-2">Tree Views</p>
+                  <div className="grid sm:grid-cols-3 gap-2.5">
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tree-export-target"
+                        checked={exportTarget === "close"}
+                        onChange={() => setExportTarget("close")}
+                        className="mt-0.5 h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span>
+                        <span className="block text-sm text-white/86">Close tree</span>
+                        <span className="block text-[11px] text-white/36 mt-0.5">Focused relatives around one person.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tree-export-target"
+                        checked={exportTarget === "whole"}
+                        onChange={() => setExportTarget("whole")}
+                        className="mt-0.5 h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span>
+                        <span className="block text-sm text-white/86">Whole tree</span>
+                        <span className="block text-[11px] text-white/36 mt-0.5">All members in one large page.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2.5 p-3 rounded-xl border border-white/[0.1] bg-white/[0.02] cursor-pointer">
+                      <input
+                        type="radio"
+                        name="tree-export-target"
+                        checked={exportTarget === "both"}
+                        onChange={() => setExportTarget("both")}
+                        className="mt-0.5 h-4 w-4 text-gold-400 bg-white/[0.04] border-white/[0.2]"
+                      />
+                      <span>
+                        <span className="block text-sm text-white/86">Both</span>
+                        <span className="block text-[11px] text-white/36 mt-0.5">Close tree first, whole tree second.</span>
+                      </span>
+                    </label>
+                  </div>
+
+                  {(exportTarget === "close" || exportTarget === "both") && (
+                    <div className="mt-3">
+                      <label htmlFor="export-close-person" className="block text-[11px] uppercase tracking-wider text-white/42 mb-1.5">
+                        Close tree POV
+                      </label>
+                      <select
+                        id="export-close-person"
+                        value={exportClosePersonId || focusedPersonId || viewer.id}
+                        onChange={(event) => setExportClosePersonId(event.target.value)}
+                        className="h-10 w-full rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-white/82 outline-none"
+                      >
+                        {members
+                          .slice()
+                          .sort((a, b) => formatProfileFullName(a).localeCompare(formatProfileFullName(b)))
+                          .map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {formatProfileFullName(member)}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <p className="text-[11px] uppercase tracking-wider text-white/42 mb-2">People</p>
                   <div className="grid sm:grid-cols-2 gap-2.5">
@@ -442,7 +593,7 @@ export default function TreeExplorerPage() {
                     hover:bg-gold-400/20 disabled:opacity-40 transition-colors"
                 >
                   {exportingTree ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                  Download Image
+                  Download PDF
                 </button>
               </div>
             </motion.div>
@@ -463,7 +614,9 @@ export default function TreeExplorerPage() {
               {familyTreeTitle}
             </Link>
             <p className="text-sm text-white/40 mt-1 hidden sm:block">
-              Browse your full family graph. Hover a member for quick info, click a member for detailed side panel.
+              {treeViewMode === "close" && focusedPerson
+                ? `Close family view for ${formatProfileFullName(focusedPerson)}. Switch POV to understand another person's branch.`
+                : "Browse your full family graph. Hover a member for quick info, click a member for detailed side panel."}
             </p>
             {editingTitle && canEditTitle && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -558,6 +711,73 @@ export default function TreeExplorerPage() {
           </div>
         </motion.div>
 
+        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex rounded-xl border border-white/[0.1] bg-white/[0.035] p-1">
+              <button
+                type="button"
+                onClick={() => handleViewModeChange("close")}
+                aria-pressed={treeViewMode === "close"}
+                className={cn(
+                  "h-9 rounded-lg px-3 text-xs font-medium transition-colors",
+                  treeViewMode === "close"
+                    ? "bg-gold-400/15 text-gold-300"
+                    : "text-white/52 hover:bg-white/[0.05] hover:text-white/82"
+                )}
+              >
+                Close Family
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewModeChange("whole")}
+                aria-pressed={treeViewMode === "whole"}
+                className={cn(
+                  "h-9 rounded-lg px-3 text-xs font-medium transition-colors",
+                  treeViewMode === "whole"
+                    ? "bg-gold-400/15 text-gold-300"
+                    : "text-white/52 hover:bg-white/[0.05] hover:text-white/82"
+                )}
+              >
+                Whole Family
+              </button>
+            </div>
+
+            {treeViewMode === "close" && focusedPerson && (
+              <button
+                type="button"
+                onClick={() => handleFocusedPersonChange(viewer.id)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.03] px-3 text-xs text-white/62 transition-colors hover:bg-white/[0.055] hover:text-white/86"
+              >
+                <LocateFixed size={13} />
+                Reset to my tree
+              </button>
+            )}
+          </div>
+
+          {treeViewMode === "close" && focusedPerson && (
+            <div className="flex min-w-0 flex-col gap-1 sm:w-[min(420px,45vw)]">
+              <label htmlFor="close-family-pov" className="text-[10px] font-medium uppercase tracking-wider text-white/35">
+                POV
+              </label>
+              <select
+                id="close-family-pov"
+                value={focusedPerson.id}
+                onChange={(event) => handleFocusedPersonChange(event.target.value)}
+                className="h-10 w-full rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-white/82 outline-none"
+              >
+                {members
+                  .slice()
+                  .sort((a, b) => formatProfileFullName(a).localeCompare(formatProfileFullName(b)))
+                  .map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {formatProfileFullName(member)}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+        </div>
+
         {filterMember && (
           <div className="mb-4 rounded-xl border border-gold-400/20 bg-gold-400/[0.08] px-4 py-3 text-xs text-white/70">
             Highlighting blood relatives of <span className="text-gold-300 font-medium">{formatProfileFullName(filterMember)}</span>
@@ -573,7 +793,7 @@ export default function TreeExplorerPage() {
                 <p className="text-xs text-white/35 mt-0.5">Click empty space to collapse the detail panel</p>
               </div>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.1] text-[11px] text-white/60">
-                <GitBranch size={12} /> {members.length} members
+                <GitBranch size={12} /> {treeMembers.length} shown
               </span>
             </div>
 
@@ -584,6 +804,10 @@ export default function TreeExplorerPage() {
               highlightedMembers={highlightedIds}
               dimNonHighlighted={!!relatedByFilter}
               viewerId={viewer.id}
+              povId={treeViewMode === "close" ? focusedPersonId ?? undefined : undefined}
+              povBadgeLabel="POV"
+              enableLargeFamilyMode={treeViewMode === "whole"}
+              showMinimap={treeViewMode === "whole"}
               showPercentages={showPercentages}
               showRelationLabels={showRelationLabels}
               showLastNames={showLastNames}
@@ -690,8 +914,18 @@ export default function TreeExplorerPage() {
                   )}
 
                   <button
+                    type="button"
+                    onClick={() => handleViewMemberTree(selectedMember.id)}
+                    className="mt-4 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.035] text-sm text-white/72 transition-colors hover:bg-white/[0.06] hover:text-white/90"
+                  >
+                    <GitBranch size={14} />
+                    View Their Tree
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => router.push(`/profile/${selectedMember.id}`)}
-                    className="mt-4 w-full h-10 rounded-xl bg-gold-400/14 border border-gold-400/25 text-sm text-gold-300 hover:bg-gold-400/20 transition-colors"
+                    className="mt-2 h-10 w-full rounded-xl border border-gold-400/25 bg-gold-400/14 text-sm text-gold-300 transition-colors hover:bg-gold-400/20"
                   >
                     Open Full Profile
                   </button>

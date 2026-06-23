@@ -23,6 +23,7 @@ import {
   Loader2,
   PawPrint,
   ImagePlus,
+  GitBranch,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -260,14 +261,25 @@ export default function MemberProfilePage({
               </p>
             </div>
           </div>
-          {canEdit && (
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              onClick={() => setEditOpen(true)}
-              className="self-start flex items-center gap-2 px-4 py-2 rounded-xl bg-gold-400/10 text-gold-300 text-sm font-medium hover:bg-gold-400/15 transition-colors">
-              <Edit3 size={14} />
-              {isViewer ? "Edit Profile" : "Edit (Admin)"}
+          <div className="flex flex-wrap items-center gap-2 self-start">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push(`/tree?view=close&person=${encodeURIComponent(member.id)}`)}
+              className="flex items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.035] px-4 py-2 text-sm font-medium text-white/70 transition-colors hover:bg-white/[0.06] hover:text-white/90"
+            >
+              <GitBranch size={14} />
+              View Their Tree
             </motion.button>
-          )}
+            {canEdit && (
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                onClick={() => setEditOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gold-400/10 text-gold-300 text-sm font-medium hover:bg-gold-400/15 transition-colors">
+                <Edit3 size={14} />
+                {isViewer ? "Edit Profile" : "Edit (Admin)"}
+              </motion.button>
+            )}
+          </div>
         </motion.div>
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">

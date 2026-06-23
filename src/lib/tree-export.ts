@@ -2,10 +2,12 @@ import { geoGraticule10, geoNaturalEarth1, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import { findCityByInput, getCityCoordinates } from "@/lib/cities";
 import { createFamilyTreeLayout } from "@/lib/tree-layout";
+import { createFocusedFamilyTreeLayout } from "@/lib/focused-family-layout";
 import { formatDateOnly, formatGenderLabel, formatProfileFullName, getProfileInitials } from "@/lib/display-format";
 import type { Profile, Relationship } from "@/lib/types";
 
 type ExportScope = "entire" | "related";
+type ExportLayoutMode = "whole" | "close";
 export type ExportNameMode = "full" | "display";
 export type ExportAvatarMode = "headshot" | "initials";
 export type ExportSideContent = "worldMap" | "countries" | "profile";
@@ -26,10 +28,13 @@ interface ExportFamilyTreeImageOptions {
   rootId: string;
   scope: ExportScope;
   scopeLabel: string;
+  layoutMode?: ExportLayoutMode;
   /** Use oldest ancestor as root for classic top-down pedigree layout. */
   preferAncestorRoot?: boolean;
   exportOptions?: Partial<FamilyTreeExportOptions>;
 }
+
+export type FamilyTreePdfExportItem = ExportFamilyTreeImageOptions;
 
 type CountryFeature = {
   type: "Feature";
@@ -69,10 +74,21 @@ function sanitizeFileName(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function titleFamilyName(name: string): string {
+function titleFamilyTreeName(name: string): string {
   const trimmed = name.trim();
-  if (!trimmed) return "Family";
-  return /family$/i.test(trimmed) ? trimmed : `${trimmed} Family`;
+  if (!trimmed) return "Family Tree";
+  if (/family tree$/i.test(trimmed)) return trimmed;
+  if (/tree$/i.test(trimmed)) return trimmed;
+  if (/family$/i.test(trimmed)) return `${trimmed} Tree`;
+  return `${trimmed} Family Tree`;
+}
+
+function exportSubtitleFromScope(scopeLabel: string): string {
+  const trimmed = scopeLabel.trim();
+  if (!trimmed || /^family tree$/i.test(trimmed)) return "Whole Family Tree";
+  const closeMatch = trimmed.match(/^close family:\s*(.+)$/i);
+  if (closeMatch?.[1]) return `${closeMatch[1].trim()} Branch`;
+  return trimmed.replace(/^scope:\s*/i, "");
 }
 
 function fallbackCountryLabel(value: string): string | null {
@@ -588,16 +604,23 @@ function buildExportRenderNodes(
   return renderNodes;
 }
 
-export async function exportFamilyTreeAsImage({
+interface RenderedFamilyTreeExport {
+  canvas: HTMLCanvasElement;
+  filename: string;
+  cleanup: () => void;
+}
+
+async function renderFamilyTreeExportCanvas({
   familyName,
   members,
   relationships,
   rootId,
   scope,
   scopeLabel,
+  layoutMode = "whole",
   preferAncestorRoot,
   exportOptions,
-}: ExportFamilyTreeImageOptions): Promise<void> {
+}: ExportFamilyTreeImageOptions): Promise<RenderedFamilyTreeExport> {
   if (members.length === 0) {
     throw new Error("No family members available for export.");
   }
@@ -612,11 +635,13 @@ export async function exportFamilyTreeAsImage({
   };
   const sideContent = new Set(resolvedOptions.sideContent);
 
-  const tree = createFamilyTreeLayout(members, relationships, rootId, {
-    // Match the on-screen tree layout by default so exported branches line up
-    // with what the user sees in the app.
-    preferAncestorRoot: preferAncestorRoot ?? false,
-  });
+  const tree = layoutMode === "close"
+    ? createFocusedFamilyTreeLayout(members, relationships, rootId)
+    : createFamilyTreeLayout(members, relationships, rootId, {
+        // Match the on-screen tree layout by default so exported branches line up
+        // with what the user sees in the app.
+        preferAncestorRoot: preferAncestorRoot ?? false,
+      });
 
   const residenceCountries = collectResidenceCountries(members);
   const residencePins = collectResidencePins(members);
@@ -631,11 +656,11 @@ export async function exportFamilyTreeAsImage({
   const hasRightPanel = sideContent.has("countries") || sideContent.has("profile");
   const leftClearance = horizontalPadding + (hasLeftPanel ? panelWidth + sidePanelGap : 0);
   const rightClearance = horizontalPadding + (hasRightPanel ? panelWidth + sidePanelGap : 0);
-  const topPadding = 300;
+  const topPadding = 350;
   const bottomPadding = 160;
-  const maxCanvasWidth = 8200;
-  const minCanvasWidth = 6400;
-  const targetScale = 3.05;
+  const maxCanvasWidth = 14000;
+  const minCanvasWidth = layoutMode === "close" ? 5200 : 7200;
+  const targetScale = layoutMode === "close" ? 3.35 : 3.15;
   const width = Math.max(
     minCanvasWidth,
     Math.min(
@@ -705,14 +730,20 @@ export async function exportFamilyTreeAsImage({
   ctx.textAlign = "center";
   ctx.fillStyle = "#2c1810";
   ctx.font = "700 88px Georgia, 'Times New Roman', serif";
-  ctx.fillText(`The ${titleFamilyName(familyName)}`, width / 2, hdrY + 84);
+  const exportTitle = titleFamilyTreeName(familyName);
+  ctx.fillText(/^the\s+/i.test(exportTitle) ? exportTitle : `The ${exportTitle}`, width / 2, hdrY + 84);
+
+  const subtitle = exportSubtitleFromScope(scopeLabel);
+  ctx.fillStyle = "#7a5236";
+  ctx.font = "500 38px Georgia, 'Times New Roman', serif";
+  ctx.fillText(subtitle, width / 2, hdrY + 134);
 
   // Bottom ornamental line
   ctx.strokeStyle = "#c4a97d";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(width / 2 - ornW, hdrY + 118);
-  ctx.lineTo(width / 2 + ornW, hdrY + 118);
+  ctx.moveTo(width / 2 - ornW, hdrY + 162);
+  ctx.lineTo(width / 2 + ornW, hdrY + 162);
   ctx.stroke();
   const circleR = Math.max(46, Math.min(66, 36 * scale));
   const renderNodes = buildExportRenderNodes(ctx, tree.nodes, scale, circleR, resolvedOptions);
@@ -1033,15 +1064,31 @@ export async function exportFamilyTreeAsImage({
     height - bi - 50
   );
 
-  // ── Download ──
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob((nextBlob) => resolve(nextBlob), "image/png", 1);
-  });
-  if (!blob) throw new Error("Could not render export image.");
-
   const fileFamily = sanitizeFileName(familyName || "family");
-  const suffix = scope === "related" ? "related-tree" : "entire-tree";
-  const filename = `${fileFamily}-${suffix}.png`;
+  const suffix = layoutMode === "close" ? "close-tree" : scope === "related" ? "related-tree" : "whole-tree";
+  const filename = `${fileFamily}-${suffix}`;
+
+  return {
+    canvas,
+    filename,
+    cleanup: () => {
+      avatarBitmapById.forEach((bitmap) => bitmap.close());
+      profilePanelAvatar?.close();
+    },
+  };
+}
+
+export async function exportFamilyTreeAsImage(options: ExportFamilyTreeImageOptions): Promise<void> {
+  const rendered = await renderFamilyTreeExportCanvas(options);
+  const blob = await new Promise<Blob | null>((resolve) => {
+    rendered.canvas.toBlob((nextBlob) => resolve(nextBlob), "image/png", 1);
+  });
+  if (!blob) {
+    rendered.cleanup();
+    throw new Error("Could not render export image.");
+  }
+
+  const filename = `${rendered.filename}.png`;
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -1050,6 +1097,133 @@ export async function exportFamilyTreeAsImage({
   link.click();
   link.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1200);
-  avatarBitmapById.forEach((bitmap) => bitmap.close());
-  profilePanelAvatar?.close();
+  rendered.cleanup();
+}
+
+function encodePdfText(value: string): Uint8Array {
+  return new TextEncoder().encode(value);
+}
+
+function concatPdfChunks(chunks: Uint8Array[]): Uint8Array {
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}
+
+function createPdfBlobFromJpegs(
+  pages: Array<{ imageBytes: Uint8Array; widthPx: number; heightPx: number }>
+): Blob {
+  const chunks: Uint8Array[] = [];
+  const offsets: number[] = [];
+  let byteOffset = 0;
+  const objectCount = 2 + pages.length * 3;
+
+  const add = (value: string | Uint8Array) => {
+    const chunk = typeof value === "string" ? encodePdfText(value) : value;
+    chunks.push(chunk);
+    byteOffset += chunk.length;
+  };
+
+  const addObject = (objectNumber: number, body: string | Uint8Array[]) => {
+    offsets[objectNumber] = byteOffset;
+    add(`${objectNumber} 0 obj\n`);
+    if (typeof body === "string") {
+      add(body);
+    } else {
+      for (const chunk of body) add(chunk);
+    }
+    add("\nendobj\n");
+  };
+
+  add("%PDF-1.7\n%\xE2\xE3\xCF\xD3\n");
+  const pageRefs = pages.map((_, index) => `${3 + index * 3} 0 R`).join(" ");
+  addObject(1, "<< /Type /Catalog /Pages 2 0 R >>");
+  addObject(2, `<< /Type /Pages /Kids [${pageRefs}] /Count ${pages.length} >>`);
+
+  pages.forEach((page, index) => {
+    const pageObject = 3 + index * 3;
+    const contentObject = pageObject + 1;
+    const imageObject = pageObject + 2;
+    const pageScale = Math.min(0.5, 13800 / Math.max(page.widthPx, page.heightPx));
+    const pageWidth = Math.max(1, Math.round(page.widthPx * pageScale * 100) / 100);
+    const pageHeight = Math.max(1, Math.round(page.heightPx * pageScale * 100) / 100);
+    const imageName = `Im${index + 1}`;
+    const content = `q\n${pageWidth} 0 0 ${pageHeight} 0 0 cm\n/${imageName} Do\nQ`;
+    const contentStream = `${content}\n`;
+
+    addObject(
+      pageObject,
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /${imageName} ${imageObject} 0 R >> >> /Contents ${contentObject} 0 R >>`
+    );
+    addObject(contentObject, `<< /Length ${encodePdfText(contentStream).length} >>\nstream\n${contentStream}endstream`);
+
+    offsets[imageObject] = byteOffset;
+    add(`${imageObject} 0 obj\n`);
+    add(
+      `<< /Type /XObject /Subtype /Image /Width ${page.widthPx} /Height ${page.heightPx} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${page.imageBytes.length} >>\nstream\n`
+    );
+    add(page.imageBytes);
+    add("\nendstream\nendobj\n");
+  });
+
+  const xrefOffset = byteOffset;
+  add(`xref\n0 ${objectCount + 1}\n`);
+  add("0000000000 65535 f \n");
+  for (let objectNumber = 1; objectNumber <= objectCount; objectNumber += 1) {
+    add(`${String(offsets[objectNumber] || 0).padStart(10, "0")} 00000 n \n`);
+  }
+  add(`trailer\n<< /Size ${objectCount + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+
+  const pdfBytes = concatPdfChunks(chunks);
+  return new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
+}
+
+export async function exportFamilyTreesAsPdf(
+  items: FamilyTreePdfExportItem[],
+  filenameBase?: string
+): Promise<void> {
+  if (items.length === 0) throw new Error("Choose at least one tree to export.");
+
+  const rendered: RenderedFamilyTreeExport[] = [];
+  try {
+    for (const item of items) {
+      rendered.push(await renderFamilyTreeExportCanvas(item));
+    }
+
+    const pages = await Promise.all(
+      rendered.map(async (item) => {
+        const blob = await new Promise<Blob | null>((resolve) => {
+          item.canvas.toBlob((nextBlob) => resolve(nextBlob), "image/jpeg", 0.95);
+        });
+        if (!blob) throw new Error("Could not render a PDF page.");
+        return {
+          imageBytes: new Uint8Array(await blob.arrayBuffer()),
+          widthPx: item.canvas.width,
+          heightPx: item.canvas.height,
+        };
+      })
+    );
+
+    const pdfBlob = createPdfBlobFromJpegs(pages);
+    const base =
+      filenameBase ||
+      (rendered.length === 1
+        ? rendered[0].filename
+        : `${sanitizeFileName(items[0]?.familyName || "family")}-family-trees`);
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${base}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1200);
+  } finally {
+    rendered.forEach((item) => item.cleanup());
+  }
 }
