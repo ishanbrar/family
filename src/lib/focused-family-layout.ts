@@ -88,6 +88,26 @@ function addSpouses(ids: Set<string>, spousesByMember: IdSetMap) {
   }
 }
 
+function buildPartnerGroupingMap(maps: RelativeMaps): IdSetMap {
+  const partners: IdSetMap = new Map();
+
+  for (const [memberId, spouseIds] of maps.spousesByMember.entries()) {
+    for (const spouseId of spouseIds) addToMap(partners, memberId, spouseId);
+  }
+
+  for (const parentIds of maps.parentsByChild.values()) {
+    const parents = [...parentIds];
+    for (let i = 0; i < parents.length; i += 1) {
+      for (let j = i + 1; j < parents.length; j += 1) {
+        addToMap(partners, parents[i], parents[j]);
+        addToMap(partners, parents[j], parents[i]);
+      }
+    }
+  }
+
+  return partners;
+}
+
 export function createFocusedFamilyScope(
   members: Profile[],
   relationships: Relationship[],
@@ -267,6 +287,70 @@ function unitWidth(unit: Profile[]): number {
   return Math.max(96, (unit.length - 1) * NODE_SPACING + 96);
 }
 
+function orderPartnerUnit(members: Profile[]): Profile[] {
+  return [...members].sort((a, b) => {
+    if (a.gender === "male" && b.gender === "female") return -1;
+    if (a.gender === "female" && b.gender === "male") return 1;
+    return (birthYear(a) ?? 9999) - (birthYear(b) ?? 9999) || a.id.localeCompare(b.id);
+  });
+}
+
+function alignPovParents(
+  povId: string,
+  memberById: Map<string, Profile>,
+  maps: RelativeMaps,
+  positions: Map<string, { x: number; y: number }>
+) {
+  const povPosition = positions.get(povId);
+  if (!povPosition) return;
+
+  const parentIds = [...(maps.parentsByChild.get(povId) ?? [])]
+    .filter((id) => positions.has(id));
+  if (parentIds.length < 2) return;
+
+  const parentY = positions.get(parentIds[0])?.y;
+  if (parentY == null) return;
+  const sameRowParentIds = parentIds.filter((id) => Math.abs((positions.get(id)?.y ?? parentY) - parentY) < 1);
+  if (sameRowParentIds.length < 2) return;
+
+  const orderedParents = orderPartnerUnit(
+    sameRowParentIds
+      .map((id) => memberById.get(id))
+      .filter((member): member is Profile => !!member)
+  );
+  if (orderedParents.length < 2) return;
+
+  const startX = povPosition.x - ((orderedParents.length - 1) * NODE_SPACING) / 2;
+  orderedParents.forEach((member, index) => {
+    positions.set(member.id, { x: startX + index * NODE_SPACING, y: parentY });
+  });
+
+  const parentSet = new Set(orderedParents.map((member) => member.id));
+  const rowEntries = [...positions.entries()]
+    .filter(([, pos]) => Math.abs(pos.y - parentY) < 1);
+  const parentXs = orderedParents.map((member) => positions.get(member.id)!.x);
+  const leftBoundary = Math.min(...parentXs) - NODE_SPACING;
+  const rightBoundary = Math.max(...parentXs) + NODE_SPACING;
+
+  rowEntries
+    .filter(([id, pos]) => !parentSet.has(id) && pos.x < povPosition.x)
+    .sort((a, b) => b[1].x - a[1].x)
+    .reduce((nextX, [id, pos]) => {
+      const x = Math.min(pos.x, nextX);
+      positions.set(id, { x, y: pos.y });
+      return x - NODE_SPACING;
+    }, leftBoundary);
+
+  rowEntries
+    .filter(([id, pos]) => !parentSet.has(id) && pos.x >= povPosition.x)
+    .sort((a, b) => a[1].x - b[1].x)
+    .reduce((nextX, [id, pos]) => {
+      const x = Math.max(pos.x, nextX);
+      positions.set(id, { x, y: pos.y });
+      return x + NODE_SPACING;
+    }, rightBoundary);
+}
+
 function uniqueConnections(relationships: Relationship[], positionedIds: Set<string>): TreeLayoutConnection[] {
   const connections: TreeLayoutConnection[] = [];
   const seen = new Set<string>();
@@ -336,6 +420,7 @@ export function createFocusedFamilyTreeLayout(
   }
 
   const maps = buildRelativeMaps(scope.relationships);
+  const partnerGroupingByMember = buildPartnerGroupingMap(maps);
   const generation = assignFocusedGenerations(scopedMembers, povId, maps);
   const rows = new Map<number, Profile[]>();
 
@@ -354,7 +439,7 @@ export function createFocusedFamilyTreeLayout(
       if (b.id === povId) return 1;
       return (birthYear(a) ?? 9999) - (birthYear(b) ?? 9999) || a.id.localeCompare(b.id);
     });
-    const units = buildSpouseUnits(rowMembers, maps.spousesByMember);
+    const units = buildSpouseUnits(rowMembers, partnerGroupingByMember);
     const unitTargets = units.map((unit) => {
       if (unit.some((member) => member.id === povId)) return { unit, target: 0 };
       const childAnchors = unit.flatMap((member) =>
@@ -400,6 +485,8 @@ export function createFocusedFamilyTreeLayout(
       });
     }
   }
+
+  alignPovParents(povId, memberById, maps, positions);
 
   const minX = Math.min(...positions.values().map((pos) => pos.x));
   const maxX = Math.max(...positions.values().map((pos) => pos.x));

@@ -3,6 +3,7 @@ import type { RelationLanguageCode } from "@/lib/supabase/db";
 export const RELATION_LANGUAGE_OPTIONS: { value: RelationLanguageCode; label: string }[] = [
   { value: "en", label: "English" },
   { value: "punjabi", label: "Punjabi" },
+  { value: "telugu", label: "Telugu" },
   { value: "es", label: "Spanish" },
   { value: "fr", label: "French" },
 ];

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { findCityByInput, searchCities } from "../cities";
+import { findCityByInput, getCityCoordinates, searchCities } from "../cities";
 
 const LARGE_USA_CITY_AND_METRO_INPUTS = [
   "New York",
@@ -139,12 +139,41 @@ const LARGE_INDIAN_PUNJAB_CITY_INPUTS = [
   "Jalandhar",
 ];
 
+const SOUTH_INDIAN_CITY_INPUTS = [
+  "Vijayawada",
+  "Guntur",
+  "Nellore",
+  "Kurnool",
+  "Rajahmundry",
+  "Kakinada",
+  "Tirupati",
+  "Anantapur",
+  "Kadapa",
+  "Eluru",
+  "Ongole",
+  "Vizianagaram",
+  "Warangal",
+  "Karimnagar",
+  "Nizamabad",
+  "Khammam",
+  "Ramagundam",
+  "Mahbubnagar",
+  "Nalgonda",
+  "Adilabad",
+  "Siddipet",
+  "Suryapet",
+  "Madurai",
+  "Tiruchirappalli",
+  "Hubballi-Dharwad",
+];
+
 describe("large city and metro coverage", () => {
   it.each([
     ["USA", LARGE_USA_CITY_AND_METRO_INPUTS, "USA"],
     ["Canada", LARGE_CANADA_CITY_AND_METRO_INPUTS, "CAN"],
     ["United Kingdom", LARGE_UK_CITY_AND_METRO_INPUTS, "GBR"],
     ["Indian Punjab", LARGE_INDIAN_PUNJAB_CITY_INPUTS, "IND"],
+    ["South India", SOUTH_INDIAN_CITY_INPUTS, "IND"],
   ])("makes large %s city/metro inputs choosable", (_name, inputs, countryCode) => {
     for (const input of inputs) {
       const found = findCityByInput(input);
@@ -157,5 +186,11 @@ describe("large city and metro coverage", () => {
     expect(searchCities("kitchener", 5).some((city) => city.name === "Kitchener-Cambridge-Waterloo")).toBe(true);
     expect(searchCities("leeds bradford", 5).some((city) => city.name === "Leeds-Bradford")).toBe(true);
     expect(searchCities("riverside san bernardino", 5).some((city) => city.name === "Riverside-San Bernardino")).toBe(true);
+  });
+
+  it("finds coordinates for major Telangana and Andhra Pradesh cities", () => {
+    for (const input of ["Vijayawada", "Warangal", "Tirupati", "Khammam", "Rajahmundry"]) {
+      expect(getCityCoordinates(input), input).toBeTruthy();
+    }
   });
 });

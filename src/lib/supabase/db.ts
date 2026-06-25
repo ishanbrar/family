@@ -441,7 +441,7 @@ export async function updateFamilyName(
   return data;
 }
 
-export type RelationLanguageCode = "en" | "punjabi" | "es" | "fr";
+export type RelationLanguageCode = "en" | "punjabi" | "es" | "fr" | "telugu";
 
 export async function updateFamilyRelationLanguage(
   supabase: SupabaseClient,

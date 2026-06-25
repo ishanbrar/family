@@ -4,7 +4,7 @@
 
 import type { Gender } from "./types";
 
-export type RelationLanguageCode = "en" | "punjabi" | "es" | "fr";
+export type RelationLanguageCode = "en" | "punjabi" | "es" | "fr" | "telugu";
 
 /** English label (after applyGenderToRelationshipLabel) -> Punjabi (English script, with ji). */
 const PUNJABI_LABELS: Record<string, string> = {
@@ -165,6 +165,71 @@ const FRENCH_LABELS: Record<string, string> = {
   "Not Related": "Sans lien de parente",
 };
 
+const TELUGU_LABELS: Record<string, string> = {
+  Mother: "Amma",
+  Father: "Nanna",
+  Parent: "Amma/Nanna",
+  "Mother-in-Law": "Attagaru",
+  "Father-in-Law": "Mamagaaru",
+  "Parent-in-Law": "Attagaru/Mamagaaru",
+  Daughter: "Kuthuru",
+  Son: "Koduku",
+  Child: "Pilla",
+  "Daughter-in-Law": "Kodalu",
+  "Son-in-Law": "Alludu",
+  "Child-in-Law": "Kodalu/Alludu",
+  Sister: "Akka/Chelli",
+  Brother: "Anna/Thammudu",
+  Sibling: "Akka/Anna",
+  "Sister-in-Law": "Vadina/Maradalu",
+  "Brother-in-Law": "Bava/Maridi",
+  "Sibling-in-Law": "Bava/Vadina",
+  Wife: "Bharya",
+  Husband: "Bharta",
+  Spouse: "Bharya/Bharta",
+  Grandmother: "Ammamma/Nayanamma",
+  Grandfather: "Tatagaru",
+  Grandparent: "Ammamma/Tatagaru",
+  "Maternal Grandmother": "Ammamma",
+  "Maternal Grandfather": "Tatagaru",
+  "Maternal Grandparent": "Ammamma/Tatagaru",
+  "Paternal Grandmother": "Nayanamma",
+  "Paternal Grandfather": "Tatagaru",
+  "Paternal Grandparent": "Nayanamma/Tatagaru",
+  Granddaughter: "Manavaralu",
+  Grandson: "Manavadu",
+  Grandchild: "Manavadu/Manavaralu",
+  Aunt: "Atta/Pinni",
+  Uncle: "Mamayya/Babayi",
+  "Aunt/Uncle": "Atta/Mamayya",
+  "Maternal Aunt": "Pinni",
+  "Maternal Uncle": "Mamayya",
+  "Paternal Aunt": "Atta",
+  "Paternal Uncle": "Babayi",
+  "Paternal Uncle (elder)": "Pedda Nanna",
+  "Paternal Uncle (younger)": "Babayi",
+  "Great Aunt": "Pedda Atta",
+  "Great Uncle": "Pedda Mamayya",
+  "Great Aunt/Uncle": "Pedda Atta/Mamayya",
+  "Half-Aunt": "Atta/Pinni",
+  "Half-Uncle": "Mamayya/Babayi",
+  "Half-Aunt/Uncle": "Atta/Mamayya",
+  Niece: "Menakodalu",
+  Nephew: "Menalludu",
+  "Niece/Nephew": "Menakodalu/Menalludu",
+  "Half-Sibling": "Sava Sibling",
+  "First Cousin": "Cousin",
+  "First Cousin Once Removed": "Cousin Once Removed",
+  "Aunt's/Uncle's Spouse": "Atta/Mamayya spouse",
+  "Maternal Aunt's Spouse": "Pinni spouse",
+  "Maternal Uncle's Spouse": "Atta",
+  "Paternal Aunt's Spouse": "Mamayya",
+  "Paternal Uncle's Spouse": "Atta",
+  "Great-Grandparent": "Mutthatha/Mutthamma",
+  "Great-Grandchild": "Munimanavadu/Munimanavaralu",
+  "Not Related": "Sambandham ledu",
+};
+
 /** Strip "Maternal " / "Paternal " prefix for shorter English labels. */
 function simplifyEnglishLabel(label: string): string {
   return label.replace(/^Maternal /, "").replace(/^Paternal /, "");
@@ -188,6 +253,9 @@ export function getRelationDisplayLabel(
   }
   if (relationLanguage === "fr") {
     return FRENCH_LABELS[englishLabel] ?? simplifyEnglishLabel(englishLabel);
+  }
+  if (relationLanguage === "telugu") {
+    return TELUGU_LABELS[englishLabel] ?? simplifyEnglishLabel(englishLabel);
   }
   return simplifyEnglishLabel(englishLabel);
 }

@@ -24,6 +24,7 @@ import {
   Copy,
   Check,
   Link2,
+  LocateFixed,
 } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -98,6 +99,7 @@ export default function DashboardPage() {
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
   const [memberSearchOpen, setMemberSearchOpen] = useState(false);
   const [treeViewMode, setTreeViewMode] = useState<"close" | "whole">("whole");
+  const [closeFamilyPovId, setCloseFamilyPovId] = useState("");
   const [showPercentages, setShowPercentages] = useState(false);
   const [showRelationLabels, setShowRelationLabels] = useState(true);
   const [showLastNames, setShowLastNames] = useState(true);
@@ -157,21 +159,29 @@ export default function DashboardPage() {
 
   const closeTreeLayout = useMemo(() => {
     if (!viewer) return { nodes: [], connections: [], sibships: [], width: 800, height: 560 };
-    return createFocusedFamilyTreeLayout(members, relationships, viewer.id);
-  }, [viewer, members, relationships]);
+    const rootId = closeFamilyPovId && members.some((member) => member.id === closeFamilyPovId)
+      ? closeFamilyPovId
+      : viewer.id;
+    return createFocusedFamilyTreeLayout(members, relationships, rootId);
+  }, [closeFamilyPovId, viewer, members, relationships]);
 
   const displayTreeLayout = treeViewMode === "close" ? closeTreeLayout : treeLayout;
+  const activeTreeRootId =
+    treeViewMode === "close" && closeFamilyPovId && members.some((member) => member.id === closeFamilyPovId)
+      ? closeFamilyPovId
+      : viewer?.id ?? "";
+  const closeFamilyPov = members.find((member) => member.id === activeTreeRootId) || viewer;
 
   const treeMembers = useMemo(() => {
     if (!viewer) return [];
     return displayTreeLayout.nodes.map((n) => ({
       profile: n.profile,
-      match: calculateGeneticMatch(viewer.id, n.profile.id, relationships, n.profile.gender, family?.relation_language, members),
+      match: calculateGeneticMatch(activeTreeRootId || viewer.id, n.profile.id, relationships, n.profile.gender, family?.relation_language, members),
       x: n.x,
       y: n.y,
       generation: n.generation,
     }));
-  }, [viewer, displayTreeLayout.nodes, relationships, family?.relation_language, members]);
+  }, [activeTreeRootId, viewer, displayTreeLayout.nodes, relationships, family?.relation_language, members]);
 
   const generationAnalytics = useMemo(
     () => createGenerationAnalytics(treeLayout.nodes),
@@ -1131,33 +1141,69 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="mb-4 inline-flex rounded-xl border border-white/[0.1] bg-white/[0.035] p-1">
-                <button
-                  type="button"
-                  onClick={() => setTreeViewMode("close")}
-                  aria-pressed={treeViewMode === "close"}
-                  className={cn(
-                    "h-9 rounded-lg px-3 text-xs font-medium transition-colors",
-                    treeViewMode === "close"
-                      ? "bg-gold-400/15 text-gold-300"
-                      : "text-white/52 hover:bg-white/[0.05] hover:text-white/82"
-                  )}
-                >
-                  Close Family
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTreeViewMode("whole")}
-                  aria-pressed={treeViewMode === "whole"}
-                  className={cn(
-                    "h-9 rounded-lg px-3 text-xs font-medium transition-colors",
-                    treeViewMode === "whole"
-                      ? "bg-gold-400/15 text-gold-300"
-                      : "text-white/52 hover:bg-white/[0.05] hover:text-white/82"
-                  )}
-                >
-                  Whole Family
-                </button>
+              <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div className="inline-flex w-fit rounded-xl border border-white/[0.1] bg-white/[0.035] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setTreeViewMode("close")}
+                    aria-pressed={treeViewMode === "close"}
+                    className={cn(
+                      "h-9 rounded-lg px-3 text-xs font-medium transition-colors",
+                      treeViewMode === "close"
+                        ? "bg-gold-400/15 text-gold-300"
+                        : "text-white/52 hover:bg-white/[0.05] hover:text-white/82"
+                    )}
+                  >
+                    Close Family
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTreeViewMode("whole")}
+                    aria-pressed={treeViewMode === "whole"}
+                    className={cn(
+                      "h-9 rounded-lg px-3 text-xs font-medium transition-colors",
+                      treeViewMode === "whole"
+                        ? "bg-gold-400/15 text-gold-300"
+                        : "text-white/52 hover:bg-white/[0.05] hover:text-white/82"
+                    )}
+                  >
+                    Whole Family
+                  </button>
+                </div>
+
+                {treeViewMode === "close" && closeFamilyPov && (
+                  <div className="flex min-w-0 flex-1 flex-col gap-1 lg:max-w-[460px]">
+                    <label htmlFor="dashboard-close-family-pov" className="text-[10px] font-medium uppercase tracking-wider text-white/35">
+                      POV
+                    </label>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <select
+                        id="dashboard-close-family-pov"
+                        value={closeFamilyPov.id}
+                        onChange={(event) => setCloseFamilyPovId(event.target.value)}
+                        className="h-10 min-w-0 flex-1 rounded-xl border border-white/[0.1] bg-white/[0.04] px-3 text-sm text-white/82 outline-none"
+                      >
+                        {members
+                          .slice()
+                          .sort((a, b) => formatProfileFullName(a).localeCompare(formatProfileFullName(b)))
+                          .map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {formatProfileFullName(member)}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => setCloseFamilyPovId(viewer.id)}
+                        className="app-control app-icon-button flex items-center justify-center"
+                        aria-label="Reset close family POV"
+                        title="Reset to my tree"
+                      >
+                        <LocateFixed size={15} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {filterMember && (
@@ -1183,7 +1229,8 @@ export default function DashboardPage() {
                 highlightedMembers={highlightedIds}
                 dimNonHighlighted={!!relatedByFilter}
                 viewerId={viewer.id}
-                povId={treeViewMode === "close" ? viewer.id : undefined}
+                povId={treeViewMode === "close" ? activeTreeRootId : undefined}
+                povBadgeLabel={treeViewMode === "close" && activeTreeRootId !== viewer.id ? "POV" : "YOU"}
                 enableLargeFamilyMode={treeViewMode === "whole"}
                 showPercentages={showPercentages}
                 showRelationLabels={showRelationLabels}

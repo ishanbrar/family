@@ -134,6 +134,87 @@ describe("focused family layout", () => {
     expect(byId.get("spouse")!.y).toBe(byId.get("pov")!.y);
   });
 
+  it("keeps POV parents adjacent even when each parent is anchored to a different ancestor branch", () => {
+    const members = [
+      profile("pov"),
+      profile("father", "male"),
+      profile("mother", "female"),
+      profile("paternal-grandfather", "male"),
+      profile("paternal-grandmother", "female"),
+      profile("maternal-grandfather", "male"),
+      profile("maternal-grandmother", "female"),
+      profile("paternal-uncle", "male"),
+      profile("maternal-aunt", "female"),
+    ];
+    const relationships = [
+      rel("father", "pov", "parent"),
+      rel("mother", "pov", "parent"),
+      rel("paternal-grandfather", "father", "parent"),
+      rel("paternal-grandmother", "father", "parent"),
+      rel("paternal-grandfather", "paternal-uncle", "parent"),
+      rel("paternal-grandmother", "paternal-uncle", "parent"),
+      rel("maternal-grandfather", "mother", "parent"),
+      rel("maternal-grandmother", "mother", "parent"),
+      rel("maternal-grandfather", "maternal-aunt", "parent"),
+      rel("maternal-grandmother", "maternal-aunt", "parent"),
+    ];
+
+    const layout = createFocusedFamilyTreeLayout(members, relationships, "pov");
+    const byId = new Map(layout.nodes.map((node) => [node.profile.id, node]));
+    const father = byId.get("father")!;
+    const mother = byId.get("mother")!;
+    const pov = byId.get("pov")!;
+
+    expect(father.y).toBe(mother.y);
+    expect(Math.abs(father.x - mother.x)).toBeLessThanOrEqual(160);
+    expect(Math.abs((father.x + mother.x) / 2 - pov.x)).toBeLessThanOrEqual(260);
+  });
+
+  it("centers the focused person's parents over the focused person after placing wider cousin rows", () => {
+    const members = [
+      profile("pov"),
+      profile("father", "male"),
+      profile("mother", "female"),
+      profile("paternal-grandfather", "male"),
+      profile("paternal-grandmother", "female"),
+      profile("maternal-grandfather", "male"),
+      profile("maternal-grandmother", "female"),
+      profile("paternal-uncle", "male"),
+      profile("maternal-aunt", "female"),
+      profile("paternal-cousin"),
+      profile("maternal-cousin-a"),
+      profile("maternal-cousin-b"),
+    ];
+    const relationships = [
+      rel("father", "pov", "parent"),
+      rel("mother", "pov", "parent"),
+      rel("paternal-grandfather", "father", "parent"),
+      rel("paternal-grandmother", "father", "parent"),
+      rel("paternal-grandfather", "paternal-uncle", "parent"),
+      rel("paternal-grandmother", "paternal-uncle", "parent"),
+      rel("paternal-uncle", "paternal-cousin", "parent"),
+      rel("maternal-grandfather", "mother", "parent"),
+      rel("maternal-grandmother", "mother", "parent"),
+      rel("maternal-grandfather", "maternal-aunt", "parent"),
+      rel("maternal-grandmother", "maternal-aunt", "parent"),
+      rel("maternal-aunt", "maternal-cousin-a", "parent"),
+      rel("maternal-aunt", "maternal-cousin-b", "parent"),
+    ];
+
+    const layout = createFocusedFamilyTreeLayout(members, relationships, "pov");
+    const byId = new Map(layout.nodes.map((node) => [node.profile.id, node]));
+    const father = byId.get("father")!;
+    const mother = byId.get("mother")!;
+    const pov = byId.get("pov")!;
+    const povSibship = layout.sibships.find((sibship) => sibship.children.includes("pov"));
+
+    expect(father.y).toBeLessThan(pov.y);
+    expect(father.y).toBe(mother.y);
+    expect(Math.abs(father.x - mother.x)).toBeLessThanOrEqual(160);
+    expect(Math.abs((father.x + mother.x) / 2 - pov.x)).toBeLessThanOrEqual(1);
+    expect(new Set(povSibship?.parents)).toEqual(new Set(["father", "mother"]));
+  });
+
   it("keeps the Windsor close-family fixture readable when the focused scope is broad", () => {
     const members = royalDemoData.profiles as Profile[];
     const relationships = royalDemoData.relationships as Relationship[];

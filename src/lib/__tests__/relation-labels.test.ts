@@ -17,6 +17,13 @@ describe("relation labels", () => {
     expect(getRelationDisplayLabel("Paternal Uncle (younger)", "male", "fr")).toBe("Oncle paternel cadet");
   });
 
+  it("supports Telugu relationship labels", () => {
+    expect(getRelationDisplayLabel("Mother", "female", "telugu")).toBe("Amma");
+    expect(getRelationDisplayLabel("Father", "male", "telugu")).toBe("Nanna");
+    expect(getRelationDisplayLabel("Maternal Uncle", "male", "telugu")).toBe("Mamayya");
+    expect(getRelationDisplayLabel("Paternal Uncle (elder)", "male", "telugu")).toBe("Pedda Nanna");
+  });
+
   it("keeps existing English simplification behavior", () => {
     expect(getRelationDisplayLabel("Maternal Aunt", "female", "en")).toBe("Aunt");
     expect(getRelationDisplayLabel("Paternal Uncle", "male", "en")).toBe("Uncle");
